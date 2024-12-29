@@ -153,12 +153,29 @@ class Attention(nn.Module):
             )
         ).to(device)
 
+        if args.adapter:
+            self.adapter_wk = ColumnParallelLinear(
+                args.dim,
+                self.n_kv_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=lambda x: x,
+            )
+            self.adapter_wv = ColumnParallelLinear(
+                args.dim,
+                self.n_kv_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=lambda x: x,
+            )
+
     def forward(
         self,
         x: torch.Tensor,
         start_pos: int,
         freqs_cis: torch.Tensor,
         mask: Optional[torch.Tensor],
+        adapter: None,
     ):
         bsz, seqlen, _ = x.shape
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
@@ -175,6 +192,15 @@ class Attention(nn.Module):
         self.cache_k[:bsz, start_pos : start_pos + seqlen] = xk
         self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
 
+        if adapter is not None:
+            adapter_len = adapter.shape[1]
+            adapter_v = self.adapter_wv(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
+            adapter_v = adapter_v.transpose(1, 2)
+
+            if adapter_len > 1:
+                adapter_k = self.adapter_wk(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
+                adapter_k = adapter_k.transpose(1, 2)
+
         keys = self.cache_k[:bsz, : start_pos + seqlen]
         values = self.cache_v[:bsz, : start_pos + seqlen]
 
@@ -190,6 +216,17 @@ class Attention(nn.Module):
             scores = scores + mask  # (bs, n_local_heads, seqlen, cache_len + seqlen)
         scores = F.softmax(scores.float(), dim=-1).type_as(xq)
         output = torch.matmul(scores, values)  # (bs, n_local_heads, seqlen, head_dim)
+
+        if adapter is not None:
+            if adapter_len > 1:
+                adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
+                adapter_scores = self.gate.tanh() * F.softmax(adapter_scores.float(), dim=-1).type_as(xq)
+                if self.w_new_gate:
+                    adapter_scores = self.new_gate * adapter_scores
+                output = output + torch.matmul(adapter_scores, adapter_v)
+            else:
+                output = output + self.gate.tanh() * adapter_v
+                
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
         return self.wo(output)
 
@@ -246,9 +283,10 @@ class TransformerBlock(nn.Module):
         start_pos: int,
         freqs_cis: torch.Tensor,
         mask: Optional[torch.Tensor],
+        adapter=None, # prompt parameter in the referenced repository 
     ):
         h = x + self.attention.forward(
-            self.attention_norm(x), start_pos, freqs_cis, mask
+            self.attention_norm(x), start_pos, freqs_cis, mask, adapter
         )
         out = h + self.feed_forward.forward(self.ffn_norm(h))
         return out
@@ -281,7 +319,7 @@ class Transformer(nn.Module):
         )
 
     @torch.inference_mode()
-    def forward(self, tokens: torch.Tensor, start_pos: int):
+    def forward(self, tokens: torch.Tensor, start_pos: int, adaptor: torch.Tensor=None):
         _bsz, seqlen = tokens.shape
         h = self.tok_embeddings(tokens)
         self.freqs_cis = self.freqs_cis.to("cuda" if device == "cuda" else "cpu")
@@ -295,7 +333,7 @@ class Transformer(nn.Module):
             mask = mask.to(torch.float32).triu(diagonal=start_pos+1).type_as(h)
 
         for layer in self.layers:
-            h = layer(h, start_pos, freqs_cis, (mask.to(device) if mask is not None else mask))
+            h = layer(h, start_pos, freqs_cis, (mask.to(device) if mask is not None else mask), adaptor)
         h = self.norm(h)
         output = self.output(h).float()
         return output

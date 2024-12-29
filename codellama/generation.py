@@ -16,8 +16,8 @@ from fairscale.nn.model_parallel.initialize import (
     model_parallel_is_initialized,
 )
 
-from llama.model import ModelArgs, Transformer
-from llama.tokenizer import Tokenizer
+from codellama.model import ModelArgs, Transformer
+from codellama.tokenizer import Tokenizer
 
 if torch.cuda.is_available():
     device = "cuda"
