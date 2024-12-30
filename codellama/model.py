@@ -39,7 +39,7 @@ class ModelArgs:
     max_seq_len: int = 2048
 
     W_bias=False
-    adaptor=True
+    adapter=True
 
 
 class RMSNorm(torch.nn.Module):
@@ -382,7 +382,7 @@ class Transformer(nn.Module):
         )
 
     @torch.inference_mode()
-    def forward(self, tokens: torch.Tensor, start_pos: int, adaptor: torch.Tensor=None):
+    def forward(self, tokens: torch.Tensor, start_pos: int, adapter: torch.Tensor=None):
         _bsz, seqlen = tokens.shape
         h = self.tok_embeddings(tokens)
         self.freqs_cis = self.freqs_cis.to("cuda" if device == "cuda" else "cpu")
@@ -396,7 +396,7 @@ class Transformer(nn.Module):
             mask = mask.to(torch.float32).triu(diagonal=start_pos+1).type_as(h)
 
         for layer in self.layers:
-            h = layer(h, start_pos, freqs_cis, (mask.to(device) if mask is not None else mask), adaptor)
+            h = layer(h, start_pos, freqs_cis, (mask.to(device) if mask is not None else mask), adapter)
         h = self.norm(h)
         output = self.output(h).float()
         return output
