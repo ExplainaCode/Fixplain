@@ -67,7 +67,7 @@ class LLamaAdapter(nn.Module):
         repairllama = AutoModelForCausalLM.from_pretrained(
             repairllama_model_dir,
             torch_dtype=torch.float16,
-            # load_in_8bit=True,
+            load_in_8bit=True, # commented initially
             trust_remote_code=True,
             quantization_config=BitsAndBytesConfig(
                 load_in_8bit=True,
