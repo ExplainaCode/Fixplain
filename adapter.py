@@ -109,8 +109,9 @@ class LLamaAdapter(nn.Module):
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
         repairllama_h = self.repairllama.tok_embeddings(repairllama_input_ids) # assuming toke_embedding is in reapirllama
-        repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
-        repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
+        # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
+        # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
+        repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
         repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
@@ -128,7 +129,9 @@ class LLamaAdapter(nn.Module):
         n_layers = self.repairllama.config.num_hidden_layers
 
         for i in range(n_layers):
-            repairllama_h = self.repairllama.layers[i](repairllama_h, 0, repairllama_freqs_cis, repairllama_mask)
+            repairllama_h = self.repairllama.layers[i](hidden_states=repairllama_h, 
+                                                       attention_mask=repairllama_mask, 
+                                                       position_ids=repairllama_position_ids)
             assert(self.attention_hooks_data.get(i)!=None)
             dynamic_adaptor = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adaptor)
@@ -169,9 +172,10 @@ class LLamaAdapter(nn.Module):
 
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
-        repairllama_h = self.repairllama.tok_embeddings(repairllama_input_ids) # assuming toke_embedding is in reapirllama
-        repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
-        repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
+        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) # apass through embedding layer
+        # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
+        # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
+        repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
         repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
@@ -189,16 +193,18 @@ class LLamaAdapter(nn.Module):
         n_layers = self.repairllama.config.num_hidden_layers
 
         for i in range(n_layers):
-            repairllama_h = self.repairllama.layers[i](repairllama_h, start_pos, repairllama_freqs_cis, repairllama_mask)
+            repairllama_h = self.repairllama.layers[i](hidden_states=repairllama_h, 
+                                                       attention_mask=repairllama_mask, 
+                                                       position_ids=repairllama_position_ids)            
             assert(self.attention_hooks_data.get(i)!=None)
-            dynamic_adaptor = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
+            dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
             codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
 
         self.attention_hooks_data={} # Resetting can also be done in the above loop. 
 
 
         # Processing RepairLLama output
-        repairllama_h = self.repairllama.norm(repairllama_h)
+        repairllama_h = self.repairllama.model.model.norm(repairllama_h[0])
         repairllama_output = self.repairllama.output(repairllama_h[: ,-1, :])
 
         # Processing CodeLLama output
