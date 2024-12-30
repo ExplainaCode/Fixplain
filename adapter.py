@@ -16,6 +16,9 @@ HfArgumentParser,
 BitsAndBytesConfig,
 )
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 class LLamaAdapter(nn.Module):
     def __init__(self,
                  codellama_ckpt_dir, codellama_tokenizer,
@@ -32,10 +35,10 @@ class LLamaAdapter(nn.Module):
         self.attention_hooks_data = {} 
         self.codellama, self.codellama_tokenizer = self._load_codellama(
             codellama_ckpt_dir, max_seq_len, 
-            max_batch_size, codellama_tokenizer)
+            max_batch_size, codellama_tokenizer).to(device)
         self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
             repairllama_model_dir, repairllama_lora_dir,
-            register_Attention_hooks=True)
+            register_Attention_hooks=True).to(device)
 
     def _load_codellama(self, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer):
         with open(os.path.join(codellama_ckpt_dir, "params.json"), 'r') as f:
