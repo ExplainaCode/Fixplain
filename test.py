@@ -1,4 +1,4 @@
-from adapter import LLamaAdapter
+from .adapter import LLamaAdapter
 import argparse
 import torch
 
