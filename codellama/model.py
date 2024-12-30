@@ -38,6 +38,8 @@ class ModelArgs:
     max_batch_size: int = 32
     max_seq_len: int = 2048
 
+    W_bias=False
+
 
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):
@@ -143,7 +145,7 @@ class Attention(nn.Module):
         self.wq = Linear(
             args.dim,
             args.n_heads * self.head_dim,
-            bias=args.w_bias
+            bias=False
         )
         self.wk = Linear(
             args.dim,
@@ -158,7 +160,7 @@ class Attention(nn.Module):
         self.wo = Linear(
             args.n_heads * self.head_dim,
             args.dim,
-            bias=args.w_bias
+            bias=False
         )
 
         self.cache_k = torch.zeros(
