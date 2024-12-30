@@ -101,6 +101,7 @@ class Llama:
         ckpt_path = checkpoints[get_model_parallel_rank()]
         checkpoint = torch.load(ckpt_path, map_location="cpu")
         with open(Path(ckpt_dir) / "params.json", "r") as f:
+            print(Path(ckpt_dir) / "params.json")
             params = json.loads(f.read())
 
         model_args: ModelArgs = ModelArgs(
