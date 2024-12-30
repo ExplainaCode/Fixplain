@@ -39,6 +39,7 @@ class ModelArgs:
     max_seq_len: int = 2048
 
     W_bias=False
+    adaptor=True
 
 
 class RMSNorm(torch.nn.Module):
