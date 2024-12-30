@@ -1,4 +1,4 @@
-from .adapter import LLamaAdapter
+from adapter import LLamaAdapter
 import argparse
 import torch
 
@@ -22,8 +22,8 @@ def main(args):
     seq_len = 128
     vocab_size = 32000  # Adjust as per the tokenizer used
     
-    repairllama_input_ids = torch.randint(0, vocab_size, (batch_size, seq_len))
-    codellama_input_ids = torch.randint(0, vocab_size, (batch_size, seq_len))
+    repairllama_input_ids = args.repairllama_input_ids
+    codellama_input_ids = args.codellama_input_ids
     start_pos = 0
 
     # Run forward_inference
@@ -40,6 +40,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pass configuration paths.")
     parser.add_argument("--codellama_ckpt_dir", type=str, required=True, help="Path to CodeLlama checkpoint directory")
     parser.add_argument("--codellama_tokenizer_path", type=str, required=True, help="Path to CodeLlama tokenizer")
+    parser.add_argument("--repairllama_input_ids", type=torch.tensor, required=True, help="RepairLLama input for forward inference")
+    parser.add_argument("--codellama_input_ids", type=torch.tensor, required=True, help="CodeLLAma input for forward inference")
     parser.add_argument("--repairllama_model_dir", type=str, required=False, help="Path to RepairLlama model directory")
     parser.add_argument("--repairllama_lora_dir", type=str, required=False, help="Path to RepairLlama LoRA directory")
     
