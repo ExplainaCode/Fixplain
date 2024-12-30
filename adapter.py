@@ -35,10 +35,10 @@ class LLamaAdapter(nn.Module):
         self.attention_hooks_data = {} 
         self.codellama, self.codellama_tokenizer = self._load_codellama(
             codellama_ckpt_dir, max_seq_len, 
-            max_batch_size, codellama_tokenizer).to(device)
+            max_batch_size, codellama_tokenizer)
         self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
             repairllama_model_dir, repairllama_lora_dir,
-            register_Attention_hooks=True).to(device)
+            register_Attention_hooks=True)
 
     def _load_codellama(self, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer):
         with open(os.path.join(codellama_ckpt_dir, "params.json"), 'r') as f:
