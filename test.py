@@ -22,8 +22,9 @@ def main(args):
     seq_len = 128
     vocab_size = 32000  # Adjust as per the tokenizer used
     
-    repairllama_input_ids = args.repairllama_input_ids
-    codellama_input_ids = args.codellama_input_ids
+    repairllama_input_ids = torch.load(args.repairllama_input_ids)
+    codellama_input_ids = torch.load(args.codellama_input_ids)
+    
     start_pos = 0
 
     # Run forward_inference
