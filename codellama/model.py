@@ -163,21 +163,27 @@ class Attention(nn.Module):
             bias=False
         )
 
+        # self.cache_k = torch.zeros(
+        #     (
+        #         args.max_batch_size,
+        #         args.max_seq_len,
+        #         self.n_local_kv_heads,
+        #         self.head_dim,
+        #     )
+        # ).to(device)
+        # self.cache_v = torch.zeros(
+        #     (
+        #         args.max_batch_size,
+        #         args.max_seq_len,
+        #         self.n_local_kv_heads,
+        #         self.head_dim,
+        #     )
+        # ).to(device)
         self.cache_k = torch.zeros(
-            (
-                args.max_batch_size,
-                args.max_seq_len,
-                self.n_local_kv_heads,
-                self.head_dim,
-            )
+            (self.args.max_batch_size, self.args.max_seq_len, self.n_local_heads, self.head_dim)
         ).to(device)
         self.cache_v = torch.zeros(
-            (
-                args.max_batch_size,
-                args.max_seq_len,
-                self.n_local_kv_heads,
-                self.head_dim,
-            )
+            (self.args.max_batch_size, self.args.max_seq_len, self.n_local_heads, self.head_dim)
         ).to(device)
 
         if args.adapter:
