@@ -17,7 +17,7 @@ BitsAndBytesConfig,
 )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+codellama_device = device
 
 class LLamaAdapter(nn.Module):
     def __init__(self,
@@ -56,7 +56,7 @@ class LLamaAdapter(nn.Module):
 
         ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
         for ckpt in ckpts:
-            ckpt = torch.load(ckpt, map_location='cpu')
+            ckpt = torch.load(ckpt, map_location=codellama_device)
             codellama.load_state_dict(ckpt, strict=False)
 
         return codellama, tokenizer 
@@ -255,7 +255,7 @@ class LLamaAdapter(nn.Module):
 
         prev_pos = 0
         for cur_pos in range(start_pos, total_repairllama_len):
-            with torch.cpu.amp.autocast():#cuda
+            with torch.cuda.amp.autocast():
                 logits = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], prev_pos)
             if temperature > 0:
                 probs = torch.softmax(logits / temperature, dim=-1)
