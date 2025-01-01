@@ -18,8 +18,6 @@ BitsAndBytesConfig,
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 codellama_device = device
-print(device)
-print("___________________________________________\n")
 
 class LLamaAdapter(nn.Module):
     def __init__(self,
@@ -33,6 +31,7 @@ class LLamaAdapter(nn.Module):
                  w_lora=False, lora_rank=16, 
                  w_new_gate=False,
                  phase="finetune",):
+        print(device, "___________________________________________\n")
         super().__init__()
         self.attention_hooks_data = {} 
         self.codellama, self.codellama_tokenizer = self._load_codellama(
