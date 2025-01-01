@@ -18,6 +18,8 @@ BitsAndBytesConfig,
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 codellama_device = device
+print(device)
+print("___________________________________________\n")
 
 class LLamaAdapter(nn.Module):
     def __init__(self,

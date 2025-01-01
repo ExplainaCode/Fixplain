@@ -23,7 +23,7 @@ elif torch.backends.mps.is_available():
 else:
     device = "cpu"
 # device="cpu"
-
+print(device , "___________________codellama _________________________________________/n")
 @dataclass
 class ModelArgs:
     dim: int = 4096
