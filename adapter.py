@@ -22,7 +22,7 @@ codellama_device = device
 class LLamaAdapter(nn.Module):
     def __init__(self,
                  codellama_ckpt_dir, codellama_tokenizer,
-                 repairllama_lora_dir='/repairllama-lora', repairllama_model_dir="codellama/CodeLlama-7b-hf",
+                 repairllama_lora_dir='./repairllama-lora', repairllama_model_dir="codellama/CodeLlama-7b-hf",
                  max_seq_len=512, max_batch_size=1,
                  v_embed_dim=768, v_depth=8,
                  v_num_heads=16, v_mlp_ratio=4.0,
