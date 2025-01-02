@@ -107,7 +107,7 @@ class LLamaAdapter(nn.Module):
     
     def forward(self, repairllama_input_ids, codellama_input_ids, 
                 repairllama_labels, codellama_labels):
-        assert repairllama_input_ids.shape[0]==codellama_input_ids[0] # batch_size should be equal
+        assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
 
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
@@ -172,7 +172,7 @@ class LLamaAdapter(nn.Module):
     @torch.inference_mode()
     def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int):
         print(repairllama_input_ids.shape[0], codellama_input_ids[0])
-        assert repairllama_input_ids.shape[0]==codellama_input_ids[0] # batch_size should be equal
+        assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
 
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
