@@ -92,7 +92,7 @@ class LLamaAdapter(nn.Module):
                 attention_layer = layer.self_attn
                 attention_layer.layer_id = layer_id  # Tag the layer with an ID
                 attention_layer.register_forward_hook(self._hook_fn)
-                print("inside loop layer_id: "layer_id)
+                print("inside loop layer_id: ", layer_id)
                 layer_id += 1
 
         return repairllama, tokenizer
