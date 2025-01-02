@@ -91,7 +91,7 @@ class LLamaAdapter(nn.Module):
             for layer in repairllama.base_model.model.model.layers:
                 print(f"Layer {layer_id}: {layer}")
                 attention_layer = layer.self_attn
-                print(f"Registering hook on layer {i}: {attention_layer}")
+                print(f"Registering hook on layer {layer_id}: {attention_layer}")
                 attention_layer.layer_id = layer_id  # Tag the layer with an ID
                 attention_layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
