@@ -17,7 +17,7 @@ BitsAndBytesConfig,
 )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-codellama_device = device
+# codellama_device = device
 
 class LLamaAdapter(nn.Module):
     def __init__(self,
@@ -49,14 +49,14 @@ class LLamaAdapter(nn.Module):
         )
         tokenizer = Tokenizer(model_path=codellama_tokenizer)
         model_args.vocab_size = tokenizer.n_words
-        # torch.set_default_tensor_type(torch.cuda.HalfTensor)
-        torch.set_default_tensor_type(torch.FloatTensor) # load to cpu
+        torch.set_default_tensor_type(torch.cuda.HalfTensor)
+        # torch.set_default_tensor_type(torch.FloatTensor) # load to cpu
         codellama = Transformer(model_args)
         torch.set_default_tensor_type(torch.FloatTensor)
 
         ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
         for ckpt in ckpts:
-            ckpt = torch.load(ckpt, map_location=codellama_device)
+            ckpt = torch.load(ckpt, map_location="cpu")
             codellama.load_state_dict(ckpt, strict=False)
 
         return codellama, tokenizer 
@@ -171,7 +171,6 @@ class LLamaAdapter(nn.Module):
     
     @torch.inference_mode()
     def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int):
-        print(repairllama_input_ids.shape[0], codellama_input_ids[0])
         assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
 
         # RepairLLama configuration before forward pass
@@ -240,18 +239,18 @@ class LLamaAdapter(nn.Module):
         max_codellama_prompt_size = max([len(t) for t in repairllama_input_ids])
 
         total_repairllama_len = min(repairllama_params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
-        repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_id).cpu().long() # cuda --> cpu
+        repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_id).cuda().long() # cuda --> cpu
 
         total_codellama_len = min(codellama_params.max_seq_len, max_gen_len + max_codellama_prompt_size)
-        codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cpu().long() # cuda -->cpu changed by me
+        codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long() # cuda -->cpu changed by me
 
         for k, t in enumerate(repairllama_input_ids):
-            repairllama_tokens[k, : len(t)] = torch.tensor(t).cpu().long() #cuda
+            repairllama_tokens[k, : len(t)] = torch.tensor(t).cuda().long() #cuda
         input_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_id
         start_pos = min_repairllama_prompt_size
 
         for k, t in enumerate(codellama_input_ids):
-            codellama_tokens[k, : len(t)] = torch.tensor(t).cpu().long() # cuda
+            codellama_tokens[k, : len(t)] = torch.tensor(t).cuda().long() # cuda
 
         prev_pos = 0
         for cur_pos in range(start_pos, total_repairllama_len):
