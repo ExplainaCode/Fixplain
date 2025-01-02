@@ -18,24 +18,7 @@ BitsAndBytesConfig,
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # codellama_device = device
-def _hook_fn(module, input, output):
-    """
-    Hook function to capture inputs of attention layers.
-    """
-    layer_id = module.layer_id
-    print("inside hook_fn layer_id: ",layer_id)
-    print("input inside hook_fn", input)
-    print("Output inside hook fn: ", output)
-        # If input is a tuple, print its elements
-    if isinstance(input, tuple):
-        for idx, inp in enumerate(input):
-            print(f"Input {idx} shape: {inp.shape if inp is not None else 'None'}")
-    else:
-        print("Input is not a tuple")
 
-    # attention_hooks_data[layer_id] = {
-    #     "input": tuple(inp.detach() for inp in input),
-    # }
 class LLamaAdapter(nn.Module):
     def __init__(self,
                  codellama_ckpt_dir, codellama_tokenizer,
@@ -105,34 +88,35 @@ class LLamaAdapter(nn.Module):
             Registers hooks on all LlamaSdpaAttention modules.
             """
             layer_id = 0
-            for layer in repairllama.base_model.model.model.layers:
+            for layer in repairllama.model.model.layers:
                 # print(f"Layer {layer_id}: {layer}")
                 attention_layer = layer.self_attn
                 # print(f"Registering hook on layer {layer_id}: {attention_layer}")
                 attention_layer.layer_id = layer_id  # Tag the layer with an ID
-                attention_layer.register_forward_hook(_hook_fn)
+                attention_layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
 
         return repairllama, tokenizer
 
-    # def _hook_fn(self, module, input, output):
-    #     """
-    #     Hook function to capture inputs of attention layers.
-    #     """
-    #     layer_id = module.layer_id
-    #     print("inside hook_fn layer_id: ",layer_id)
-    #     print("input inside hook_fn", input)
-    #     print("Output inside hook fn: ", output)
-    #         # If input is a tuple, print its elements
-    #     if isinstance(input, tuple):
-    #         for idx, inp in enumerate(input):
-    #             print(f"Input {idx} shape: {inp.shape if inp is not None else 'None'}")
-    #     else:
-    #         print("Input is not a tuple")
+    def _hook_fn(self, module, input, output):
+        """
+        Hook function to capture inputs of attention layers.
+        """
+        layer_id = module.layer_id
+        print("inside hook_fn layer_id: ",layer_id)
+        print("input inside hook_fn", input)
+        print("Output inside hook fn: ", output)
+            # If input is a tuple, print its elements
+        if isinstance(input, tuple):
+            for idx, inp in enumerate(input):
+                print(f"Input {idx} shape: {inp.shape if inp is not None else 'None'}")
+        else:
+            print("Input is not a tuple")
 
-    #     self.attention_hooks_data[layer_id] = {
-    #         "input": tuple(inp.detach() for inp in input),
-    #     }
+        self.attention_hooks_data[layer_id] = {
+            # "input": tuple(inp.detach() for inp in input),
+            "input": tuple(inp for inp in input)
+        }
     
     def forward(self, repairllama_input_ids, codellama_input_ids, 
                 repairllama_labels, codellama_labels):
