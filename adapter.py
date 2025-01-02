@@ -108,8 +108,8 @@ class LLamaAdapter(nn.Module):
     def forward(self, repairllama_input_ids, codellama_input_ids, 
                 repairllama_labels, codellama_labels):
         assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
-        repairllama_input_ids.to(device)
-        codellama_input_ids.to(device)
+        repairllama_input_ids=repairllama_input_ids.to(device)
+        codellama_input_ids=codellama_input_ids.to(device)
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
@@ -173,13 +173,14 @@ class LLamaAdapter(nn.Module):
     @torch.inference_mode()
     def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int):
         assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
-        repairllama_input_ids.to(device) #Decide whether this is the optimal position to move to the device #probably in training we can directly load to the device at once?
-        codellama_input_ids.to(device)
+
+        repairllama_input_ids=repairllama_input_ids.to(device) #Decide whether this is the optimal position to move to the device #probably in training we can directly load to the device at once?
+        codellama_input_ids=codellama_input_ids.to(device)
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
         print("Embedding weights device:", self.repairllama.model.model.embed_tokens.weight.device)
         print("Input IDs device:", repairllama_input_ids.device)
-        print("DEvice", device)
+        print("Device", device)
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) # apass through embedding layer
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
