@@ -178,9 +178,6 @@ class LLamaAdapter(nn.Module):
         codellama_input_ids=codellama_input_ids.to(device)
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
-        print("Embedding weights device:", self.repairllama.model.model.embed_tokens.weight.device)
-        print("Input IDs device:", repairllama_input_ids.device)
-        print("Device", device)
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) # apass through embedding layer
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
@@ -199,6 +196,7 @@ class LLamaAdapter(nn.Module):
         codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
         codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
 
+        print(self.repairllama.config)
         assert(self.repairllama.config.num_hidden_layers==self.codellama.config.num_hidden_layers)
         n_layers = self.repairllama.config.num_hidden_layers
 
