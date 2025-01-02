@@ -90,10 +90,10 @@ class LLamaAdapter(nn.Module):
             layer_id = 0
             for layer in repairllama.model.model.layers:
                 # print(f"Layer {layer_id}: {layer}")
-                attention_layer = layer.self_attn
+                # attention_layer = layer.self_attn
                 # print(f"Registering hook on layer {layer_id}: {attention_layer}")
-                attention_layer.layer_id = layer_id  # Tag the layer with an ID
-                attention_layer.register_forward_hook(self._hook_fn)
+                layer.layer_id = layer_id  # Tag the layer with an ID
+                layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
 
         return repairllama, tokenizer
