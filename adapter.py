@@ -107,7 +107,7 @@ class LLamaAdapter(nn.Module):
     
     def forward(self, repairllama_input_ids, codellama_input_ids, 
                 repairllama_labels, codellama_labels):
-        assert(repairllama_input_ids.shape[0]==codellama_input_ids[0]) # batch_size should be equal
+        assert repairllama_input_ids.shape[0]==codellama_input_ids[0] # batch_size should be equal
 
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
@@ -129,7 +129,7 @@ class LLamaAdapter(nn.Module):
         codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
         codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
 
-        assert(self.repairllama.config.num_hidden_layers==self.codellama.config.num_hidden_layers)
+        assert self.repairllama.config.num_hidden_layers==self.codellama.config.num_hidden_layers
         n_layers = self.repairllama.config.num_hidden_layers
 
         for i in range(n_layers):
@@ -172,7 +172,7 @@ class LLamaAdapter(nn.Module):
     @torch.inference_mode()
     def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int):
         
-        assert(repairllama_input_ids.shape[0]==codellama_input_ids[0]) # batch_size should be equal
+        assert repairllama_input_ids.shape[0]==codellama_input_ids[0] # batch_size should be equal
 
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
