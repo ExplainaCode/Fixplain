@@ -101,10 +101,6 @@ class LLamaAdapter(nn.Module):
         Hook function to capture inputs of attention layers.
         """
         layer_id = module.layer_id
-        print("inside hook_fn layer_id: ",layer_id)
-        print("input inside hook_fn", input)
-        print("Output inside hook fn: ", output)
-
         self.attention_hooks_data[layer_id] = {
             "input": tuple(inp.detach() for inp in input),
         }
@@ -204,12 +200,12 @@ class LLamaAdapter(nn.Module):
         n_layers = self.repairllama.config.num_hidden_layers
 
         for i in range(n_layers):
-            print("repairllama_h :",repairllama_h)
+            # print("repairllama_h :",repairllama_h)
             repairllama_h, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h, repairllama_mask, repairllama_position_ids
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
             assert(self.attention_hooks_data.get(i)!=None)
-            print(self.attention_hooks_data)
+            # print(self.attention_hooks_data)
             dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
             codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
 
