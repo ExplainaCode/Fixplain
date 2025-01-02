@@ -101,6 +101,7 @@ class LLamaAdapter(nn.Module):
         Hook function to capture inputs of attention layers.
         """
         layer_id = module.layer_id
+        print("layer_id",layer_id)
         self.attention_hooks_data[layer_id] = {
             "input": tuple(inp.detach() for inp in input),
         }
