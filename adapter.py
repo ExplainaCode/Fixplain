@@ -103,6 +103,7 @@ class LLamaAdapter(nn.Module):
         """
         layer_id = module.layer_id
         print("inside hook_fn layer_id: ",layer_id)
+        print("input inside hook_fn", input)
         self.attention_hooks_data[layer_id] = {
             "input": tuple(inp.detach() for inp in input),
         }
