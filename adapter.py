@@ -137,7 +137,6 @@ class LLamaAdapter(nn.Module):
         n_layers = self.repairllama.config.num_hidden_layers
 
         for i in range(n_layers):
-            print("repairllama_h :",repairllama_h)
             repairllama_h = self.repairllama.model.model.layers[i](hidden_states=repairllama_h, 
                                                        attention_mask=repairllama_mask, 
                                                        position_ids=repairllama_position_ids)
@@ -204,6 +203,7 @@ class LLamaAdapter(nn.Module):
         n_layers = self.repairllama.config.num_hidden_layers
 
         for i in range(n_layers):
+            print("repairllama_h :",repairllama_h)
             repairllama_h = self.repairllama.model.model.layers[i](hidden_states=repairllama_h, 
                                                        attention_mask=repairllama_mask, 
                                                        position_ids=repairllama_position_ids)            
