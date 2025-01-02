@@ -18,10 +18,6 @@ BitsAndBytesConfig,
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # codellama_device = device
-def tensor_to_list(obj):
-    if isinstance(obj, torch.Tensor):
-        return obj.tolist()  # Convert tensor to list
-    raise TypeError(f"Object of type {obj.__class__.__name__} is not serializable")
 
 class LLamaAdapter(nn.Module):
     def __init__(self,
@@ -213,8 +209,7 @@ class LLamaAdapter(nn.Module):
             dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
             codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
 
-        with open("attention_hooks_data.json", 'w') as file:
-            json.dump(self.attention_hooks_data, file, indent=4, default=tensor_to_list)
+        print(self.attention_hooks_data)   
         self.attention_hooks_data={} # Resetting can also be done in the above loop. 
 
 
