@@ -218,7 +218,8 @@ class LLamaAdapter(nn.Module):
 
         # Processing RepairLLama output
         repairllama_h = self.repairllama.model.model.norm(repairllama_h[0])
-        repairllama_output = self.repairllama.output(repairllama_h[: ,-1, :])
+        repairllama_h = self.repairllama.model.model.rotary_emb(repairllama_h)
+        repairllama_output = self.repairllama.model.model.lm_head(repairllama_h[: ,-1, :])
 
         # Processing CodeLLama output
         codellama_h = self.codellama.norm(codellama_h)
