@@ -228,7 +228,7 @@ class Attention(nn.Module):
         mask: Optional[torch.Tensor],
         adapter: None,
     ):
-        bsz, seqlen, _ = x.shape
+        bsz, seqlen = x.shape
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
 
         # xq = xq.view(bsz, seqlen, self.n_local_heads, self.head_dim)
