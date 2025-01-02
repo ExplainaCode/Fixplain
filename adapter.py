@@ -215,7 +215,7 @@ class LLamaAdapter(nn.Module):
         for i in range(n_layers):
             print("repairllama_h :",repairllama_h)
             repairllama_h = self.repairllama.model.model.layers[i](hidden_states=repairllama_h, 
-                                                       attention_mask=repairllama_mask, 
+                                                    #    attention_mask=repairllama_mask, 
                                                        position_ids=repairllama_position_ids)            
             assert(self.attention_hooks_data.get(i)!=None)
             print(self.attention_hooks_data)
