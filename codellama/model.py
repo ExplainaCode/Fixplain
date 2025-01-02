@@ -41,6 +41,8 @@ class ModelArgs:
     W_bias=False
     adapter=True
 
+    w_new_gate: bool = False
+
 
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):
@@ -212,6 +214,11 @@ class Attention(nn.Module):
                 args.n_heads * self.head_dim,
                 bias=False   
             )
+        self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
+        
+        self.w_new_gate = args.w_new_gate
+        if args.w_new_gate:
+            self.new_gate = torch.nn.Parameter(torch.ones(1, 1, 1, 1))
 
     def forward(
         self,
