@@ -89,11 +89,9 @@ class LLamaAdapter(nn.Module):
             """
             layer_id = 0
             for layer in repairllama.model.model.layers:
-                # print(f"Layer {layer_id}: {layer}")
-                # attention_layer = layer.self_attn
-                # print(f"Registering hook on layer {layer_id}: {attention_layer}")
-                layer.layer_id = layer_id  # Tag the layer with an ID
-                layer.register_forward_hook(self._hook_fn)
+                attention_layer = layer.self_attn
+                attention_layer.layer_id = layer_id  # Tag the layer with an ID
+                attention_layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
 
         return repairllama, tokenizer
@@ -106,16 +104,9 @@ class LLamaAdapter(nn.Module):
         print("inside hook_fn layer_id: ",layer_id)
         print("input inside hook_fn", input)
         print("Output inside hook fn: ", output)
-            # If input is a tuple, print its elements
-        if isinstance(input, tuple):
-            for idx, inp in enumerate(input):
-                print(f"Input {idx} shape: {inp.shape if inp is not None else 'None'}")
-        else:
-            print("Input is not a tuple")
 
         self.attention_hooks_data[layer_id] = {
-            # "input": tuple(inp.detach() for inp in input),
-            "input": tuple(inp for inp in input)
+            "input": tuple(inp.detach() for inp in input),
         }
     
     def forward(self, repairllama_input_ids, codellama_input_ids, 
@@ -151,7 +142,7 @@ class LLamaAdapter(nn.Module):
                                                        attention_mask=repairllama_mask, 
                                                        position_ids=repairllama_position_ids)
             assert(self.attention_hooks_data.get(i)!=None)
-            dynamic_adaptor = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
+            dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adaptor)
 
         self.attention_hooks_data={} # Resetting can also be done in the above loop. 
@@ -216,7 +207,7 @@ class LLamaAdapter(nn.Module):
             print("repairllama_h :",repairllama_h)
             repairllama_h = self.repairllama.model.model.layers[i](repairllama_h, 
                                                        repairllama_mask, 
-                                                       repairllama_position_ids)            
+                                                       repairllama_position_ids)   # Do not pass as keyword arguments since hooks don't capture inputs.        
             assert(self.attention_hooks_data.get(i)!=None)
             print(self.attention_hooks_data)
             dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
