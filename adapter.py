@@ -92,6 +92,7 @@ class LLamaAdapter(nn.Module):
                 attention_layer = layer.self_attn
                 attention_layer.layer_id = layer_id  # Tag the layer with an ID
                 attention_layer.register_forward_hook(self._hook_fn)
+                print("inside loop layer_id: "layer_id)
                 layer_id += 1
 
         return repairllama, tokenizer
@@ -101,7 +102,7 @@ class LLamaAdapter(nn.Module):
         Hook function to capture inputs of attention layers.
         """
         layer_id = module.layer_id
-        print("layer_id",layer_id)
+        print("inside hook_fn layer_id: ",layer_id)
         self.attention_hooks_data[layer_id] = {
             "input": tuple(inp.detach() for inp in input),
         }
