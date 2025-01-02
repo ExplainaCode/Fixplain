@@ -31,7 +31,6 @@ class LLamaAdapter(nn.Module):
                  w_lora=False, lora_rank=16, 
                  w_new_gate=False,
                  phase="finetune",):
-        print(device, "___________________________________________\n")
         super().__init__()
         self.attention_hooks_data = {} 
         self.codellama, self.codellama_tokenizer = self._load_codellama(

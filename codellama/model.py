@@ -22,7 +22,6 @@ elif torch.backends.mps.is_available():
     device = "mps"
 else:
     device = "cpu"
-# device="cpu"
 
 @dataclass
 class ModelArgs:
@@ -352,7 +351,6 @@ class TransformerBlock(nn.Module):
 
 class Transformer(nn.Module):
     def __init__(self, params: ModelArgs):
-        print(device , "___________________codellama _________________________________________/n")
         super().__init__()
         self.params = params
         self.vocab_size = params.vocab_size
