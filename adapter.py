@@ -134,7 +134,7 @@ class LLamaAdapter(nn.Module):
         n_layers = self.repairllama.config.num_hidden_layers
 
         for i in range(n_layers):
-            repairllama_h = self.repairllama.model.layers[i](hidden_states=repairllama_h, 
+            repairllama_h = self.repairllama.model.model.layers[i](hidden_states=repairllama_h, 
                                                        attention_mask=repairllama_mask, 
                                                        position_ids=repairllama_position_ids)
             assert(self.attention_hooks_data.get(i)!=None)
@@ -204,6 +204,7 @@ class LLamaAdapter(nn.Module):
                                                        attention_mask=repairllama_mask, 
                                                        position_ids=repairllama_position_ids)            
             assert(self.attention_hooks_data.get(i)!=None)
+            print(self.attention_hooks_data)
             dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
             codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
 
