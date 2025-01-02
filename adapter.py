@@ -197,6 +197,7 @@ class LLamaAdapter(nn.Module):
         codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
 
         print(self.repairllama.config)
+        print(self.codellama.config)
         assert(self.repairllama.config.num_hidden_layers==self.codellama.config.num_hidden_layers)
         n_layers = self.repairllama.config.num_hidden_layers
 
