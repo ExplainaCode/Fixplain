@@ -89,9 +89,9 @@ class LLamaAdapter(nn.Module):
             """
             layer_id = 0
             for layer in repairllama.base_model.model.model.layers:
-                print(f"Layer {layer_id}: {layer}")
+                # print(f"Layer {layer_id}: {layer}")
                 attention_layer = layer.self_attn
-                print(f"Registering hook on layer {layer_id}: {attention_layer}")
+                # print(f"Registering hook on layer {layer_id}: {attention_layer}")
                 attention_layer.layer_id = layer_id  # Tag the layer with an ID
                 attention_layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
@@ -106,6 +106,13 @@ class LLamaAdapter(nn.Module):
         print("inside hook_fn layer_id: ",layer_id)
         print("input inside hook_fn", input)
         print("Output inside hook fn: ", output)
+            # If input is a tuple, print its elements
+        if isinstance(input, tuple):
+            for idx, inp in enumerate(input):
+                print(f"Input {idx} shape: {inp.shape if inp is not None else 'None'}")
+        else:
+            print("Input is not a tuple")
+
         self.attention_hooks_data[layer_id] = {
             "input": tuple(inp.detach() for inp in input),
         }
