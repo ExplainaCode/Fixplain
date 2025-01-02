@@ -228,7 +228,6 @@ class Attention(nn.Module):
         mask: Optional[torch.Tensor],
         adapter: None,
     ):
-        print("x_shape: ",x.shape)
         bsz, seqlen, *_ = x.shape
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
 

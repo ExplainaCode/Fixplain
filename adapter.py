@@ -211,7 +211,7 @@ class LLamaAdapter(nn.Module):
             assert(self.attention_hooks_data.get(i)!=None)
             print(self.attention_hooks_data)
             dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
-            codellama_h, *_ = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
+            codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
 
         self.attention_hooks_data={} # Resetting can also be done in the above loop. 
 
