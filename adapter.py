@@ -282,13 +282,22 @@ class LLamaAdapter(nn.Module):
         total_codellama_len = min(params.max_seq_len, max_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text. 
         codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long()
 
+        # for k, t in enumerate(repairllama_input_ids):
+        #     repairllama_tokens[k, : len(t)] = torch.tensor(t).cuda().long()
         for k, t in enumerate(repairllama_input_ids):
-            repairllama_tokens[k, : len(t)] = torch.tensor(t).cuda().long()
+            if len(t) > repairllama_tokens.size(1):  # Check size limit
+                raise ValueError(f"Sequence length {len(t)} exceeds allocated size {repairllama_tokens.size(1)}")
+            repairllama_tokens[k, : len(t)] = torch.tensor(t, dtype=torch.long).cuda()
+
         input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_token_id
         repairllama_start_pos = min_repairllama_prompt_size
 
+        # for k, t in enumerate(codellama_input_ids):
+        #     codellama_tokens[k, : len(t)] = torch.tensor(t).cuda().long() # cuda
         for k, t in enumerate(codellama_input_ids):
-            codellama_tokens[k, : len(t)] = torch.tensor(t).cuda().long() # cuda
+            if len(t) > codellama_tokens.size(1):  # Check size limit
+                raise ValueError(f"Sequence length {len(t)} exceeds allocated size {codellama_tokens.size(1)}")
+            codellama_tokens[k, : len(t)] = torch.tensor(t, dtype=torch.long).cuda()
         input_codellama_text_mask = codellama_tokens != self.codellama_tokenizer.pad_id
         assert total_repairllama_len >= total_codellama_len
         codellama_start_pos = min(max_repairllama_prompt_size, total_repairllama_len-total_codellama_len)
