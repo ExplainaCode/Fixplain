@@ -198,21 +198,11 @@ class LLamaAdapter(nn.Module):
             codellama_mask = None
             codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
             codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
-            print("repairllama_mask", repairllama_mask)
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
 
-        print("repairllama_h :",repairllama_h)
-        print("repairllama_mask", repairllama_mask)
-        print("repairllama_positons_ids: ", repairllama_position_ids)
-
         for i in range(n_layers):
-            print("repairllama_input_ids shape:", repairllama_input_ids.shape)
-            print("repairllama_h shape:", repairllama_h.shape)
-            print("repairllama_position_ids shape:", repairllama_position_ids.shape)
-            print("repairllama_mask shape:", repairllama_mask.shape)
-
             repairllama_h, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h, repairllama_mask, repairllama_position_ids
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
@@ -228,7 +218,6 @@ class LLamaAdapter(nn.Module):
 
         # Processing RepairLLama output
         repairllama_h  = self.repairllama.model.model.norm(repairllama_h[0])
-        print("after norm", repairllama_h)
         # repairllama_h, *_  = self.repairllama.model.model.rotary_emb(repairllama_h, position_ids=repairllama_position_ids)
         # print("after rotary_emb", repairllama_h)
         repairllama_output = self.repairllama.model.lm_head(repairllama_h)
