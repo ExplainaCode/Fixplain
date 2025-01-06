@@ -181,6 +181,8 @@ class LLamaAdapter(nn.Module):
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) # apass through embedding layer
+        print("repairllama_h :",repairllama_h)
+
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
         # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
@@ -206,7 +208,6 @@ class LLamaAdapter(nn.Module):
             print("repairllama_h shape:", repairllama_h.shape)
             print("repairllama_position_ids shape:", repairllama_position_ids.shape)
             print("repairllama_mask shape:", repairllama_mask.shape)
-            print("repairllama_h :",repairllama_h)
             repairllama_h, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h, repairllama_mask, repairllama_position_ids
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
