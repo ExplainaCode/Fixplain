@@ -217,21 +217,19 @@ class LLamaAdapter(nn.Module):
 
 
         # Processing RepairLLama output
-        # repairllama_h  = self.repairllama.model.model.norm(repairllama_h[0])   # remove this for get row logits
-        # repairllama_h, *_  = self.repairllama.model.model.rotary_emb(repairllama_h, position_ids=repairllama_position_ids)
-        # print("after rotary_emb", repairllama_h)
-        # repairllama_output = self.repairllama.model.lm_head(repairllama_h) # remove this for get row logits
+        repairllama_h  = self.repairllama.model.model.norm(repairllama_h[0])
+        repairllama_h, *_  = self.repairllama.model.model.rotary_emb(repairllama_h, position_ids=repairllama_position_ids)
+        print("after rotary_emb", repairllama_h)
+        repairllama_output = self.repairllama.model.lm_head(repairllama_h) # remove this for get row logits
 
         if adaptor:
             # Processing CodeLLama output
-            # codellama_h = self.codellama.norm(codellama_h)
-            # codellama_output = self.codellama.output(codellama_h[:,-1, :])
-            pass
+            codellama_h = self.codellama.norm(codellama_h)
+            codellama_output = self.codellama.output(codellama_h[:,-1, :])
         else: 
-            # codellama_output = None
-            codellama_h = None
+            codellama_output = None
 
-        return repairllama_h, codellama_h.float() if codellama_h is not None else None
+        return repairllama_output, codellama_output.float() if codellama_output is not None else None
     
     @torch.inference_mode() #To be completed
     def generate(self, repairllama_input_ids, codellama_input_ids=None,
@@ -295,19 +293,19 @@ class LLamaAdapter(nn.Module):
         for cur_pos in range(repairllama_start_pos, total_repairllama_len):
             with torch.cuda.amp.autocast():
                 if cur_pos < codellama_start_pos:
-                    repairllama_logits, _ = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, prev_pos)
+                    repairllama_output, _ = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, prev_pos)
                 else:
                     print(repairllama_tokens[:, prev_pos:cur_pos])
-                    repairllama_logits, codellama_logits = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_input_ids, prev_pos, adaptor=True)
-            print("Repairllama logits: ", repairllama_logits, repairllama_logits.shape)
-            if temperature > 0:
-                probs = torch.softmax(repairllama_logits / temperature, dim=-1)
-                next_repairllama_token = sample_top_p(probs, top_p)
-            else:
-                next_repairllama_token = torch.argmax(repairllama_logits, dim=-1)
-            print("Next_repairllama_token_before modification: ", next_repairllama_token)
-            print(next_repairllama_token.shape)
-            next_repairllama_token = next_repairllama_token.reshape(-1)
+                    repairllama_output, codellama_logits = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_input_ids, prev_pos, adaptor=True)
+            # print("Repairllama logits: ", repairllama_logits, repairllama_logits.shape)
+            # if temperature > 0:
+            #     probs = torch.softmax(repairllama_logits / temperature, dim=-1)
+            #     next_repairllama_token = sample_top_p(probs, top_p)
+            # else:
+            #     next_repairllama_token = torch.argmax(repairllama_logits, dim=-1)
+            # print("Next_repairllama_token_before modification: ", next_repairllama_token)
+            # print(next_repairllama_token.shape)
+            next_repairllama_token = repairllama_output.reshape(-1)
 
             next_repairllama_token = torch.where(
                 input_repairllama_text_mask[:, cur_pos], repairllama_tokens[:, cur_pos], next_repairllama_token
