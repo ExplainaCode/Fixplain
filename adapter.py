@@ -206,7 +206,7 @@ class LLamaAdapter(nn.Module):
             print("repairllama_h shape:", repairllama_h.shape)
             print("repairllama_position_ids shape:", repairllama_position_ids.shape)
             print("repairllama_mask shape:", repairllama_mask.shape)
-            # print("repairllama_h :",repairllama_h)
+            print("repairllama_h :",repairllama_h)
             repairllama_h, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h, repairllama_mask, repairllama_position_ids
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
