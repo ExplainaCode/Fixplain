@@ -270,16 +270,16 @@ class LLamaAdapter(nn.Module):
         max_repairllama_prompt_size = max([len(t) for t in repairllama_input_ids])
         min_codellama_prompt_size = min([len(t) for t in codellama_input_ids])
         max_codellama_prompt_size = max([len(t) for t in repairllama_input_ids])
-        print( self.repairllama_tokenizer.pad_token_id, self.codellama_tokenizer.pad_id)
+        # print( self.repairllama_tokenizer.pad_token_id, self.codellama_tokenizer.pad_id)
         total_repairllama_len = min(params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
-        repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_token).cuda().long()
+        repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_token_id).cuda().long()
 
         total_codellama_len = min(params.max_seq_len, max_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text. 
         codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long()
 
         for k, t in enumerate(repairllama_input_ids):
             repairllama_tokens[k, : len(t)] = torch.tensor(t).cuda().long()
-        input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_token
+        input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_token_id
         repairllama_start_pos = min_repairllama_prompt_size
 
         for k, t in enumerate(codellama_input_ids):
@@ -339,7 +339,7 @@ class LLamaAdapter(nn.Module):
             t = t[len(repairllama_input_ids[i]): len(repairllama_input_ids[i]) + max_gen_len]
             # cut to eos tok if any
             try:
-                t = t[: t.index(self.repairllama_tokenizer.eos_id)]
+                t = t[: t.index(self.repairllama_tokenizer.eos_token_id)]
             except ValueError:
                 pass
             repairllama_decoded.append(self.repairllama_tokenizer.decode(t))
