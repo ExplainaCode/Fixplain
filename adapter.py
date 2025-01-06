@@ -303,6 +303,7 @@ class LLamaAdapter(nn.Module):
                 next_repairllama_token = sample_top_p(probs, top_p)
             else:
                 next_repairllama_token = torch.argmax(repairllama_logits, dim=-1)
+            print("Next_repairllama_token_before modification: ", next_repairllama_token)
             next_repairllama_token = next_repairllama_token.reshape(-1)
 
             next_repairllama_token = torch.where(
