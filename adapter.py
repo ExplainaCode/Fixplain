@@ -306,6 +306,7 @@ class LLamaAdapter(nn.Module):
             # print("Next_repairllama_token_before modification: ", next_repairllama_token)
             # print(next_repairllama_token.shape)
             next_repairllama_token = repairllama_output.reshape(-1)
+            print("next repairllama token1: ", next_repairllama_token)
 
             next_repairllama_token = torch.where(
                 input_repairllama_text_mask[:, cur_pos], repairllama_tokens[:, cur_pos], next_repairllama_token
