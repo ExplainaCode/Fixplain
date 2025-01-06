@@ -292,7 +292,7 @@ class LLamaAdapter(nn.Module):
 
         input_codellama_text_mask = codellama_tokens != self.codellama_tokenizer.pad_id
         assert total_repairllama_len >= total_codellama_len
-        codellama_start_pos = min(max_repairllama_prompt_size, total_repairllama_len-total_codellama_len)
+        codellama_start_pos = max(max_repairllama_prompt_size, total_repairllama_len-total_codellama_len)
 
         prev_pos = 0
         for cur_pos in range(repairllama_start_pos, total_repairllama_len):
