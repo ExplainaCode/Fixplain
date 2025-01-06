@@ -171,11 +171,12 @@ class LLamaAdapter(nn.Module):
         return reapirllama_c_loss, codellama_c_loss
     
     @torch.inference_mode()
-    def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int):
+    def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int, adaptor=False):
         assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
 
         repairllama_input_ids=repairllama_input_ids.to(device) #Decide whether this is the optimal position to move to the device #probably in training we can directly load to the device at once?
-        codellama_input_ids=codellama_input_ids.to(device)
+        if adaptor:
+            codellama_input_ids=codellama_input_ids.to(device)
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
@@ -187,14 +188,15 @@ class LLamaAdapter(nn.Module):
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
         repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
 
-        # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
-        _bsz, codellama_seqlen = codellama_input_ids.shape
-        codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
-        codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
-        codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
-        codellama_mask = None
-        codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
-        codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
+        if adaptor:
+            # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
+            _bsz, codellama_seqlen = codellama_input_ids.shape
+            codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
+            codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
+            codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
+            codellama_mask = None
+            codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
+            codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
@@ -206,10 +208,11 @@ class LLamaAdapter(nn.Module):
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
             assert(self.attention_hooks_data.get(i)!=None)
             # print(self.attention_hooks_data)
-            dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
-            codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
+            if adaptor:
+                dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
+                codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
 
-        print(self.attention_hooks_data)   
+        # print(self.attention_hooks_data)   
         self.attention_hooks_data={} # Resetting can also be done in the above loop. 
 
 
@@ -220,27 +223,47 @@ class LLamaAdapter(nn.Module):
         # print("after rotary_emb", repairllama_h)
         repairllama_output = self.repairllama.model.lm_head(repairllama_h)
 
-        # Processing CodeLLama output
-        codellama_h = self.codellama.norm(codellama_h)
-        codellama_output = self.codellama.output(codellama_h[:,-1, :])
+        if adaptor:
+            # Processing CodeLLama output
+            codellama_h = self.codellama.norm(codellama_h)
+            codellama_output = self.codellama.output(codellama_h[:,-1, :])
+        else: 
+            codellama_output = None
 
-        return repairllama_output.float(), codellama_output.float()
+        return repairllama_output.float(), codellama_output.float() if codellama_output is not None else None
     
     @torch.inference_mode() #To be completed
-    def generate(self, repairllama_input_ids, codellama_input_ids,
+    def generate(self, repairllama_input_ids, codellama_input_ids=None,
                  max_gen_len: int=256, temperature: float=0.1,
                  top_p: float=0.75):
-        assert len(repairllama_input_ids)==len(codellama_input_ids)
         bsz = len(repairllama_input_ids)
-        repairllama_params = self.repairllama.params
-        codellama_params = self.codellama.params
-        assert bsz <= repairllama_params.max_batch_size, (bsz, repairllama_params.max_batch_size)
-        assert bsz <= codellama_params.max_batch_size, (bsz, codellama_params.max_batch_size)
+        if codellama_input_ids==None:
+            # create two dimentionsl tensor with (bsz, 1) dimention, where element is padding token id, as codellama_input_ids
+            codellama_input_ids = torch.full(
+                (bsz, 1), 
+                fill_value=self.codellama_tokenizer.pad_id, 
+                dtype=torch.long,
+            )
+        
+        assert len(repairllama_input_ids)==len(codellama_input_ids) #batch sizes should be equal.
+       
+       # is this need to be checked. because batch sizes of both inputs are equal and both use same model. hece comment down and 
+       # create a single params. check this
+        # repairllama_params = self.repairllama.params
+        # codellama_params = self.codellama.params
+        # assert bsz <= repairllama_params.max_batch_size, (bsz, repairllama_params.max_batch_size)
+        # assert bsz <= codellama_params.max_batch_size, (bsz, codellama_params.max_batch_size)
+
+        # Replaced with params,
+        params = self.codellama.params
+        assert bsz <= params.max_batch_size, (bsz, params.max_batch_size)
 
         if isinstance(repairllama_input_ids[0], str): # if the inputs are given as strings instead of input_ids
-            repairllama_input_ids = [self.repairllama_tokenizer.encode(x, bos=True, eos=False) for x in repairllama_input_ids]
+             #This assumes list of pytorch tensors returns given enumerable (list) of input texts.
+            repairllama_input_ids = [self.repairllama_tokenizer.encode(x, return_tensors='pt') for x in repairllama_input_ids]
         
         if isinstance(codellama_input_ids[0], str):
+            # This has custom tokenizer encode in codellama directory
             codellama_input_ids = [self.codellama_tokenizer.encode(x, bos=True, eos=False) for x in codellama_input_ids]
 
         min_repairllama_prompt_size = min([len(t) for t in repairllama_input_ids])
@@ -248,50 +271,89 @@ class LLamaAdapter(nn.Module):
         min_codellama_prompt_size = min([len(t) for t in codellama_input_ids])
         max_codellama_prompt_size = max([len(t) for t in repairllama_input_ids])
 
-        total_repairllama_len = min(repairllama_params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
-        repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_id).cuda().long() # cuda --> cpu
+        total_repairllama_len = min(params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
+        repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_id).cuda().long()
 
-        total_codellama_len = min(codellama_params.max_seq_len, max_gen_len + max_codellama_prompt_size)
-        codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long() # cuda -->cpu changed by me
+        total_codellama_len = min(params.max_seq_len, max_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text. 
+        codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long()
 
         for k, t in enumerate(repairllama_input_ids):
-            repairllama_tokens[k, : len(t)] = torch.tensor(t).cuda().long() #cuda
-        input_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_id
-        start_pos = min_repairllama_prompt_size
+            repairllama_tokens[k, : len(t)] = torch.tensor(t).cuda().long()
+        input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_id
+        repairllama_start_pos = min_repairllama_prompt_size
 
         for k, t in enumerate(codellama_input_ids):
             codellama_tokens[k, : len(t)] = torch.tensor(t).cuda().long() # cuda
+        input_codellama_text_mask = codellama_tokens != self.codellama_tokenizer.pad_id
+        assert total_repairllama_len >= total_codellama_len
+        codellama_start_pos = min(max_repairllama_prompt_size, total_repairllama_len-total_codellama_len)
 
         prev_pos = 0
-        for cur_pos in range(start_pos, total_repairllama_len):
+        for cur_pos in range(repairllama_start_pos, total_repairllama_len):
             with torch.cuda.amp.autocast():
-                logits = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], prev_pos)
-            if temperature > 0:
-                probs = torch.softmax(logits / temperature, dim=-1)
-                next_token = sample_top_p(probs, top_p)
-            else:
-                next_token = torch.argmax(logits, dim=-1)
-            next_token = next_token.reshape(-1)
+                if cur_pos < codellama_start_pos:
+                    repairllama_logits, _ = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], prev_pos)
+                else:
+                    repairllama_logits, codellama_logits = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], prev_pos, adaptor=True)
 
-            next_token = torch.where(
-                input_text_mask[:, cur_pos], repairllama_tokens[:, cur_pos], next_token
+            if temperature > 0:
+                probs = torch.softmax(repairllama_logits / temperature, dim=-1)
+                next_repairllama_token = sample_top_p(probs, top_p)
+            else:
+                next_repairllama_token = torch.argmax(repairllama_logits, dim=-1)
+            next_repairllama_token = next_repairllama_token.reshape(-1)
+
+            next_repairllama_token = torch.where(
+                input_repairllama_text_mask[:, cur_pos], repairllama_tokens[:, cur_pos], next_repairllama_token
             )
-            repairllama_tokens[:, cur_pos] = next_token
+            repairllama_tokens[:, cur_pos] = next_repairllama_token
             # trick: early stop if bsz==1
-            if bsz == 1 and next_token[0] == self.tokenizer.eos_id:
-                break
+            # if bsz == 1 and next_repairllama_token[0] == self.repairllama_tokenizer.eos_id:
+            #     break
+
+            codellama_cur_pos = cur_pos-codellama_start_pos
+
+            if codellama_cur_pos >=0 : # equal to cur_pos >= codellama_start_pos:
+                # Then the codellama logits are available.
+                if temperature > 0:
+                    probs = torch.softmax(codellama_logits / temperature, dim=-1)
+                    next_codellama_token = sample_top_p(probs, top_p)
+                else:
+                    next_codellama_token = torch.argmax(codellama_logits, dim=-1)
+                next_codellama_token = next_codellama_token.reshape(-1)
+
+                next_codellama_token = torch.where(
+                    input_codellama_text_mask[:, codellama_cur_pos], codellama_tokens[:, codellama_cur_pos], next_codellama_token
+                )
+                codellama_tokens[:, codellama_cur_pos] = next_codellama_token
+                # trick: early stop if bsz==1
+                if bsz == 1 and next_codellama_token[0] == self.codellama_tokenizer.eos_id: # This might cause issues.
+                    break
+
             prev_pos = cur_pos
 
-        decoded = []
+        repairllama_decoded = []
         for i, t in enumerate(repairllama_tokens.tolist()):
 
             # cut to max gen len
             t = t[len(repairllama_input_ids[i]): len(repairllama_input_ids[i]) + max_gen_len]
             # cut to eos tok if any
             try:
-                t = t[: t.index(self.tokenizer.eos_id)]
+                t = t[: t.index(self.repairllama_tokenizer.eos_id)]
             except ValueError:
                 pass
-            decoded.append(self.tokenizer.decode(t))
+            repairllama_decoded.append(self.repairllama_tokenizer.decode(t))
+        
+        codellama_decoded = []
+        for i, t in enumerate(codellama_tokens.tolist()):
 
-        return decoded
+            # cut to max gen len
+            t = t[len(codellama_input_ids[i]): len(codellama_input_ids[i]) + max_gen_len]
+            # cut to eos tok if any
+            try:
+                t = t[: t.index(self.codellama_tokenizer.eos_id)]
+            except ValueError:
+                pass
+            codellama_decoded.append(self.codellama_tokenizer.decode(t))
+
+        return repairllama_decoded, codellama_decoded
