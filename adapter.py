@@ -297,7 +297,7 @@ class LLamaAdapter(nn.Module):
                 else:
                     print(repairllama_tokens[:, prev_pos:cur_pos])
                     repairllama_logits, codellama_logits = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_input_ids, prev_pos, adaptor=True)
-            print("Repairllama logits: ", repairllama_logits)
+            print("Repairllama logits: ", repairllama_logits, repairllama_logits.shape)
             if temperature > 0:
                 probs = torch.softmax(repairllama_logits / temperature, dim=-1)
                 next_repairllama_token = sample_top_p(probs, top_p)
