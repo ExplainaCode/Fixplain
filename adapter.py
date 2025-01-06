@@ -271,14 +271,20 @@ class LLamaAdapter(nn.Module):
             codellama_input_ids = [self.codellama_tokenizer.encode(x, bos=True, eos=False) for x in codellama_input_ids]
 
         min_repairllama_prompt_size = min([len(t) for t in repairllama_input_ids])
+        print("min_repairllama_prompt_size: ", min_repairllama_prompt_size)
         max_repairllama_prompt_size = max([len(t) for t in repairllama_input_ids])
+        print("max_repairllama_prompt_size: ", max_repairllama_prompt_size)
         min_codellama_prompt_size = min([len(t) for t in codellama_input_ids])
+        print("min,codellama_prompt_size: ", min_codellama_prompt_size)
         max_codellama_prompt_size = max([len(t) for t in codellama_input_ids])
+        print("max_codellama_prompt_size: ", max_codellama_prompt_size)
         # print( self.repairllama_tokenizer.pad_token_id, self.codellama_tokenizer.pad_id)
         total_repairllama_len = min(params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
+        print("total_repairllama_len: ", total_repairllama_len)
         repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_token_id).cuda().long()
 
-        total_codellama_len = min(params.max_seq_len, max_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text. 
+        total_codellama_len = min(params.max_seq_len, max_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text.
+        print("total_codellama_len: ", total_codellama_len) 
         codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long()
 
         for k, t in enumerate(repairllama_input_ids):
@@ -286,6 +292,7 @@ class LLamaAdapter(nn.Module):
 
         input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_token_id
         repairllama_start_pos = min_repairllama_prompt_size
+        print("repairllama_start_pos: ", repairllama_start_pos)
 
         for k, t in enumerate(codellama_input_ids):
             codellama_tokens[k, : len(t)] = torch.tensor(t).cuda().long() # cuda
@@ -293,11 +300,11 @@ class LLamaAdapter(nn.Module):
         input_codellama_text_mask = codellama_tokens != self.codellama_tokenizer.pad_id
         assert total_repairllama_len >= total_codellama_len
         codellama_start_pos = max(max_repairllama_prompt_size, total_repairllama_len-total_codellama_len)
+        print("codellama_start_pos: ",codellama_start_pos)
 
         prev_pos = 0
         for cur_pos in range(repairllama_start_pos, total_repairllama_len):
             with torch.cuda.amp.autocast():
-                print(cur_pos, codellama_start_pos, max_repairllama_prompt_size, max_codellama_prompt_size, total_repairllama_len,total_codellama_len)
                 if cur_pos < codellama_start_pos:
                     print(repairllama_tokens[:, prev_pos:cur_pos])
                     repairllama_logits, _ = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, prev_pos)
