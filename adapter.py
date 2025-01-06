@@ -272,14 +272,14 @@ class LLamaAdapter(nn.Module):
         max_codellama_prompt_size = max([len(t) for t in repairllama_input_ids])
 
         total_repairllama_len = min(params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
-        repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_id).cuda().long()
+        repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_token).cuda().long()
 
         total_codellama_len = min(params.max_seq_len, max_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text. 
         codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long()
 
         for k, t in enumerate(repairllama_input_ids):
             repairllama_tokens[k, : len(t)] = torch.tensor(t).cuda().long()
-        input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_id
+        input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_token
         repairllama_start_pos = min_repairllama_prompt_size
 
         for k, t in enumerate(codellama_input_ids):
