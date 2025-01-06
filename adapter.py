@@ -220,7 +220,7 @@ class LLamaAdapter(nn.Module):
         repairllama_h  = self.repairllama.model.model.norm(repairllama_h[0])
         # repairllama_h, *_  = self.repairllama.model.model.rotary_emb(repairllama_h, position_ids=repairllama_position_ids)
         # print("after rotary_emb", repairllama_h)
-        repairllama_output = self.repairllama.model.lm_head(repairllama_h) # remove this for get row logits
+        repairllama_output = self.repairllama.model.lm_head(repairllama_h)
 
         if adaptor:
             # Processing CodeLLama output
@@ -306,6 +306,7 @@ class LLamaAdapter(nn.Module):
             # print("Next_repairllama_token_before modification: ", next_repairllama_token)
             # print(next_repairllama_token.shape)
             next_repairllama_token = repairllama_output.reshape(-1)
+            print("repairllama_output: ", repairllama_output, repairllama_output.shape)
             print("next repairllama token1: ", next_repairllama_token)
 
             next_repairllama_token = torch.where(
