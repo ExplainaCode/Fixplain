@@ -270,7 +270,6 @@ class LLamaAdapter(nn.Module):
             # This has custom tokenizer encode in codellama directory
             codellama_input_ids = [self.codellama_tokenizer.encode(x, bos=True, eos=False) for x in codellama_input_ids]
 
-        assert len(t) <= repairllama_tokens.size(1), "Sequence length exceeds allocated size"
         min_repairllama_prompt_size = min([len(t) for t in repairllama_input_ids])
         max_repairllama_prompt_size = max([len(t) for t in repairllama_input_ids])
         min_codellama_prompt_size = min([len(t) for t in codellama_input_ids])
