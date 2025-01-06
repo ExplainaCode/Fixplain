@@ -217,19 +217,21 @@ class LLamaAdapter(nn.Module):
 
 
         # Processing RepairLLama output
-        repairllama_h  = self.repairllama.model.model.norm(repairllama_h[0])
+        # repairllama_h  = self.repairllama.model.model.norm(repairllama_h[0])   # remove this for get row logits
         # repairllama_h, *_  = self.repairllama.model.model.rotary_emb(repairllama_h, position_ids=repairllama_position_ids)
         # print("after rotary_emb", repairllama_h)
-        repairllama_output = self.repairllama.model.lm_head(repairllama_h)
+        # repairllama_output = self.repairllama.model.lm_head(repairllama_h) # remove this for get row logits
 
         if adaptor:
             # Processing CodeLLama output
-            codellama_h = self.codellama.norm(codellama_h)
-            codellama_output = self.codellama.output(codellama_h[:,-1, :])
+            # codellama_h = self.codellama.norm(codellama_h)
+            # codellama_output = self.codellama.output(codellama_h[:,-1, :])
+            pass
         else: 
-            codellama_output = None
+            # codellama_output = None
+            codellama_h = None
 
-        return repairllama_output.float(), codellama_output.float() if codellama_output is not None else None
+        return repairllama_h, codellama_h.float() if codellama_h is not None else None
     
     @torch.inference_mode() #To be completed
     def generate(self, repairllama_input_ids, codellama_input_ids=None,
