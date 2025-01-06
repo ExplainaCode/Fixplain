@@ -270,7 +270,7 @@ class LLamaAdapter(nn.Module):
         max_repairllama_prompt_size = max([len(t) for t in repairllama_input_ids])
         min_codellama_prompt_size = min([len(t) for t in codellama_input_ids])
         max_codellama_prompt_size = max([len(t) for t in repairllama_input_ids])
-
+        print( self.repairllama_tokenizer.pad_token, self.codellama_tokenizer.pad_id)
         total_repairllama_len = min(params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
         repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_token).cuda().long()
 
