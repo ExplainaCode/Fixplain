@@ -33,7 +33,8 @@ def main(args):
         outputs = llama_adapter.forward_inference(
             repairllama_input_ids=repairllama_input_ids,
             codellama_input_ids=codellama_input_ids,
-            start_pos=start_pos
+            start_pos=start_pos,
+            adaptor=True
         )
         print("Outputs:", outputs)
 

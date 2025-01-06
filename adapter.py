@@ -288,7 +288,7 @@ class LLamaAdapter(nn.Module):
         total_repairllama_len = min(params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
         print("total_repairllama_len: ", total_repairllama_len)
         repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_token_id).cuda().long()
-
+        print("repairllama_tokens: ", repairllama_tokens)
         total_codellama_len = min(params.max_seq_len, max_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text.
         print("total_codellama_len: ", total_codellama_len) 
         codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long()
