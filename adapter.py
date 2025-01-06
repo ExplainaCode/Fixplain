@@ -308,6 +308,9 @@ class LLamaAdapter(nn.Module):
             next_repairllama_token = torch.where(
                 input_repairllama_text_mask[:, cur_pos], repairllama_tokens[:, cur_pos], next_repairllama_token
             )
+            print("Repairllama_tokens: ", repairllama_tokens)
+            print("repairllama_tokens[:, cur_pos]: ", repairllama_tokens[:, cur_pos])
+            print("next_repairllama_token: ", next_repairllama_token)
             repairllama_tokens[:, cur_pos] = next_repairllama_token
             # trick: early stop if bsz==1
             # if bsz == 1 and next_repairllama_token[0] == self.repairllama_tokenizer.eos_id:
