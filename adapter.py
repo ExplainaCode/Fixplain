@@ -251,7 +251,8 @@ class LLamaAdapter(nn.Module):
             # create two dimentionsl tensor with (bsz, 1) dimention, where element is padding token id, as codellama_input_ids
             codellama_input_ids = torch.full(
                 (bsz, 1), 
-                fill_value=self.codellama_tokenizer.pad_id, 
+                # fill_value=self.codellama_tokenizer.pad_id, 
+                fill_value=0, #for testing
                 dtype=torch.long,
             )
         
@@ -290,7 +291,7 @@ class LLamaAdapter(nn.Module):
         repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_token_id).cuda().long()
         total_codellama_len = min(params.max_seq_len, max_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text.
         print("total_codellama_len: ", total_codellama_len) 
-        codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long()
+        codellama_tokens = torch.full((bsz, total_codellama_len), 0).cuda().long() # 0 used instead of self.codellama_tokenizer.pad_id for testing
         print("Pad token ids: ", self.codellama_tokenizer.pad_id, self.repairllama_tokenizer.pad_token_id)
         for k, t in enumerate(repairllama_input_ids):
             repairllama_tokens[k, : len(t)] = torch.tensor(t).cuda().long()
@@ -302,7 +303,7 @@ class LLamaAdapter(nn.Module):
         for k, t in enumerate(codellama_input_ids):
             codellama_tokens[k, : len(t)] = torch.tensor(t).cuda().long() # cuda
 
-        input_codellama_text_mask = codellama_tokens != self.codellama_tokenizer.pad_id
+        input_codellama_text_mask = codellama_tokens != 0 # o used instead of self.codellama_tokenizer.pad_id for testing
         assert total_repairllama_len >= total_codellama_len
         codellama_start_pos = max(max_repairllama_prompt_size, total_repairllama_len-total_codellama_len)
         print("codellama_start_pos: ",codellama_start_pos)
