@@ -200,12 +200,12 @@ class LLamaAdapter(nn.Module):
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
-        print("repairllama_input_ids shape:", repairllama_input_ids.shape)
-        print("repairllama_h shape:", repairllama_h.shape)
-        print("repairllama_position_ids shape:", repairllama_position_ids.shape)
-        print("repairllama_mask shape:", repairllama_mask.shape)
 
         for i in range(n_layers):
+            print("repairllama_input_ids shape:", repairllama_input_ids.shape)
+            print("repairllama_h shape:", repairllama_h.shape)
+            print("repairllama_position_ids shape:", repairllama_position_ids.shape)
+            print("repairllama_mask shape:", repairllama_mask.shape)
             # print("repairllama_h :",repairllama_h)
             repairllama_h, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h, repairllama_mask, repairllama_position_ids
