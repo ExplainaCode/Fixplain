@@ -297,6 +297,7 @@ class LLamaAdapter(nn.Module):
         prev_pos = 0
         for cur_pos in range(repairllama_start_pos, total_repairllama_len):
             with torch.cuda.amp.autocast():
+                print(cur_pos, codellama_start_pos)
                 if cur_pos < codellama_start_pos:
                     print(repairllama_tokens[:, prev_pos:cur_pos])
                     repairllama_logits, _ = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, prev_pos)
