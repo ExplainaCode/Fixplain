@@ -271,9 +271,10 @@ class LLamaAdapter(nn.Module):
         min_codellama_prompt_size = min([len(t) for t in codellama_input_ids])
         max_codellama_prompt_size = max([len(t) for t in codellama_input_ids])
 
+        max_codellama_gen_len = max_gen_len # max_codellama_gen_len should be taken from the parameters, for the testing it is equal to the max_gen_len (in repairllama)
         total_repairllama_len = min(params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
         repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_token_id).cuda().long()
-        total_codellama_len = min(params.max_seq_len, max_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text.
+        total_codellama_len = min(params.max_seq_len, max_codellama_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text.
         codellama_tokens = torch.full((bsz, total_codellama_len), 0).cuda().long() # 0 used instead of self.codellama_tokenizer.pad_id for testing
 
         for k, t in enumerate(repairllama_input_ids):
@@ -286,16 +287,18 @@ class LLamaAdapter(nn.Module):
             codellama_tokens[k, : len(t)] = torch.tensor(t).cuda().long() # cuda
 
         input_codellama_text_mask = codellama_tokens != 0 # o used instead of self.codellama_tokenizer.pad_id for testing
-        assert total_repairllama_len >= total_codellama_len
-        codellama_start_pos = max(max_repairllama_prompt_size, total_repairllama_len-total_codellama_len)
+        # assert total_repairllama_len >= total_codellama_len
+        codellama_start_pos = (total_repairllama_len - max_repairllama_prompt_size) - max_codellama_gen_len
+        if codellama_start_pos < 0: 
+            codellama_start_pos = repairllama_start_pos
 
         prev_pos = 0
         for cur_pos in range(repairllama_start_pos, total_repairllama_len):
             with torch.cuda.amp.autocast():
                 if cur_pos < codellama_start_pos:
-                    repairllama_output, _ = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, prev_pos)
+                    repairllama_output, _ = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, prev_pos, adaptor=False)
                 else:
-                    print(repairllama_tokens[:, prev_pos:cur_pos])
+                    # print(repairllama_tokens[:, prev_pos:cur_pos])
                     repairllama_output, codellama_logits = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_input_ids, prev_pos, adaptor=True)
             # print("Repairllama logits: ", repairllama_logits, repairllama_logits.shape)
             # if temperature > 0:
