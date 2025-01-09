@@ -172,7 +172,7 @@ class LLamaAdapter(nn.Module):
     
     @torch.inference_mode()
     def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int, repairllama_past_key_values=None, adaptor=False):
-        assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
+        # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
 
         repairllama_input_ids=repairllama_input_ids.to(device) #Decide whether this is the optimal position to move to the device #probably in training we can directly load to the device at once?
         if adaptor:
@@ -224,7 +224,7 @@ class LLamaAdapter(nn.Module):
         repairllama_h  = self.repairllama.model.model.norm(repairllama_h[0])
         # repairllama_h, *_  = self.repairllama.model.model.rotary_emb(repairllama_h, position_ids=repairllama_position_ids)
         # print("after rotary_emb", repairllama_h)
-        repairllama_output = self.repairllama.model.lm_head(repairllama_h)
+        repairllama_output = self.repairllama.model.lm_head(repairllama_h)[:, -1, :]
 
         if adaptor:
             # Processing CodeLLama output
@@ -282,13 +282,13 @@ class LLamaAdapter(nn.Module):
         codellama_tokens = torch.full((bsz, total_codellama_len), 0).cuda().long() # 0 used instead of self.codellama_tokenizer.pad_id for testing
 
         for k, t in enumerate(repairllama_input_ids):
-            repairllama_tokens[k, : len(t)] = torch.tensor(t).cuda().long()
+            repairllama_tokens[k, : len(t[0])] = torch.tensor(t).cuda().long()
 
         input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_token_id
         repairllama_start_pos = min_repairllama_prompt_size
 
         for k, t in enumerate(codellama_input_ids):
-            codellama_tokens[k, : len(t)] = torch.tensor(t).cuda().long() # cuda
+            codellama_tokens[k, : len(t[0])] = torch.tensor(t).cuda().long() # cuda
 
         input_codellama_text_mask = codellama_tokens != 0 # o used instead of self.codellama_tokenizer.pad_id for testing
         codellama_start_pos = min_codellama_prompt_size
@@ -316,7 +316,8 @@ class LLamaAdapter(nn.Module):
             #     next_repairllama_token = torch.argmax(repairllama_logits, dim=-1)
             # print("Next_repairllama_token_before modification: ", next_repairllama_token)
             # print(next_repairllama_token.shape)
-            next_repairllama_token = repairllama_output.reshape(-1)
+            # next_repairllama_token = repairllama_output.reshape(-1)
+            next_repairllama_token = torch.argmax(repairllama_output, dim=-1) # samplelling is not used naive approach, check this with repairllama huggingface implementation.
             print("repairllama_output: ", repairllama_output, repairllama_output.shape)
             print("next repairllama token1: ", next_repairllama_token)
 
