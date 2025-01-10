@@ -211,7 +211,7 @@ class LLamaAdapter(nn.Module):
         print("repairllama_h: ", repairllama_h.shape)
         print("repairllama_mask: ", repairllama_mask.shape)
         print("repairllama_position_ids: ", repairllama_position_ids)
-        print("repairllama_past_key_values: ", repairllama_past_key_values.__getlen__())
+        print("repairllama_past_key_values: ", repairllama_past_key_values.__len__())
 
         for i in range(n_layers):
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
