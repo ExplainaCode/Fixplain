@@ -101,9 +101,9 @@ class LLamaAdapter(nn.Module):
         Hook function to capture inputs of attention layers.
         """
         layer_id = module.layer_id
-        print(input)
-        self.attention_hooks_data[layer_id] = {
-            "input": tuple(inp.detach() for inp in input),
+        self.attention_hooks_data[layer_id] = { # {0:{"input": (x, DynamicCache)}}
+            # "input": tuple(inp.detach() for inp in input),
+            "input": tuple(input[0].detach()),
         }
     
     def forward(self, repairllama_input_ids, codellama_input_ids, 
