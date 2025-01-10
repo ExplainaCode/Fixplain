@@ -209,14 +209,12 @@ class LLamaAdapter(nn.Module):
 
         for i in range(n_layers):
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
-                                                repairllama_h, repairllama_mask, repairllama_position_ids, repairllama_past_key_values, use_cache=True
+                                                repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous(), repairllama_past_key_values.contiguous(), use_cache=True
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
             assert(self.attention_hooks_data.get(i)!=None)
             # print(self.attention_hooks_data)
             if adaptor:
                 dynamic_adaptor = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
-                print("dynamic_adaptor: ",dynamic_adaptor)
-                print("dynamic_adaptor shape: ", dynamic_adaptor.shape)
                 codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
 
         # print(self.attention_hooks_data)   
@@ -224,13 +222,10 @@ class LLamaAdapter(nn.Module):
 
 
         # Processing RepairLLama output
-        print("Repairllama_h_1 size: ", repairllama_h.shape)
         repairllama_h  = self.repairllama.model.model.norm(repairllama_h)
         # repairllama_h, *_  = self.repairllama.model.model.rotary_emb(repairllama_h, position_ids=repairllama_position_ids)
-        # print("after rotary_emb", repairllama_h)
-        print("Repairllama_h_2 size: ", repairllama_h.shape)
-        print("repairllama shape 3: ", repairllama_h[:, -1, :].shape)
-        repairllama_output = self.repairllama.model.lm_head(repairllama_h[:, -1, :])
+        # print("repairllama shape 3: ", repairllama_h[:, -1, :].shape)
+        repairllama_output = self.repairllama.model.lm_head(repairllama_h[:, -1, :])  # We assume that lm_lead accepts (batch_size, voc_size), not (batch_size, seq_len, voc_size) check this.
 
         if adaptor:
             # Processing CodeLLama output
