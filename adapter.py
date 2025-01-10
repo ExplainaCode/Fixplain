@@ -287,6 +287,7 @@ class LLamaAdapter(nn.Module):
         input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_token_id
         repairllama_start_pos = min_repairllama_prompt_size
 
+        print("codellama_input_ids: ", codellama_input_ids)
         for k, t in enumerate(codellama_input_ids):
             print(t)
             print(t[0])
