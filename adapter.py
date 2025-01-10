@@ -101,7 +101,7 @@ class LLamaAdapter(nn.Module):
         Hook function to capture inputs of attention layers.
         """
         layer_id = module.layer_id
-        self.attention_hooks_data[layer_id] = { # {0:{"input": (x, DynamicCache)}}
+        self.attention_hooks_data[layer_id] = { # {0:{"input": (x, )}}
             # "input": tuple(inp.detach() for inp in input),
             "input": tuple(input[0].detach()),
         }
@@ -214,8 +214,9 @@ class LLamaAdapter(nn.Module):
             assert(self.attention_hooks_data.get(i)!=None)
             # print(self.attention_hooks_data)
             if adaptor:
-                dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
-                print("dynamic_adaptor: ", dynamic_adaptor.shape)
+                dynamic_adaptor = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
+                print("dynamic_adaptor: ",dynamic_adaptor)
+                print("dynamic_adaptor shape: ", dynamic_adaptor.shape)
                 codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
 
         # print(self.attention_hooks_data)   
@@ -255,7 +256,6 @@ class LLamaAdapter(nn.Module):
                 torch.full((1, 1), fill_value=0, dtype=torch.long) #  torch.full((1, seq_len), fill_value=0, dtype=torch.long) 
                 for _ in range(bsz)
             ]
-            print("codellama_input_ids: ", codellama_input_ids)
         
         assert len(repairllama_input_ids)==len(codellama_input_ids) #batch sizes should be equal.
        
@@ -295,10 +295,7 @@ class LLamaAdapter(nn.Module):
         input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_token_id
         repairllama_start_pos = min_repairllama_prompt_size
 
-        print("codellama_input_ids: ", codellama_input_ids)
         for k, t in enumerate(codellama_input_ids):
-            print(t)
-            print(t[0])
             codellama_tokens[k, : len(t[0])] = torch.tensor(t).cuda().long() # cuda
 
         input_codellama_text_mask = codellama_tokens != 0 # o used instead of self.codellama_tokenizer.pad_id for testing
