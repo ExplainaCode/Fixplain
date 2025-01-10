@@ -207,11 +207,11 @@ class LLamaAdapter(nn.Module):
             from transformers.cache_utils import DynamicCache
             repairllama_past_key_values = DynamicCache()
 
-        print("________________________________________")
-        print("repairllama_h: ", repairllama_h.shape)
-        print("repairllama_mask: ", repairllama_mask.shape)
-        print("repairllama_position_ids: ", repairllama_position_ids)
-        print("repairllama_past_key_values: ", repairllama_past_key_values.__len__())
+        # print("________________________________________")
+        # print("repairllama_h: ", repairllama_h.shape)
+        # print("repairllama_mask: ", repairllama_mask.shape)
+        # print("repairllama_position_ids: ", repairllama_position_ids)
+        # print("repairllama_past_key_values: ", repairllama_past_key_values.__len__())
 
         repairllama_past_key_values_len = repairllama_past_key_values.__len__()
         for i in range(n_layers):
