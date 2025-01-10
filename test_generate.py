@@ -24,7 +24,7 @@ def main(args):
     with torch.no_grad():
         print("Running generate...")
         repairllama_outputs, codellama_outputs = llama_adapter.generate(
-            repairllama_input_ids=repairllama_input_ids, codellama_input_ids=codellama_input_ids
+            repairllama_input_ids=[repairllama_input_ids], codellama_input_ids=codellama_input_ids
         )
         print("Repairllama: \n", repairllama_outputs)
         print("Codellama: \n", codellama_outputs)
