@@ -214,12 +214,13 @@ class LLamaAdapter(nn.Module):
         print("repairllama_past_key_values: ", repairllama_past_key_values.__len__())
 
         for i in range(n_layers):
+            past_key_values = repairllama_past_key_values.get(i, None)
+            if past_key_values:
+                past_key_values = tuple(pkv.contiguous() for pkv in past_key_values)
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
-                                                repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous(), repairllama_past_key_values, use_cache=True
+                                                repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous(), past_key_values, use_cache=True
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
             assert(self.attention_hooks_data.get(i)!=None)
-            if i==0:
-                print("__________________________1111111")
             # print(self.attention_hooks_data)
             if adaptor:
                 dynamic_adaptor = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
