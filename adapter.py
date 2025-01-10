@@ -244,13 +244,18 @@ class LLamaAdapter(nn.Module):
         bsz = len(repairllama_input_ids)
         if codellama_input_ids==None:
             # create two dimentionsl tensor with (bsz, 1) dimention, where element is padding token id, as codellama_input_ids
-            codellama_input_ids = torch.full( # this should change 
-                (bsz, 1), 
-                # fill_value=self.codellama_tokenizer.pad_id, 
-                fill_value=0, #for testing
-                dtype=torch.long,
-            )
-            codellama_input_ids = [codellama_input_ids]
+            # codellama_input_ids = torch.full( 
+            #     (bsz, 1), 
+            #     # fill_value=self.codellama_tokenizer.pad_id, 
+            #     fill_value=0, #for testing
+            #     dtype=torch.long,
+            # )
+            # codellama_input_ids = [codellama_input_ids]
+            codellama_input_ids = [
+                torch.full((1, 1), fill_value=0, dtype=torch.long) #  torch.full((1, seq_len), fill_value=0, dtype=torch.long) 
+                for _ in range(bsz)
+            ]
+            print("codellama_input_ids: ", codellama_input_ids)
         
         assert len(repairllama_input_ids)==len(codellama_input_ids) #batch sizes should be equal.
        
