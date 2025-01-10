@@ -103,7 +103,7 @@ class LLamaAdapter(nn.Module):
         layer_id = module.layer_id
         self.attention_hooks_data[layer_id] = { # {0:{"input": (x, )}}
             # "input": tuple(inp.detach() for inp in input),
-            "input": input[0].detach(),
+            "input": tuple(input[0].detach()),
         }
     
     def forward(self, repairllama_input_ids, codellama_input_ids, 
