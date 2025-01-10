@@ -218,6 +218,8 @@ class LLamaAdapter(nn.Module):
                                                 repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous(), repairllama_past_key_values, use_cache=True
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
             assert(self.attention_hooks_data.get(i)!=None)
+            if i==0:
+                print("__________________________1111111")
             # print(self.attention_hooks_data)
             if adaptor:
                 dynamic_adaptor = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
