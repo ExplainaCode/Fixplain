@@ -207,6 +207,12 @@ class LLamaAdapter(nn.Module):
             from transformers.cache_utils import DynamicCache
             repairllama_past_key_values = DynamicCache()
 
+        print("________________________________________")
+        print("repairllama_h: ", repairllama_h.shape)
+        print("repairllama_mask: ", repairllama_mask.shape)
+        print("repairllama_position_ids: ", repairllama_position_ids)
+        print("repairllama_past_key_values: ", repairllama_past_key_values.__getlen__())
+
         for i in range(n_layers):
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous(), repairllama_past_key_values, use_cache=True
@@ -330,7 +336,7 @@ class LLamaAdapter(nn.Module):
             next_repairllama_token = torch.where(
                 input_repairllama_text_mask[:, cur_pos], repairllama_tokens[:, cur_pos], next_repairllama_token
             )
-            print("Repairllama_tokens: ", repairllama_tokens)
+            # print("Repairllama_tokens: ", repairllama_tokens)
             print("repairllama_tokens[:, cur_pos]: ", repairllama_tokens[:, cur_pos])
             print("next_repairllama_token: ", next_repairllama_token)
             repairllama_tokens[:, cur_pos] = next_repairllama_token
