@@ -282,6 +282,8 @@ class LLamaAdapter(nn.Module):
         codellama_tokens = torch.full((bsz, total_codellama_len), 0).cuda().long() # 0 used instead of self.codellama_tokenizer.pad_id for testing
 
         for k, t in enumerate(repairllama_input_ids):
+            print(t)
+            print(t[0])
             repairllama_tokens[k, : len(t[0])] = torch.tensor(t).cuda().long()
 
         input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_token_id
