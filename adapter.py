@@ -229,7 +229,7 @@ class LLamaAdapter(nn.Module):
         # repairllama_h, *_  = self.repairllama.model.model.rotary_emb(repairllama_h, position_ids=repairllama_position_ids)
         # print("after rotary_emb", repairllama_h)
         print("Repairllama_h_2 size: ", repairllama_h.shape)
-        print("repairllama shape 3: ", repairllama_h[:, -1, :])
+        print("repairllama shape 3: ", repairllama_h[:, -1, :].shape)
         repairllama_output = self.repairllama.model.lm_head(repairllama_h[:, -1, :])
 
         if adaptor:
