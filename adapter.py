@@ -215,7 +215,7 @@ class LLamaAdapter(nn.Module):
 
         repairllama_past_key_values_len = repairllama_past_key_values.__len__()
         for i in range(n_layers):
-            if i <= repairllama_past_key_values_len:
+            if i < repairllama_past_key_values_len:
                 past_key_values = repairllama_past_key_values.__getitem__(i)
             else:
                 past_key_values = None
