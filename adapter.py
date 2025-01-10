@@ -215,6 +215,7 @@ class LLamaAdapter(nn.Module):
             # print(self.attention_hooks_data)
             if adaptor:
                 dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
+                print("dynamic_adaptor: ", dynamic_adaptor.shape)
                 codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
 
         # print(self.attention_hooks_data)   
