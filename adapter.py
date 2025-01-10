@@ -209,7 +209,7 @@ class LLamaAdapter(nn.Module):
 
         for i in range(n_layers):
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
-                                                repairllama_h, repairllama_mask, repairllama_position_ids, repairllama_past_key_values
+                                                repairllama_h, repairllama_mask, repairllama_position_ids, repairllama_past_key_values, use_cache=True
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
             assert(self.attention_hooks_data.get(i)!=None)
             # print(self.attention_hooks_data)
