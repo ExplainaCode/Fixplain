@@ -103,7 +103,7 @@ class LLamaAdapter(nn.Module):
         layer_id = module.layer_id
         self.attention_hooks_data[layer_id] = { # {0:{"input": (x, )}}
             # "input": tuple(inp.detach() for inp in input),
-            "input": tuple(input[0].detach()),
+            "input": input[0].detach(),
         }
     
     def forward(self, repairllama_input_ids, codellama_input_ids, 
@@ -215,8 +215,8 @@ class LLamaAdapter(nn.Module):
             # print(self.attention_hooks_data)
             if adaptor:
                 dynamic_adaptor = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
-                # print("dynamic_adaptor: ",dynamic_adaptor)
-                # print("dynamic_adaptor shape: ", dynamic_adaptor.shape)
+                print("dynamic_adaptor: ",dynamic_adaptor)
+                print("dynamic_adaptor shape: ", dynamic_adaptor.shape)
                 codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
 
         # print(self.attention_hooks_data)   
