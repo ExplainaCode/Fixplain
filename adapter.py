@@ -213,8 +213,12 @@ class LLamaAdapter(nn.Module):
         print("repairllama_position_ids: ", repairllama_position_ids)
         print("repairllama_past_key_values: ", repairllama_past_key_values.__len__())
 
+        repairllama_past_key_values_len = repairllama_past_key_values.__len__()
         for i in range(n_layers):
-            past_key_values = repairllama_past_key_values.__getitem__(i, None)
+            if i <= repairllama_past_key_values_len:
+                past_key_values = repairllama_past_key_values.__getitem__(i)
+            else:
+                past_key_values = None
             if past_key_values:
                 past_key_values = tuple(pkv.contiguous() for pkv in past_key_values)
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
