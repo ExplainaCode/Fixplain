@@ -17,8 +17,8 @@ def main(args):
         max_batch_size=args.max_batch_size,
     )
     
-    repairllama_input_ids1 = torch.load(f"{args.repairllama_input_pth}1")
-    repairllama_input_ids2 = torch.load(f"{args.repairllama_input_pth}2")
+    repairllama_input_ids1 = torch.load(f"{args.repairllama_input_pth}1.pt")
+    repairllama_input_ids2 = torch.load(f"{args.repairllama_input_pth}2.pt")
     codellama_input_ids = torch.load(args.codellama_input_pth) if args.codellama_input_pth is not None else None
     
     # Run forward_inference
