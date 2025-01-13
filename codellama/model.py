@@ -43,7 +43,9 @@ class ModelArgs:
 
     w_new_gate: bool = False
 
-
+    w_lora: bool = False
+    lora_rank: int = 16
+    
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):
         super().__init__()
@@ -182,6 +184,24 @@ class Attention(nn.Module):
         #         self.head_dim,
         #     )
         # ).to(device)
+        self.w_lora = args.w_lora
+        if args.w_lora:
+           self.lora_wq_l1 = Linear(args.dim, args.lora_rank, bias=False)
+           self.lora_wq_l2 = Linear(args.lora_rank, args.dim, bias=False)
+
+           self.lora_wk_l1 = Linear(args.dim, args.lora_rank, bias=False)
+           self.lora_wk_l2 = Linear(args.lora_rank, args.dim, bias=False)
+
+           self.lora_wv_l1 = Linear(args.dim, args.lora_rank, bias=False)
+           self.lora_wv_l2 = Linear(args.lora_rank, args.dim, bias=False)
+
+           self.lora_wo_l1 = Linear(args.dim, args.lora_rank, bias=False)
+           self.lora_wo_l2 = Linear(args.lora_rank, args.dim, bias=False)
+           nn.init.constant_(self.lora_wq_l2.weight.data, 0)
+           nn.init.constant_(self.lora_wk_l2.weight.data, 0)
+           nn.init.constant_(self.lora_wv_l2.weight.data, 0)
+           nn.init.constant_(self.lora_wo_l2.weight.data, 0)
+
         self.cache_k = torch.zeros(
             (self.args.max_batch_size, self.args.max_seq_len, self.n_local_heads, self.head_dim)
         ).to(device)
@@ -234,6 +254,10 @@ class Attention(nn.Module):
         # xq = xq.view(bsz, seqlen, self.n_local_heads, self.head_dim)
         # xk = xk.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
         # xv = xv.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
+        if self.w_lora:
+            xq = xq + self.lora_wq_l2(self.lora_wq_l1(x))
+            xk = xk + self.lora_wk_l2(self.lora_wk_l1(x))
+            xv = xv + self.lora_wv_l2(self.lora_wv_l1(x))
         
         xq = xq.view(bsz, seqlen, self.n_local_heads, self.head_dim)
         xk = xk.view(bsz, seqlen, self.n_local_heads, self.head_dim)
@@ -283,7 +307,11 @@ class Attention(nn.Module):
                 output = output + self.gate.tanh() * adapter_v
                 
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
-        return self.wo(output)
+
+        if self.w_lora:
+           return self.wo(output) + self.lora_wo_l2(self.lora_wo_l1(output))
+        else:
+            return self.wo(output)
 
 
 class FeedForward(nn.Module):
@@ -292,6 +320,7 @@ class FeedForward(nn.Module):
         dim: int,
         hidden_dim: int,
         multiple_of: int,
+        args: ModelArgs,
         ffn_dim_multiplier: Optional[float],
     ):
         super().__init__()
@@ -320,8 +349,24 @@ class FeedForward(nn.Module):
             dim, hidden_dim, bias=False
         )
 
+        self.w_lora = args.w_lora
+        if args.w_lora:
+           self.lora_w1_l1 = Linear(dim, args.lora_rank, bias=False)
+           self.lora_w1_l2 = Linear(args.lora_rank, hidden_dim, bias=False)
+           self.lora_w2_l1 = Linear(hidden_dim, args.lora_rank, bias=False)
+           self.lora_w2_l2 = Linear(args.lora_rank, dim, bias=False)
+           self.lora_w3_l1 = Linear(dim, args.lora_rank, bias=False)
+           self.lora_w3_l2 = Linear(args.lora_rank, hidden_dim, bias=False)
+           nn.init.constant_(self.lora_w1_l2.weight.data, 0)
+           nn.init.constant_(self.lora_w2_l2.weight.data, 0)
+           nn.init.constant_(self.lora_w3_l2.weight.data, 0)
+
     def forward(self, x):
-        return self.w2(F.silu(self.w1(x)) * self.w3(x))
+        if self.w_lora:
+           out = F.silu(self.w1(x) + self.lora_w1_l2(self.lora_w1_l1(x))) * (self.w3(x) + self.lora_w3_l2(self.lora_w3_l1(x)))
+           return self.w2(out) + self.lora_w2_l2(self.lora_w2_l1(out))
+        else:
+           return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
 
 class TransformerBlock(nn.Module):
@@ -335,6 +380,7 @@ class TransformerBlock(nn.Module):
             dim=args.dim,
             hidden_dim=4 * args.dim,
             multiple_of=args.multiple_of,
+            args=args,
             ffn_dim_multiplier=args.ffn_dim_multiplier,
         )
         self.layer_id = layer_id

@@ -39,6 +39,7 @@ class LLamaAdapter(nn.Module):
         self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
             repairllama_model_dir, repairllama_lora_dir,
             register_Attention_hooks=True)
+        self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
 
     def _load_codellama(self, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer):
         with open(os.path.join(codellama_ckpt_dir, "params.json"), 'r') as f:
@@ -108,13 +109,13 @@ class LLamaAdapter(nn.Module):
     
     def forward(self, repairllama_input_ids, codellama_input_ids, 
                 repairllama_labels, codellama_labels):
-        assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
+        # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
         repairllama_input_ids=repairllama_input_ids.to(device)
         codellama_input_ids=codellama_input_ids.to(device)
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
-        repairllama_h = self.repairllama.tok_embeddings(repairllama_input_ids) # assuming toke_embedding is in reapirllama
+        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
         # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
@@ -134,49 +135,60 @@ class LLamaAdapter(nn.Module):
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
 
-        for i in range(n_layers):
-            repairllama_h = self.repairllama.model.model.layers[i](hidden_states=repairllama_h, 
-                                                       attention_mask=repairllama_mask, 
-                                                       position_ids=repairllama_position_ids)
-            assert(self.attention_hooks_data.get(i)!=None)
-            dynamic_adaptor = self.attention_hooks_data[i].get('input')[0] # Hooked input to the respective repairllama layer
-            codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adaptor)
+        if repairllama_past_key_values is None:
+            from transformers.cache_utils import DynamicCache
+            repairllama_past_key_values = DynamicCache()
 
+        repairllama_past_key_values_len = repairllama_past_key_values.__len__()
+        for i in range(n_layers):
+            if i < repairllama_past_key_values_len:
+                past_key_values = repairllama_past_key_values.__getitem__(i)
+            else:
+                past_key_values = None
+            if past_key_values:
+                past_key_values = tuple(pkv.contiguous() for pkv in past_key_values)
+            repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
+                                                repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous(), past_key_values, use_cache=True
+                                            )  # Do not pass as keyword arguments since hooks don't capture inputs.   
+            assert(self.attention_hooks_data.get(i)!=None)
+            dynamic_adapter = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
+            codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
         self.attention_hooks_data={} # Resetting can also be done in the above loop. 
 
 
         # Processing RepairLLama output
-        repairllama_h = self.repairllama.norm(repairllama_h)
-        repairllama_output = self.repairllama.output(repairllama_h)
-        repairllama_output = repairllama_output[:, :-1, :]
-        repairllama_labels = repairllama_labels[:, 1:]
+        repairllama_h = self.repairllama.model.model.norm(repairllama_h)
+        repairllama_output = self.repairllama.model.lm_head(repairllama_h[:, -1, :]) # Why do een need this line?
+        # repairllama_output = repairllama_output[:, :-1, :]
+        # repairllama_labels = repairllama_labels[:, 1:]
 
-        if repairllama_labels.sum() == 0:
-            reapirllama_c_loss = repairllama_output.mean() * 0
-        else:
-            assert self.repairllama.vocab_size == 32000
-            reapirllama_c_loss = self.criterion(repairllama_output.reshape(-1, self.repairllama.vocab_size), repairllama_labels.flatten())
+        # if repairllama_labels.sum() == 0:
+        #     reapirllama_c_loss = repairllama_output.mean() * 0
+        # else:
+        #     assert self.repairllama.vocab_size == 32000
+        #     reapirllama_c_loss = self.criterion(repairllama_output.reshape(-1, self.repairllama.vocab_size), repairllama_labels.flatten())
 
         # Processing CodeLLama output
+
         codellama_h = self.codellama.norm(codellama_h)
         codellama_output = self.codellama.output(codellama_h)
         codellama_output = codellama_output[:, :-1, :]
         codellama_labels = codellama_labels[:, 1:]
 
-        if codellama_labels.sum() ==0 :
+        if codellama_labels.sum()==0 :
             codellama_c_loss = codellama_output.mean() * 0
         else:
-            assert self.codellama.vocab_size == 3200
+            assert self.codellama.vocab_size == 32000
             codellama_c_loss = self.criterian(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
 
-        return reapirllama_c_loss, codellama_c_loss
+        return codellama_c_loss
     
     @torch.inference_mode()
-    def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int, repairllama_past_key_values=None, adaptor=False):
+    def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int, repairllama_past_key_values=None, adapter=False):
         # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
 
         repairllama_input_ids=repairllama_input_ids.to(device) #Decide whether this is the optimal position to move to the device #probably in training we can directly load to the device at once?
-        if adaptor:
+        if adapter:
             codellama_input_ids=codellama_input_ids.to(device)
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
@@ -188,9 +200,9 @@ class LLamaAdapter(nn.Module):
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
-        repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
+        repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h) #this should change.
 
-        if adaptor:
+        if adapter:
             # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
             _bsz, codellama_seqlen = codellama_input_ids.shape
             codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
@@ -198,7 +210,7 @@ class LLamaAdapter(nn.Module):
             codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
             codellama_mask = None
             codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
-            codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
+            codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h) #This should change
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
@@ -226,9 +238,9 @@ class LLamaAdapter(nn.Module):
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
             assert(self.attention_hooks_data.get(i)!=None)
             # print(self.attention_hooks_data)
-            if adaptor:
-                dynamic_adaptor = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
-                codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adaptor)
+            if adapter:
+                dynamic_adapter = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
+                codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adapter)
 
         # print(self.attention_hooks_data)   
         self.attention_hooks_data={} # Resetting can also be done in the above loop. 
@@ -240,7 +252,7 @@ class LLamaAdapter(nn.Module):
         # print("repairllama shape 3: ", repairllama_h[:, -1, :].shape)
         repairllama_output = self.repairllama.model.lm_head(repairllama_h[:, -1, :])  # We assume that lm_lead accepts (batch_size, voc_size), not (batch_size, seq_len, voc_size) check this.
 
-        if adaptor:
+        if adapter:
             # Processing CodeLLama output
             codellama_h = self.codellama.norm(codellama_h)
             codellama_output = self.codellama.output(codellama_h[:,-1, :])
@@ -323,10 +335,10 @@ class LLamaAdapter(nn.Module):
         for cur_pos in range(repairllama_start_pos, total_repairllama_len):
             with torch.cuda.amp.autocast():
                 if cur_pos - repairllama_start_pos < codellama_iter_start_pos:
-                    repairllama_output, _ , next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, codellama_pre_pos,repairllama_past_key_values=next_repairllama_cache, adaptor=False)
+                    repairllama_output, _ , next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, codellama_pre_pos,repairllama_past_key_values=next_repairllama_cache, adapter=False)
                 else:
                     # print(repairllama_tokens[:, prev_pos:cur_pos])
-                    repairllama_output, codellama_logits, next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_tokens[:, codellama_pre_pos:codellama_cur_pos], codellama_pre_pos, repairllama_past_key_values=next_repairllama_cache, adaptor=True)
+                    repairllama_output, codellama_logits, next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_tokens[:, codellama_pre_pos:codellama_cur_pos], codellama_pre_pos, repairllama_past_key_values=next_repairllama_cache, adapter=True)
             # print("Repairllama logits: ", repairllama_logits, repairllama_logits.shape)
             # if temperature > 0:
             #     probs = torch.softmax(repairllama_logits / temperature, dim=-1)
