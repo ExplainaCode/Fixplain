@@ -267,7 +267,7 @@ class LLamaAdapter(nn.Module):
             print(repairllama_position_ids)
 
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
-                                                repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous()
+                                                repairllama_h, repairllama_mask, repairllama_position_ids
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
             assert(self.attention_hooks_data.get(i)!=None)
             # print(self.attention_hooks_data)
