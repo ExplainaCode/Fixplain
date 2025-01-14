@@ -23,7 +23,7 @@ class LLamaAdapter(nn.Module):
     def __init__(self,
                  codellama_ckpt_dir, codellama_tokenizer,
                  repairllama_lora_dir='./repairllama-lora', repairllama_model_dir="codellama/CodeLlama-7b-hf",
-                 max_seq_len=512, max_batch_size=16,
+                 max_seq_len=512, max_batch_size=2,
                  w_bias=False, 
                  w_lora=False, lora_rank=16, 
                  w_new_gate=False,

@@ -174,7 +174,7 @@ def main(args):
 
     # define the model
     model = LLamaAdapter(args.codellama_ckpt_dir, args.codellama_tokenizer_ckpt_dir,
-                         args.repairllama_lora_dir, args.repairllama_ckpt_dir)
+                         args.repairllama_lora_dir, args.repairllama_ckpt_dir, phase="finetune")
 
     model.to(device)
 
