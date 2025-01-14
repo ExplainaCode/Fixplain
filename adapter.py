@@ -234,7 +234,7 @@ class LLamaAdapter(nn.Module):
             codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
             codellama_mask = None
             codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
-            codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h) #This should change
+            codellama_mask = torch.triu(codellama_maskshape, diagonal=0 + 1).type_as(repairllama_h) #This should change
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
@@ -261,9 +261,9 @@ class LLamaAdapter(nn.Module):
             # print(repairllama_mask)
             # print(repairllama_position_ids)
 
-            # print(f"repairllama_h.shape: {repairllama_h.shape}, dtype: {repairllama_h.dtype}")
-            # print(f"repairllama_mask.shape: {repairllama_mask.shape}, dtype: {repairllama_mask.dtype}")
-            # print(f"repairllama_position_ids.shape: {repairllama_position_ids.shape}, dtype: {repairllama_position_ids.dtype}")
+            print(f"repairllama_h.shape: {repairllama_h.shape}, dtype: {repairllama_h.dtype}")
+            print(f"repairllama_mask.shape: {repairllama_mask.shape}, dtype: {repairllama_mask.dtype}")
+            print(f"repairllama_position_ids.shape: {repairllama_position_ids.shape}, dtype: {repairllama_position_ids.dtype}")
 
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous(), past_key_values, True
