@@ -120,7 +120,7 @@ class LLamaAdapter(nn.Module):
                 if name.startswith("llama"):
                     if "lora" in name:
                         para.data = para.data.float()
-                        para.requires_grad = True
+                        # para.requires_grad = True
                 print(name, para.requires_grad)    #debugging
         
         elif phase == 'inference':
