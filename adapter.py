@@ -113,7 +113,9 @@ class LLamaAdapter(nn.Module):
 
     def set_trainale_params(self, phase='inference'):
         for name, para in self.named_parameters():
-            para.required_grad = False
+            print(f"Before: {name}, requires_grad={para.requires_grad}")
+            para.requires_grad = False
+            print(f"After: {name}, requires_grad={para.requires_grad}")
 
         if phase == 'finetune':
             for name, para in self.named_parameters():
@@ -121,7 +123,7 @@ class LLamaAdapter(nn.Module):
                     if "lora" in name:
                         para.data = para.data.float()
                         # para.requires_grad = True
-                print(name, para.requires_grad)    #debugging
+                # print(name, para.requires_grad)    #debugging
         
         elif phase == 'inference':
             pass
