@@ -23,7 +23,7 @@ class LLamaAdapter(nn.Module):
     def __init__(self,
                  codellama_ckpt_dir, codellama_tokenizer,
                  repairllama_lora_dir='./repairllama-lora', repairllama_model_dir="codellama/CodeLlama-7b-hf",
-                 max_seq_len=512, max_batch_size=1,
+                 max_seq_len=512, max_batch_size=16,
                  w_bias=False, 
                  w_lora=False, lora_rank=16, 
                  w_new_gate=False,
@@ -159,20 +159,20 @@ class LLamaAdapter(nn.Module):
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
 
-        if repairllama_past_key_values is None:
-            from transformers.cache_utils import DynamicCache
-            repairllama_past_key_values = DynamicCache()
+        # if repairllama_past_key_values is None:
+        #     from transformers.cache_utils import DynamicCache
+        #     repairllama_past_key_values = DynamicCache()
 
-        repairllama_past_key_values_len = repairllama_past_key_values.__len__()
+        # repairllama_past_key_values_len = repairllama_past_key_values.__len__()
         for i in range(n_layers):
-            if i < repairllama_past_key_values_len:
-                past_key_values = repairllama_past_key_values.__getitem__(i)
-            else:
-                past_key_values = None
-            if past_key_values:
-                past_key_values = tuple(pkv.contiguous() for pkv in past_key_values)
-            repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
-                                                repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous(), past_key_values, use_cache=True
+            # if i < repairllama_past_key_values_len:
+            #     past_key_values = repairllama_past_key_values.__getitem__(i)
+            # else:
+            #     past_key_values = None
+            # if past_key_values:
+            #     past_key_values = tuple(pkv.contiguous() for pkv in past_key_values)
+            repairllama_h, *_ = self.repairllama.model.model.layers[i](
+                                                repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous()
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.   
             assert(self.attention_hooks_data.get(i)!=None)
             dynamic_adapter = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
@@ -205,7 +205,7 @@ class LLamaAdapter(nn.Module):
             assert self.codellama.vocab_size == self.codellama_tokenizer.n_words #Do we need this line?, in load codellama this is set
             codellama_c_loss = self.criterian(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
 
-        return codellama_c_loss, next_repairllama_cache
+        return codellama_c_loss
     
     @torch.inference_mode()
     def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int, repairllama_past_key_values=None, adapter=False):

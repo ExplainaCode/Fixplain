@@ -8,7 +8,7 @@ import utils.lr_sched as lr_sched
 from utils.misc import NativeScalerWithGradNormCount as NativeScaler
 from adapter import LLamaAdapter
 
-from utils.dataset import FinetuneDataset, transform_train
+from utils.dataset import FinetuneDataset, DatasetArgs
 
 import argparse
 import datetime
@@ -41,7 +41,6 @@ def train_one_epoch(model: LLamaAdapter,
     if log_writer is not None:
         print('log_dir: {}'.format(log_writer.log_dir))
 
-    next_repairllama_cache=None
     for data_iter_step, (
             reapirllama_examples, repairllama_labels, codellama_examples, codellama_labels) in enumerate(
                 metric_logger.log_every(data_loader, print_freq, header)
@@ -51,10 +50,9 @@ def train_one_epoch(model: LLamaAdapter,
             lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
 
         with torch.cuda.amp.autocast():
-             codellama_loss, next_repairllama_cache = model(reapirllama_examples, codellama_examples,
+            codellama_loss = model.forward(reapirllama_examples, codellama_examples,
                                                               repairllama_labels=repairllama_labels,
-                                                              codellama_labels=codellama_labels,
-                                                              next_repairllama_cache=next_repairllama_cache)
+                                                              codellama_labels=codellama_labels,)
         codellama_loss_value = codellama_loss.item()
         if not math.isfinite(codellama_loss_value):
             print("Loss is {}, stopping training".format(codellama_loss_value))
@@ -92,7 +90,7 @@ def train_one_epoch(model: LLamaAdapter,
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('llama_adapterV2 pre-training', add_help=False)
+    parser = argparse.ArgumentParser('llama_adapter pre-training', add_help=False)
     parser.add_argument('--batch_size', default=64, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     parser.add_argument('--epochs', default=400, type=int)
@@ -100,10 +98,14 @@ def get_args_parser():
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
 
     # Model parameters
-    parser.add_argument('--llama_type', default='7B', type=str,
-                        help='Type of LLaMA model') #
-    parser.add_argument('--llama_path', default='/path/to/llama', type=str,
-                        help='path to LLaMA pretrained checkpoint')
+    parser.add_argument('--codellama_ckpt_dir', default='/path/to/codellama', type=str,
+                        help='path to CodeLLaMA pretrained checkpoint')
+    parser.add_argument('--codellama_tokenizer_ckpt_dir', default='/path/to/codellama_tokenizer', type=str,
+                        help='path to CodeLLaMA Tokenizer pretrained checkpoint')
+    parser.add_argument('--repairllama_lora_dir', default='/path/to/repairllama_lora', type=str,
+                        help='path to RepairLLaMA-Lora pretrained checkpoint')
+    parser.add_argument('--repairllama_ckpt_dir', default='/path/to/repairllama', type=str,
+                        help='path to RepairLLaMA pretrained checkpoint')
     parser.add_argument('--pretrained_path', default='/path/to/pretrained', type=str,
                         help='path to checkpoint from pretrain stage')
     parser.add_argument('--max_words', default=512, type=int,
@@ -171,10 +173,8 @@ def main(args):
     cudnn.benchmark = True
 
     # define the model
-    llama_type = args.llama_type
-    llama_ckpt_dir = os.path.join(args.llama_path, llama_type)
-    llama_tokenzier_path = os.path.join(args.llama_path, 'tokenizer.model')
-    model = LLaMA_adapter(llama_ckpt_dir, llama_tokenzier_path)
+    model = LLamaAdapter(args.codellama_ckpt_dir, args.codellama_tokenizer_ckpt_dir,
+                         args.repairllama_lora_dir, args.repairllama_ckpt_dir)
 
     model.to(device)
 
@@ -194,7 +194,7 @@ def main(args):
     if args.lr is None:  # only base_lr is specified
         args.lr = args.blr * eff_batch_size / 256
 
-    print("base lr: %.2e" % (args.lr * 256 / eff_batch_size))
+    print("base lrdevice: %.2e" % (args.lr * 256 / eff_batch_size))
     print("actual lr: %.2e" % args.lr)
 
     print("accumulate grad iterations: %d" % args.accum_iter)
@@ -206,11 +206,10 @@ def main(args):
     print(optimizer)
     loss_scaler = NativeScaler()
 
-    misc.load_model(model_without_ddp, args.pretrained_path)
+    # misc.load_model(model_without_ddp, args.pretrained_path)
 
-
-    dataset_train = FinetuneDataset(args.data_config, transform=transform_train,
-                                max_words=args.max_words, tokenizer_path=llama_tokenzier_path)
+    dataset_args = DatasetArgs()
+    dataset_train = FinetuneDataset(args.codellama_model_path, args.repairllama_model_dir, dataset_args)
     print(dataset_train)
     num_tasks = misc.get_world_size()
     global_rank = misc.get_rank()
