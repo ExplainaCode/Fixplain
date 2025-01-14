@@ -210,7 +210,6 @@ class LLamaAdapter(nn.Module):
     @torch.inference_mode()
     def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int, repairllama_past_key_values=None, adapter=False):
         # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
-        print(repairllama_input_ids)
 
         repairllama_input_ids=repairllama_input_ids.to(device) #Decide whether this is the optimal position to move to the device #probably in training we can directly load to the device at once?
         if adapter:
@@ -312,7 +311,7 @@ class LLamaAdapter(nn.Module):
                 torch.full((1, 1), fill_value=0, dtype=torch.long) #  torch.full((1, seq_len), fill_value=0, dtype=torch.long) 
                 for _ in range(bsz)
             ]
-        
+        print(repairllama_input_ids)
         assert len(repairllama_input_ids)==len(codellama_input_ids) #batch sizes should be equal.
        
        # is this need to be checked. because batch sizes of both inputs are equal and both use same model. hece comment down and 
