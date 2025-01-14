@@ -218,6 +218,7 @@ class LLamaAdapter(nn.Module):
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) # apass through embedding layer
+        print(repairllama_h.shape)
 
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
         # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
@@ -336,8 +337,6 @@ class LLamaAdapter(nn.Module):
         max_repairllama_prompt_size = max([len(t[0]) for t in repairllama_input_ids])
         min_codellama_prompt_size = min([len(t[0]) for t in codellama_input_ids])
         max_codellama_prompt_size = max([len(t[0]) for t in codellama_input_ids])
-        print("repairllama_input_ids: ", repairllama_input_ids)
-        print("min_repairllama_prompt_size: ", min_repairllama_prompt_size, max_repairllama_prompt_size,min_codellama_prompt_size,max_codellama_prompt_size)
 
         max_codellama_gen_len = max_gen_len # max_codellama_gen_len should be taken from the parameters, for the testing it is equal to the max_gen_len (in repairllama)
         total_repairllama_len = min(params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
@@ -370,8 +369,6 @@ class LLamaAdapter(nn.Module):
                 if cur_pos - repairllama_start_pos < codellama_iter_start_pos:
                     repairllama_output, _ , next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, codellama_pre_pos,repairllama_past_key_values=next_repairllama_cache, adapter=False)
                 else:
-                    print(prev_pos, cur_pos)
-                    print(repairllama_tokens[:, prev_pos:cur_pos])
                     repairllama_output, codellama_logits, next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_tokens[:, codellama_pre_pos:codellama_cur_pos], codellama_pre_pos, repairllama_past_key_values=next_repairllama_cache, adapter=True)
             # print("Repairllama logits: ", repairllama_logits, repairllama_logits.shape)
             # if temperature > 0:
