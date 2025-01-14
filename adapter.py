@@ -311,7 +311,6 @@ class LLamaAdapter(nn.Module):
                 torch.full((1, 1), fill_value=0, dtype=torch.long) #  torch.full((1, seq_len), fill_value=0, dtype=torch.long) 
                 for _ in range(bsz)
             ]
-        print(repairllama_input_ids)
         assert len(repairllama_input_ids)==len(codellama_input_ids) #batch sizes should be equal.
        
        # is this need to be checked. because batch sizes of both inputs are equal and both use same model. hece comment down and 
@@ -346,6 +345,7 @@ class LLamaAdapter(nn.Module):
 
         for k, t in enumerate(repairllama_input_ids):
             repairllama_tokens[k, : len(t[0])] = torch.tensor(t).cuda().long()
+        print(repairllama_tokens)
 
         input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_token_id
         repairllama_start_pos = min_repairllama_prompt_size
