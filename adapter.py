@@ -337,7 +337,7 @@ class LLamaAdapter(nn.Module):
         min_codellama_prompt_size = min([len(t) for t in codellama_input_ids])
         max_codellama_prompt_size = max([len(t) for t in codellama_input_ids])
         print("repairllama_input_ids: ", repairllama_input_ids)
-        print("min_repairllama_prompt_size: ", min_repairllama_prompt_size)
+        print("min_repairllama_prompt_size: ", min_repairllama_prompt_size, max_repairllama_prompt_size,min_codellama_prompt_size,max_codellama_prompt_size)
 
         max_codellama_gen_len = max_gen_len # max_codellama_gen_len should be taken from the parameters, for the testing it is equal to the max_gen_len (in repairllama)
         total_repairllama_len = min(params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
