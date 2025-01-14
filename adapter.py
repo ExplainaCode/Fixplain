@@ -263,7 +263,7 @@ class LLamaAdapter(nn.Module):
 
             print(f"repairllama_h.shape: {repairllama_h.shape}, dtype: {repairllama_h.dtype}")
             print(f"repairllama_mask.shape: {repairllama_mask.shape}, dtype: {repairllama_mask.dtype}")
-            print(f"repairllama_position_ids.shape: {repairllama_position_ids.shape}, dtype: {repairllama_position_ids.dtype}")
+            # print(f"repairllama_position_ids.shape: {repairllama_position_ids.shape}, dtype: {repairllama_position_ids.dtype}")
             print(repairllama_position_ids)
 
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
