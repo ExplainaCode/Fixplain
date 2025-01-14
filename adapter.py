@@ -256,6 +256,7 @@ class LLamaAdapter(nn.Module):
                 past_key_values = None
             if past_key_values:
                 past_key_values = tuple(pkv.contiguous() for pkv in past_key_values)
+            print(repairllama_position_ids)
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous(), past_key_values, use_cache=True
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
