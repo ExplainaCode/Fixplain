@@ -15,6 +15,7 @@ def main(args):
         repairllama_lora_dir=args.repairllama_lora_dir or './repairllama-lora',
         max_seq_len=512,
         max_batch_size=1,
+        phase="finetune"
     )
 
     # Create dummy inputs
