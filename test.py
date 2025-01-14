@@ -15,7 +15,8 @@ def main(args):
         repairllama_lora_dir=args.repairllama_lora_dir or './repairllama-lora',
         max_seq_len=512,
         max_batch_size=1,
-        phase="finetune"
+        phase="finetune",
+        w_lora=True
     )
 
     # Create dummy inputs
@@ -35,7 +36,7 @@ def main(args):
             repairllama_input_ids=repairllama_input_ids,
             codellama_input_ids=codellama_input_ids,
             start_pos=start_pos,
-            adapter=True
+            adapter=True,
         )
         print("Outputs:", outputs)
 

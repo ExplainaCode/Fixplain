@@ -113,14 +113,13 @@ class LLamaAdapter(nn.Module):
 
     def set_trainale_params(self, phase='inference'):
         for name, para in self.named_parameters():
-            print(f"Before: {name}, requires_grad={para.requires_grad}")
             para.requires_grad = False
-            print(f"After: {name}, requires_grad={para.requires_grad}")
-        print("______________________________________________________")
+
         if phase == 'finetune':
+            target_keywords = ["lora", "adapter", "gate"]
             for name, para in self.named_parameters():
-                if name.startswith("llama"):
-                    if "lora" in name:
+                if name.startswith("codellama"):
+                    if any(keyword in name for keyword in target_keywords):
                         para.data = para.data.float()
                         para.requires_grad = True
                 print(name, para.requires_grad)    #debugging
