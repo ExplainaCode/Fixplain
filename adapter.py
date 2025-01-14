@@ -210,6 +210,7 @@ class LLamaAdapter(nn.Module):
     @torch.inference_mode()
     def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int, repairllama_past_key_values=None, adapter=False):
         # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
+        print(repairllama_input_ids)
 
         repairllama_input_ids=repairllama_input_ids.to(device) #Decide whether this is the optimal position to move to the device #probably in training we can directly load to the device at once?
         if adapter:
