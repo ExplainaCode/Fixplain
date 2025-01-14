@@ -24,29 +24,33 @@ class LLamaAdapter(nn.Module):
                  codellama_ckpt_dir, codellama_tokenizer,
                  repairllama_lora_dir='./repairllama-lora', repairllama_model_dir="codellama/CodeLlama-7b-hf",
                  max_seq_len=512, max_batch_size=1,
-                 v_embed_dim=768, v_depth=8,
-                 v_num_heads=16, v_mlp_ratio=4.0,
-                 query_len=10, query_layer=31,
                  w_bias=False, 
                  w_lora=False, lora_rank=16, 
                  w_new_gate=False,
-                 phase="finetune",):
+                 phase="inference",):
         super().__init__()
         self.attention_hooks_data = {} 
+
         self.codellama, self.codellama_tokenizer = self._load_codellama(
-            codellama_ckpt_dir, max_seq_len, 
-            max_batch_size, codellama_tokenizer)
+            codellama_ckpt_dir, max_seq_len,
+            max_batch_size, codellama_tokenizer,
+            w_lora, lora_rank)
         self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
             repairllama_model_dir, repairllama_lora_dir,
             register_Attention_hooks=True)
+        
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
+        self.phase = phase
+        self.set_trainale_params(self.phase)
 
-    def _load_codellama(self, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer):
+    def _load_codellama(self, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer, w_lora, lora_rank):
         with open(os.path.join(codellama_ckpt_dir, "params.json"), 'r') as f:
             params = json.loads(f.read())
         
         model_args: ModelArgs = ModelArgs(
-            max_seq_len=max_seq_len, max_batch_size=max_batch_size, **params
+            max_seq_len=max_seq_len, max_batch_size=max_batch_size, 
+            w_lora=w_lora, lora_rank=lora_rank,
+            **params
         )
         tokenizer = Tokenizer(model_path=codellama_tokenizer)
         model_args.vocab_size = tokenizer.n_words
@@ -106,9 +110,29 @@ class LLamaAdapter(nn.Module):
             # "input": tuple(inp.detach() for inp in input),
             "input": input[0].detach(),
         }
-    
+
+    def set_trainale_params(self, phase='inference'):
+        for name, para in self.named_parameters():
+            print(name, para.requires_grad, end=" ______________ ") # for debugging.
+            para.required_grad = False
+
+        if phase == 'finetune':
+            for name, para in self.named_parameters():
+                if name.startswith("llama"):
+                    if "lora" in name:
+                        para.data = para.data.float()
+                        para.requires_grad = True
+                print(name, para.requires_grad)    #debugging
+        
+        elif phase == 'inference':
+            pass
+
+        else:
+            raise ValueError(f"Unknown model phase: {phase}")
+
+
     def forward(self, repairllama_input_ids, codellama_input_ids, 
-                repairllama_labels, codellama_labels):
+                repairllama_labels, codellama_labels, repairllama_past_key_values=None):
         # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
         repairllama_input_ids=repairllama_input_ids.to(device)
         codellama_input_ids=codellama_input_ids.to(device)
@@ -157,8 +181,8 @@ class LLamaAdapter(nn.Module):
 
 
         # Processing RepairLLama output
-        repairllama_h = self.repairllama.model.model.norm(repairllama_h)
-        repairllama_output = self.repairllama.model.lm_head(repairllama_h[:, -1, :]) # Why do een need this line?
+        repairllama_h = self.repairllama.model.model.norm(repairllama_h) # Why do even need this line?
+        repairllama_output = self.repairllama.model.lm_head(repairllama_h[:, -1, :]) # Why do even need this line?
         # repairllama_output = repairllama_output[:, :-1, :]
         # repairllama_labels = repairllama_labels[:, 1:]
 
@@ -178,10 +202,10 @@ class LLamaAdapter(nn.Module):
         if codellama_labels.sum()==0 :
             codellama_c_loss = codellama_output.mean() * 0
         else:
-            assert self.codellama.vocab_size == 32000
+            assert self.codellama.vocab_size == self.codellama_tokenizer.n_words #Do we need this line?, in load codellama this is set
             codellama_c_loss = self.criterian(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
 
-        return codellama_c_loss
+        return codellama_c_loss, next_repairllama_cache
     
     @torch.inference_mode()
     def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int, repairllama_past_key_values=None, adapter=False):
