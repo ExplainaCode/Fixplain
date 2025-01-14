@@ -34,7 +34,7 @@ def main(args):
             repairllama_input_ids=repairllama_input_ids,
             codellama_input_ids=codellama_input_ids,
             start_pos=start_pos,
-            adaptor=True
+            adapter=True
         )
         print("Outputs:", outputs)
 
