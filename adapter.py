@@ -368,6 +368,7 @@ class LLamaAdapter(nn.Module):
                 if cur_pos - repairllama_start_pos < codellama_iter_start_pos:
                     repairllama_output, _ , next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, codellama_pre_pos,repairllama_past_key_values=next_repairllama_cache, adapter=False)
                 else:
+                    print(prev_pos, cur_pos)
                     print(repairllama_tokens[:, prev_pos:cur_pos])
                     repairllama_output, codellama_logits, next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_tokens[:, codellama_pre_pos:codellama_cur_pos], codellama_pre_pos, repairllama_past_key_values=next_repairllama_cache, adapter=True)
             # print("Repairllama logits: ", repairllama_logits, repairllama_logits.shape)
