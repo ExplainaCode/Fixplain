@@ -116,14 +116,14 @@ class LLamaAdapter(nn.Module):
             print(f"Before: {name}, requires_grad={para.requires_grad}")
             para.requires_grad = False
             print(f"After: {name}, requires_grad={para.requires_grad}")
-
+        print("______________________________________________________")
         if phase == 'finetune':
             for name, para in self.named_parameters():
                 if name.startswith("llama"):
                     if "lora" in name:
                         para.data = para.data.float()
-                        # para.requires_grad = True
-                # print(name, para.requires_grad)    #debugging
+                        para.requires_grad = True
+                print(name, para.requires_grad)    #debugging
         
         elif phase == 'inference':
             pass
