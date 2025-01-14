@@ -41,7 +41,7 @@ class LLamaAdapter(nn.Module):
         
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
         self.phase = phase
-        # self.set_trainale_params(self.phase)
+        self.set_trainale_params(self.phase)
 
     def _load_codellama(self, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer, w_lora, lora_rank):
         with open(os.path.join(codellama_ckpt_dir, "params.json"), 'r') as f:
@@ -264,6 +264,7 @@ class LLamaAdapter(nn.Module):
             print(f"repairllama_h.shape: {repairllama_h.shape}, dtype: {repairllama_h.dtype}")
             print(f"repairllama_mask.shape: {repairllama_mask.shape}, dtype: {repairllama_mask.dtype}")
             print(f"repairllama_position_ids.shape: {repairllama_position_ids.shape}, dtype: {repairllama_position_ids.dtype}")
+            print(repairllama_position_ids)
 
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous(), past_key_values, True
