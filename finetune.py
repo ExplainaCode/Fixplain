@@ -67,6 +67,7 @@ def train_one_epoch(model: LLamaAdapter,
 
         # loss_scaler(loss, optimizer, parameters=model.parameters(),
         #             update_grad=(data_iter_step + 1) % accum_iter == 0)
+        print(loss)
         loss.backward()
         if (data_iter_step + 1) % accum_iter == 0:
             optimizer.zero_grad()
