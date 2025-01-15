@@ -203,7 +203,7 @@ class LLamaAdapter(nn.Module):
             codellama_c_loss = codellama_output.mean() * 0
         else:
             assert self.codellama.vocab_size == self.codellama_tokenizer.n_words #Do we need this line?, in load codellama this is set
-            codellama_c_loss = self.criterian(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
+            codellama_c_loss = self.criterion(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
 
         return codellama_c_loss
     
