@@ -110,6 +110,8 @@ def get_args_parser():
                         help='path to checkpoint from pretrain stage')
     parser.add_argument('--max_words', default=512, type=int,
                         help='max number of input words')
+    parser.add_argument('--data_path', default='/path/to/dataset', type=str,
+                        help='path to dataset')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -211,6 +213,7 @@ def main(args):
     # misc.load_model(model_without_ddp, args.pretrained_path)
 
     dataset_args = DatasetArgs()
+    dataset_args.dataframe_path = args.data_path
     dataset_train = FinetuneDataset(args.codellama_model_path, args.repairllama_model_dir, dataset_args)
     print(dataset_train)
     num_tasks = misc.get_world_size()
