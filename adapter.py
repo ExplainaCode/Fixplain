@@ -349,7 +349,7 @@ class LLamaAdapter(nn.Module):
 
         prev_pos = 0
         codellama_pre_pos = 0
-        codellama_cur_pos=codellama_start_pos
+        codellama_cur_pos=codellama_start_pos-1
         next_repairllama_cache = None
         for cur_pos in range(repairllama_start_pos, total_repairllama_len):
             with torch.cuda.amp.autocast():
