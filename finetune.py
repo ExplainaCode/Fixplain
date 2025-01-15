@@ -111,7 +111,7 @@ from typing import Iterable
 def print_graph(tensor, depth=0):
     """Recursively prints the graph of operations leading to this tensor."""
     print("  " * depth + f"Tensor: {tensor} | GradFn: {tensor.grad_fn}")
-    if tensor.grad_fn is not None:
+    if hasattr(tensor, "grad_fn") and tensor.grad_fn is not None:
         print_graph(tensor.grad_fn, depth + 1)
 
 
