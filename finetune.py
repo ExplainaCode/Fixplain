@@ -214,7 +214,7 @@ def main(args):
 
     dataset_args = DatasetArgs()
     dataset_args.dataframe_path = args.data_path
-    dataset_train = FinetuneDataset(args.codellama_model_path, args.repairllama_model_dir, dataset_args)
+    dataset_train = FinetuneDataset(args.codellama_ckpt_dir, args.repairllama_ckpt_dir, dataset_args)
     print(dataset_train)
     num_tasks = misc.get_world_size()
     global_rank = misc.get_rank()
