@@ -54,7 +54,10 @@ def train_one_epoch(model: LLamaAdapter,
             codellama_loss, codellama_loss2 = model(reapirllama_examples, codellama_examples,
                                                               repairllama_labels=repairllama_labels,
                                                               codellama_labels=codellama_labels,)
-        loss = codellama_loss + codellama_loss2 *0   
+        print(f"Step {data_iter_step}: Calculating loss...")
+        loss = codellama_loss + codellama_loss2 * 0
+        print(f"Step {data_iter_step}: Loss value: {loss.item()}")
+
         loss_value = loss.item()
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
@@ -64,9 +67,10 @@ def train_one_epoch(model: LLamaAdapter,
 
         # loss_scaler(loss, optimizer, parameters=model.parameters(),
         #             update_grad=(data_iter_step + 1) % accum_iter == 0)
-        # loss.backward()
+        loss.backward()
         if (data_iter_step + 1) % accum_iter == 0:
             optimizer.zero_grad()
+        optimizer.zero_grad() # for deugging.
 
         torch.cuda.synchronize()
 
