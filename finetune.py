@@ -72,7 +72,7 @@ def train_one_epoch(model: LLamaAdapter,
             optimizer.zero_grad()
         optimizer.zero_grad() # for deugging.
 
-        # torch.cuda.synchronize()
+        torch.cuda.synchronize()
 
         # metric_logger.update(closs=loss_value)
         # # metric_logger.update(mloss=m_loss_value)
