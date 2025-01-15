@@ -116,7 +116,7 @@ class LLamaAdapter(nn.Module):
             para.requires_grad = False
 
         if phase == 'finetune':
-            target_keywords = ["lora", "gate"]
+            target_keywords = ["lora"]
             for name, para in self.named_parameters():
                 if name.startswith("codellama"):
                     if any(keyword in name for keyword in target_keywords):
