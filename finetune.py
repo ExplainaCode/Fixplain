@@ -54,6 +54,7 @@ def train_one_epoch(model: LLamaAdapter,
                                                               repairllama_labels=repairllama_labels,
                                                               codellama_labels=codellama_labels,)
         codellama_loss.backward()
+        codellama_loss.backward()
         codellama_loss_value = codellama_loss.item()
         if not math.isfinite(codellama_loss_value):
             print("Loss is {}, stopping training".format(codellama_loss_value))
