@@ -386,8 +386,8 @@ class LLamaAdapter(nn.Module):
                 else:
                     next_codellama_token = torch.argmax(codellama_logits, dim=-1)
                 next_codellama_token = next_codellama_token.reshape(-1)
-                print("codellama_cur_pos: ", codellama_cur_pos)
-                print("codellama_tokens shape: ", codellama_tokens.shape)
+                # print("codellama_cur_pos: ", codellama_cur_pos)
+                # print("codellama_tokens shape: ", codellama_tokens.shape)
                 next_codellama_token = torch.where(
                     input_codellama_text_mask[:, codellama_cur_pos], codellama_tokens[:, codellama_cur_pos], next_codellama_token
                 )
