@@ -69,6 +69,15 @@ def train_one_epoch(model: LLamaAdapter,
         loss /= accum_iter
         
         print(loss)
+        # Print the grad_fn of the loss tensor to examine the graph
+        print(loss.grad_fn)
+
+        # Optionally, if you want to dive deeper into the graph, you can print next_functions:
+        if loss.grad_fn:
+            print("Next functions:")
+            for next_fn in loss.grad_fn.next_functions:
+                print(next_fn)
+
         loss_scaler(loss, optimizer, parameters=model.parameters(),
                     update_grad=(data_iter_step + 1) % accum_iter == 0)
         
