@@ -42,7 +42,7 @@ def train_one_epoch(model: LLamaAdapter,
         print('log_dir: {}'.format(log_writer.log_dir))
 
     for data_iter_step, (
-            reapirllama_examples, repairllama_labels, codellama_examples, codellama_labels) in enumerate(
+            reapirllama_examples, repairllama_labels, codellama_examples, codellama_labels, codellama_mask) in enumerate(
                 metric_logger.log_every(data_loader, print_freq, header)
             ):
         # we use a per iteration (instead of per epoch) lr scheduler
