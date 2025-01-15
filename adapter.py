@@ -138,6 +138,7 @@ class LLamaAdapter(nn.Module):
         codellama_input_ids=codellama_input_ids.to(device)
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
+        print("__________________________", repairllama_seqlen)
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
@@ -145,6 +146,7 @@ class LLamaAdapter(nn.Module):
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
+        print(repairllama_mask)
         repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
 
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
