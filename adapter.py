@@ -138,9 +138,9 @@ class LLamaAdapter(nn.Module):
         codellama_input_ids=codellama_input_ids.to(device)
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
-        print("__________________________", repairllama_seqlen)
+        # print("__________________________", repairllama_seqlen)
 
-        print("Repairllama_input_ids", repairllama_input_ids)
+        # print("Repairllama_input_ids", repairllama_input_ids)
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
         # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
