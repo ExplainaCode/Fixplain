@@ -59,8 +59,6 @@ def train_one_epoch(model: LLamaAdapter,
                                                               codellama_labels=codellama_labels,)
         print(f"Step {data_iter_step}: Calculating loss...")
         loss = codellama_loss + codellama_loss2 * 0
-        codellama_loss.detach()
-        codellama_loss2.detach()
         print(f"Step {data_iter_step}: Loss value: {loss.item()}")
 
         loss_value = loss.item()
@@ -70,11 +68,11 @@ def train_one_epoch(model: LLamaAdapter,
 
         loss /= accum_iter
 
-        # loss_scaler(loss, optimizer, parameters=model.parameters(),
-        #             update_grad=(data_iter_step + 1) % accum_iter == 0)
+        loss_scaler(loss, optimizer, parameters=model.parameters(),
+                    update_grad=(data_iter_step + 1) % accum_iter == 0)
         print(loss)
-        loss.backward()
-        loss.detach()
+
+        # loss.backward()
         if (data_iter_step + 1) % accum_iter == 0:
             optimizer.zero_grad()
 
