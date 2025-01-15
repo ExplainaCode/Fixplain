@@ -108,11 +108,17 @@ from typing import Iterable
 #     metric_logger.synchronize_between_processes()
 #     print("Averaged stats:", metric_logger)
 #     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
 def print_graph(tensor, depth=0):
     """Recursively prints the graph of operations leading to this tensor."""
-    print("  " * depth + f"Tensor: {tensor} | GradFn: {tensor.grad_fn}")
-    if hasattr(tensor, "grad_fn") and tensor.grad_fn is not None:
-        print_graph(tensor.grad_fn, depth + 1)
+    if isinstance(tensor, torch.Tensor):  # Check if it's a tensor
+        print("  " * depth + f"Tensor: {tensor} | GradFn: {tensor.grad_fn}")
+        if tensor.grad_fn is not None:
+            print_graph(tensor.grad_fn, depth + 1)
+    elif hasattr(tensor, 'next_functions'):  # For backward objects, check next functions
+        for next_fn in tensor.next_functions:
+            print_graph(next_fn[0], depth + 1)
+
 
 
 def train_one_epoch(model: LLamaAdapter,
