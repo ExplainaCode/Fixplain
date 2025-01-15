@@ -110,6 +110,7 @@ class LLamaAdapter(nn.Module):
             # "input": tuple(inp.detach() for inp in input),
             "input": input[0].detach(),
         }
+        print(layer_id, self.attention_hooks_data[layer_id])
 
     def set_trainale_params(self, phase='inference'):
         for name, para in self.named_parameters():
@@ -271,7 +272,7 @@ class LLamaAdapter(nn.Module):
             assert(self.attention_hooks_data.get(i)!=None)
             # print(self.attention_hooks_data)
             if adapter:
-                dynamic_adapter = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
+                dynamic_adapter  = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
                 codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adapter)
 
         # print(self.attention_hooks_data)   
