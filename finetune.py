@@ -72,23 +72,23 @@ def train_one_epoch(model: LLamaAdapter,
             optimizer.zero_grad()
         optimizer.zero_grad() # for deugging.
 
-        torch.cuda.synchronize()
+        # torch.cuda.synchronize()
 
-        metric_logger.update(closs=loss_value)
-        # metric_logger.update(mloss=m_loss_value)
+        # metric_logger.update(closs=loss_value)
+        # # metric_logger.update(mloss=m_loss_value)
 
-        lr = optimizer.param_groups[0]["lr"]
-        metric_logger.update(lr=lr)
+        # lr = optimizer.param_groups[0]["lr"]
+        # metric_logger.update(lr=lr)
 
-        loss_value_reduce = misc.all_reduce_mean(loss_value)
+        # loss_value_reduce = misc.all_reduce_mean(loss_value)
 
-        if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
-            """ We use epoch_1000x as the x-axis in tensorboard.
-            This calibrates different curves when batch size changes.
-            """
-            epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
-            log_writer.add_scalar('codellama_train_loss', loss_value_reduce, epoch_1000x)
-            log_writer.add_scalar('lr', lr, epoch_1000x)
+        # if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
+        #     """ We use epoch_1000x as the x-axis in tensorboard.
+        #     This calibrates different curves when batch size changes.
+        #     """
+        #     epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
+        #     log_writer.add_scalar('codellama_train_loss', loss_value_reduce, epoch_1000x)
+        #     log_writer.add_scalar('lr', lr, epoch_1000x)
 
 
     # gather the stats from all processes
