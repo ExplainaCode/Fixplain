@@ -45,6 +45,7 @@ def train_one_epoch(model: LLamaAdapter,
             reapirllama_examples, repairllama_labels, codellama_examples, codellama_labels, codellama_mask) in enumerate(
                 metric_logger.log_every(data_loader, print_freq, header)
             ):
+        print(f"iter: {data_iter_step}------------------------------------------")
         # we use a per iteration (instead of per epoch) lr scheduler
         if data_iter_step % accum_iter == 0:
             lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
