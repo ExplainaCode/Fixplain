@@ -136,6 +136,7 @@ class LLamaAdapter(nn.Module):
         # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
         repairllama_input_ids=repairllama_input_ids.to(device)
         codellama_input_ids=codellama_input_ids.to(device)
+        codellama_labels = codellama_labels.to(device)
         # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
         # print("__________________________", repairllama_seqlen)
@@ -184,8 +185,8 @@ class LLamaAdapter(nn.Module):
 
 
         # Processing RepairLLama output
-        repairllama_h = self.repairllama.model.model.norm(repairllama_h) # Why do even need this line?
-        repairllama_output = self.repairllama.model.lm_head(repairllama_h[:, -1, :]) # Why do even need this line?
+        # repairllama_h = self.repairllama.model.model.norm(repairllama_h) # Why do even need this line?
+        # repairllama_output = self.repairllama.model.lm_head(repairllama_h[:, -1, :]) # Why do even need this line?
         # repairllama_output = repairllama_output[:, :-1, :]
         # repairllama_labels = repairllama_labels[:, 1:]
 
