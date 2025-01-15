@@ -41,7 +41,7 @@ class LLamaAdapter(nn.Module):
         
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
         self.phase = phase
-        self.set_trainale_params(self.phase)
+        # self.set_trainale_params(self.phase)
 
     def _load_codellama(self, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer, w_lora, lora_rank):
         with open(os.path.join(codellama_ckpt_dir, "params.json"), 'r') as f:
