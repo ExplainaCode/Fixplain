@@ -72,7 +72,7 @@ class FinetuneDataset(Dataset):
         # print("__________________________________________________________________________________________")
         # print(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
         codellama_label_ids = torch.tensor(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
-        codellama_input_ids = None
+        codellama_input_ids = torch.zeros(1, dtype=torch.long)
 
         repairllama_input_ids = self.__get_padding__(repairllama_input_ids, self.repairllama_max_input_len)
         repairllama_label_ids = self.__get_padding__(repairllama_label_ids, self.repairllama_max_output_len)
