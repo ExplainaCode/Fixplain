@@ -69,6 +69,7 @@ class FinetuneDataset(Dataset):
     
         repairllama_input_ids =  torch.flatten(self.repairllama_tokenizer.encode(buggy_code, return_tensors='pt'))
         repairllama_label_ids = torch.flatten(self.repairllama_tokenizer.encode(fixed_code, return_tensors='pt'))
+        print(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
         codellama_label_ids = torch.flatten(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
         codellama_input_ids = None
 
