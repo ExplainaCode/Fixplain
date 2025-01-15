@@ -45,6 +45,11 @@ def train_one_epoch(model: LLamaAdapter,
             reapirllama_examples, repairllama_labels, codellama_examples, codellama_labels, codellama_mask) in enumerate(
                 metric_logger.log_every(data_loader, print_freq, header)
             ):
+        # Explicitly release previous graph before backward
+        optimizer.zero_grad()
+        if data_iter_step > 0:
+            torch.cuda.empty_cache()  # Clears the CUDA memory
+
         print(f"iter: {data_iter_step}------------------------------------------")
         # we use a per iteration (instead of per epoch) lr scheduler
         if data_iter_step % accum_iter == 0:
