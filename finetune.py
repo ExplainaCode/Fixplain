@@ -36,8 +36,6 @@ def train_one_epoch(model: LLamaAdapter,
 
     accum_iter = args.accum_iter
 
-    optimizer.zero_grad()
-
     if log_writer is not None:
         print('log_dir: {}'.format(log_writer.log_dir))
 
@@ -45,126 +43,65 @@ def train_one_epoch(model: LLamaAdapter,
             reapirllama_examples, repairllama_labels, codellama_examples, codellama_labels, codellama_mask) in enumerate(
                 metric_logger.log_every(data_loader, print_freq, header)
             ):
-        if data_iter_step == 0:
-            # Explicitly release previous graph before backward
-            optimizer.zero_grad()
+        # Explicitly release previous graph before backward
+        optimizer.zero_grad()
 
-            print(f"iter: {data_iter_step}------------------------------------------")
-            # we use a per iteration (instead of per epoch) lr scheduler
-            if data_iter_step % accum_iter == 0:
-                lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
+        print(f"iter: {data_iter_step}------------------------------------------")
+        # we use a per iteration (instead of per epoch) lr scheduler
+        if data_iter_step % accum_iter == 0:
+            lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
 
-            with torch.cuda.amp.autocast():
-                codellama_loss, codellama_loss2 = model(reapirllama_examples, codellama_examples,
-                                                                repairllama_labels=repairllama_labels,
-                                                                codellama_labels=codellama_labels,)
-            print(f"Step {data_iter_step}: Calculating loss...")
-            loss = codellama_loss + codellama_loss2 * 0
-            print(f"Step {data_iter_step}: Loss value: {loss.item()}")
+        with torch.cuda.amp.autocast():
+            codellama_loss, codellama_loss2 = model(reapirllama_examples, codellama_examples,
+                                                            repairllama_labels=repairllama_labels,
+                                                            codellama_labels=codellama_labels,)
+        print(f"Step {data_iter_step}: Calculating loss...")
+        loss = codellama_loss + codellama_loss2 * 0
+        print(f"Step {data_iter_step}: Loss value: {loss.item()}")
 
-            loss_value = loss.item()
-            if not math.isfinite(loss_value):
-                print("Loss is {}, stopping training".format(loss_value))
-                sys.exit(1)
+        loss_value = loss.item()
+        if not math.isfinite(loss_value):
+            print("Loss is {}, stopping training".format(loss_value))
+            sys.exit(1)
 
-            loss /= accum_iter
-            
-            print(loss)
-            # Print the grad_fn of the loss tensor to examine the graph
-            print(loss.grad_fn)
+        # loss /= accum_iter
+        
+        print(loss)
+        # Print the grad_fn of the loss tensor to examine the graph
+        print(loss.grad_fn)
 
-            # Optionally, if you want to dive deeper into the graph, you can print next_functions:
-            if loss.grad_fn:
-                print("Next functions:")
-                for next_fn in loss.grad_fn.next_functions:
-                    print(next_fn)
+        # Optionally, if you want to dive deeper into the graph, you can print next_functions:
+        # if loss.grad_fn:
+        #     print("Next functions:")
+        #     for next_fn in loss.grad_fn.next_functions:
+        #         print(next_fn)
 
-            loss_scaler(loss, optimizer, parameters=model.parameters(),
-                        update_grad=(data_iter_step + 1) % accum_iter == 0)
-            
+        # loss_scaler(loss, optimizer, parameters=model.parameters(),
+        #             update_grad=(data_iter_step + 1) % accum_iter == 0)
+        loss.backward()
+        
 
-            # loss.backward()
-            if (data_iter_step + 1) % accum_iter == 0:
-                optimizer.zero_grad()
+        # loss.backward()
+        # if (data_iter_step + 1) % accum_iter == 0:
+        #     optimizer.zero_grad()
+        optimizer.zero_grad()
+        torch.cuda.synchronize()
 
-            torch.cuda.synchronize()
+        metric_logger.update(closs=loss_value)
+        # metric_logger.update(mloss=m_loss_value)
 
-            metric_logger.update(closs=loss_value)
-            # metric_logger.update(mloss=m_loss_value)
+        lr = optimizer.param_groups[0]["lr"]
+        metric_logger.update(lr=lr)
 
-            lr = optimizer.param_groups[0]["lr"]
-            metric_logger.update(lr=lr)
+        loss_value_reduce = misc.all_reduce_mean(loss_value)
 
-            loss_value_reduce = misc.all_reduce_mean(loss_value)
-
-            if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
-                """ We use epoch_1000x as the x-axis in tensorboard.
-                This calibrates different curves when batch size changes.
-                """
-                epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
-                log_writer.add_scalar('codellama_train_loss', loss_value_reduce, epoch_1000x)
-                log_writer.add_scalar('lr', lr, epoch_1000x)
-        if data_iter_step ==1:
-                # Explicitly release previous graph before backward
-            optimizer.zero_grad()
-
-            print(f"iter: {data_iter_step}------------------------------------------")
-            # we use a per iteration (instead of per epoch) lr scheduler
-            if data_iter_step % accum_iter == 0:
-                lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
-
-            with torch.cuda.amp.autocast():
-                codellama_loss1, codellama_loss21 = model(reapirllama_examples, codellama_examples,
-                                                                repairllama_labels=repairllama_labels,
-                                                                codellama_labels=codellama_labels,)
-            print(f"Step {data_iter_step}: Calculating loss...")
-            loss1 = codellama_loss1 + codellama_loss21 * 0
-            print(f"Step {data_iter_step}: Loss value: {loss1.item()}")
-
-            loss_value1 = loss1.item()
-            if not math.isfinite(loss_value1):
-                print("Loss is {}, stopping training".format(loss_value1))
-                sys.exit(1)
-
-            loss1 /= accum_iter
-            
-            print(loss1)
-            # Print the grad_fn of the loss tensor to examine the graph
-            print(loss1.grad_fn)
-
-            # Optionally, if you want to dive deeper into the graph, you can print next_functions:
-            if loss1.grad_fn:
-                print("Next functions:")
-                for next_fn1 in loss1.grad_fn.next_functions:
-                    print(next_fn1)
-
-            loss_scaler(loss1, optimizer, parameters=model.parameters(),
-                        update_grad=(data_iter_step + 1) % accum_iter == 0)
-            
-
-            # loss.backward()
-            if (data_iter_step + 1) % accum_iter == 0:
-                optimizer.zero_grad()
-
-            torch.cuda.synchronize()
-
-            metric_logger.update(closs=loss_value1)
-            # metric_logger.update(mloss=m_loss_value)
-
-            lr1 = optimizer.param_groups[0]["lr"]
-            metric_logger.update(lr=lr)
-
-            loss_value_reduce1 = misc.all_reduce_mean(loss_value1)
-
-            if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
-                """ We use epoch_1000x as the x-axis in tensorboard.
-                This calibrates different curves when batch size changes.
-                """
-                epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
-                log_writer.add_scalar('codellama_train_loss', loss_value_reduce1, epoch_1000x)
-                log_writer.add_scalar('lr', lr1, epoch_1000x)
-        else:
-            pass
+        if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
+            """ We use epoch_1000x as the x-axis in tensorboard.
+            This calibrates different curves when batch size changes.
+            """
+            epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
+            log_writer.add_scalar('codellama_train_loss', loss_value_reduce, epoch_1000x)
+            log_writer.add_scalar('lr', lr, epoch_1000x)
 
 
     # gather the stats from all processes
