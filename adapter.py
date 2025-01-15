@@ -343,7 +343,7 @@ class LLamaAdapter(nn.Module):
         input_codellama_text_mask = codellama_tokens != 0 # o used instead of self.codellama_tokenizer.pad_id for testing
         codellama_start_pos = min_codellama_prompt_size
         # assert total_repairllama_len >= total_codellama_len
-        codellama_iter_start_pos = (total_repairllama_len - max_repairllama_prompt_size) - max_codellama_gen_len
+        codellama_iter_start_pos = (total_repairllama_len - min_repairllama_prompt_size) - (total_codellama_len - min_codellama_prompt_size)
         if codellama_iter_start_pos < 0: 
             codellama_iter_start_pos = 0
 
@@ -353,7 +353,7 @@ class LLamaAdapter(nn.Module):
         next_repairllama_cache = None
         for cur_pos in range(repairllama_start_pos, total_repairllama_len):
             with torch.cuda.amp.autocast():
-                if cur_pos - repairllama_start_pos < codellama_iter_start_pos:
+                if cur_pos -repairllama_start_pos  <= codellama_iter_start_pos:
                     repairllama_output, _ , next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, codellama_pre_pos,repairllama_past_key_values=next_repairllama_cache, adapter=False)
                 else:
                     repairllama_output, codellama_logits, next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_tokens[:, codellama_pre_pos:codellama_cur_pos], codellama_pre_pos, repairllama_past_key_values=next_repairllama_cache, adapter=True)
@@ -378,7 +378,7 @@ class LLamaAdapter(nn.Module):
 
             # codellama_cur_pos = cur_pos-repairllama_start_pos-codellama_iter_start_pos
 
-            if cur_pos - repairllama_start_pos >= codellama_iter_start_pos:
+            if cur_pos - repairllama_start_pos > codellama_iter_start_pos:
                 # Then the codellama logits are available.
                 if temperature > 0:
                     probs = torch.softmax(codellama_logits / temperature, dim=-1)
