@@ -286,7 +286,7 @@ def main(args):
         #     args=args
         # )
         train_stats = train_one_epoch(
-            model, dataset_train, optimizer,device, epoch
+            model, data_loader_train, optimizer,device, epoch
         )
 
         if args.output_dir and (epoch % 5 == 0 or epoch + 1 == args.epochs):
