@@ -138,6 +138,7 @@ class LLamaAdapter(nn.Module):
         codellama_input_ids=codellama_input_ids.to(device)
         codellama_labels = codellama_labels.to(device)
         # RepairLLama configuration before forward pass
+        print("repairllama_input_ids", repairllama_input_ids)
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
         # print("__________________________", repairllama_seqlen)
 

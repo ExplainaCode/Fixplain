@@ -120,11 +120,9 @@ def train_one_epoch(model: LLamaAdapter,
         loss = codellama_loss + codellama_loss2 * 0
         loss.backward()
         optimizer.zero_grad()
+    return loss
 
-        
     
-
-
 def get_args_parser():
     parser = argparse.ArgumentParser('llama_adapter pre-training', add_help=False)
     parser.add_argument('--batch_size', default=64, type=int,
