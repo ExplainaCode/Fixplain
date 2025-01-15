@@ -41,7 +41,7 @@ class LLamaAdapter(nn.Module):
         
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
         self.phase = phase
-        # self.set_trainale_params(self.phase)
+        self.set_trainale_params(self.phase)
 
     def _load_codellama(self, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer, w_lora, lora_rank):
         with open(os.path.join(codellama_ckpt_dir, "params.json"), 'r') as f:
@@ -116,12 +116,13 @@ class LLamaAdapter(nn.Module):
             para.requires_grad = False
 
         if phase == 'finetune':
-            target_keywords = ["lora", "adapter", "gate"]
-            for name, para in self.named_parameters():
-                if name.startswith("codellama"):
-                    if any(keyword in name for keyword in target_keywords):
-                        para.data = para.data.float()
-                        para.requires_grad = True
+            pass
+            # target_keywords = ["lora", "adapter", "gate"]
+            # for name, para in self.named_parameters():
+            #     if name.startswith("codellama"):
+            #         if any(keyword in name for keyword in target_keywords):
+            #             para.data = para.data.float()
+            #             para.requires_grad = True
                 # print(name, para.requires_grad)    #debugging
         
         elif phase == 'inference':
