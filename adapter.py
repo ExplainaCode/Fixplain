@@ -349,14 +349,14 @@ class LLamaAdapter(nn.Module):
 
         prev_pos = 0
         codellama_pre_pos = 0
-        codellama_cur_pos=codellama_start_pos-1
+        codellama_cur_pos=codellama_start_pos
         next_repairllama_cache = None
         for cur_pos in range(repairllama_start_pos, total_repairllama_len):
             with torch.cuda.amp.autocast():
                 if cur_pos - repairllama_start_pos < codellama_iter_start_pos:
                     repairllama_output, _ , next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, codellama_pre_pos,repairllama_past_key_values=next_repairllama_cache, adapter=False)
                 else:
-                    repairllama_output, codellama_logits, next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_tokens[:, codellama_pre_pos:codellama_cur_pos+1], codellama_pre_pos, repairllama_past_key_values=next_repairllama_cache, adapter=True)
+                    repairllama_output, codellama_logits, next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_tokens[:, codellama_pre_pos:codellama_cur_pos], codellama_pre_pos, repairllama_past_key_values=next_repairllama_cache, adapter=True)
             # print("Repairllama logits: ", repairllama_logits, repairllama_logits.shape)
             # if temperature > 0:
             #     probs = torch.softmax(repairllama_logits / temperature, dim=-1)
