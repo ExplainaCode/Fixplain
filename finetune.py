@@ -108,6 +108,12 @@ from typing import Iterable
 #     metric_logger.synchronize_between_processes()
 #     print("Averaged stats:", metric_logger)
 #     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+def print_graph(tensor, depth=0):
+    """Recursively prints the graph of operations leading to this tensor."""
+    print("  " * depth + f"Tensor: {tensor} | GradFn: {tensor.grad_fn}")
+    if tensor.grad_fn is not None:
+        print_graph(tensor.grad_fn, depth + 1)
+
 
 def train_one_epoch(model: LLamaAdapter,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
@@ -118,6 +124,7 @@ def train_one_epoch(model: LLamaAdapter,
                                                             repairllama_labels=repairllama_labels,
                                                             codellama_labels=codellama_labels,)
         loss = codellama_loss + codellama_loss2 * 0
+        print_graph(loss)
         loss.backward()
         optimizer.zero_grad()
     return loss
