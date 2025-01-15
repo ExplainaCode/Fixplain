@@ -3,7 +3,7 @@ import yaml
 from torch.utils.data import Dataset
 import json
 # import llama.utils
-from ..codellama.tokenizer import Tokenizer
+from codellama.tokenizer import Tokenizer
 import copy
 import pandas as pd
 import random
