@@ -295,14 +295,6 @@ class LLamaAdapter(nn.Module):
                  top_p: float=0.75):
         bsz = len(repairllama_input_ids)
         if codellama_input_ids==None:
-            # create two dimentionsl tensor with (bsz, 1) dimention, where element is padding token id, as codellama_input_ids
-            # codellama_input_ids = torch.full( 
-            #     (bsz, 1), 
-            #     # fill_value=self.codellama_tokenizer.pad_id, 
-            #     fill_value=0, #for testing
-            #     dtype=torch.long,
-            # )
-            # codellama_input_ids = [codellama_input_ids]
             codellama_input_ids = [
                 torch.full((1, 1), fill_value=0, dtype=torch.long) #  torch.full((1, seq_len), fill_value=0, dtype=torch.long) 
                 for _ in range(bsz)
@@ -381,13 +373,8 @@ class LLamaAdapter(nn.Module):
             next_repairllama_token = torch.where(
                 input_repairllama_text_mask[:, cur_pos], repairllama_tokens[:, cur_pos], next_repairllama_token
             )
-            # print("Repairllama_tokens: ", repairllama_tokens)
-            # print("repairllama_tokens[:, cur_pos]: ", repairllama_tokens[:, cur_pos])
-            # print("next_repairllama_token: ", next_repairllama_token)
+
             repairllama_tokens[:, cur_pos] = next_repairllama_token
-            # trick: early stop if bsz==1
-            # if bsz == 1 and next_repairllama_token[0] == self.repairllama_tokenizer.eos_id:
-            #     break
 
             # codellama_cur_pos = cur_pos-repairllama_start_pos-codellama_iter_start_pos
 
@@ -406,10 +393,6 @@ class LLamaAdapter(nn.Module):
                 codellama_tokens[:, codellama_cur_pos] = next_codellama_token
                 codellama_pre_pos=codellama_cur_pos
                 codellama_cur_pos+=1
-
-                # trick: early stop if bsz==1
-                # if bsz == 1 and next_codellama_token[0] == self.codellama_tokenizer.eos_id: # This might cause issues.
-                #     break
 
             prev_pos = cur_pos
 
