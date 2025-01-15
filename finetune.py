@@ -51,37 +51,38 @@ def train_one_epoch(model: LLamaAdapter,
             lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
 
         with torch.cuda.amp.autocast():
-            codellama_loss = model.forward(reapirllama_examples, codellama_examples,
+            codellama_loss, codellama_loss2 = model.forward(reapirllama_examples, codellama_examples,
                                                               repairllama_labels=repairllama_labels,
                                                               codellama_labels=codellama_labels,)
-        codellama_loss_value = codellama_loss.item()
-        if not math.isfinite(codellama_loss_value):
-            print("Loss is {}, stopping training".format(codellama_loss_value))
+        loss = codellama_loss + codellama_loss2 *0   
+        loss_value = loss.item()
+        if not math.isfinite(loss_value):
+            print("Loss is {}, stopping training".format(loss_value))
             sys.exit(1)
 
-        codellama_loss = codellama_loss / accum_iter
+        loss /= accum_iter
 
-        loss_scaler(codellama_loss, optimizer, parameters=model.parameters(),
-                    update_grad=(data_iter_step + 1) % accum_iter == 0, create_graph=True)
+        loss_scaler(loss, optimizer, parameters=model.parameters(),
+                    update_grad=(data_iter_step + 1) % accum_iter == 0)
         if (data_iter_step + 1) % accum_iter == 0:
             optimizer.zero_grad()
 
         torch.cuda.synchronize()
 
-        metric_logger.update(closs=codellama_loss_value)
+        metric_logger.update(closs=loss_value)
         # metric_logger.update(mloss=m_loss_value)
 
         lr = optimizer.param_groups[0]["lr"]
         metric_logger.update(lr=lr)
 
-        codellama_loss_value_reduce = misc.all_reduce_mean(codellama_loss_value)
+        loss_value_reduce = misc.all_reduce_mean(loss_value)
 
         if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
             """ We use epoch_1000x as the x-axis in tensorboard.
             This calibrates different curves when batch size changes.
             """
             epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
-            log_writer.add_scalar('codellama_train_loss', codellama_loss_value_reduce, epoch_1000x)
+            log_writer.add_scalar('codellama_train_loss', loss_value_reduce, epoch_1000x)
             log_writer.add_scalar('lr', lr, epoch_1000x)
 
 
