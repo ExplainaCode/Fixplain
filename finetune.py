@@ -47,8 +47,6 @@ def train_one_epoch(model: LLamaAdapter,
             ):
         # Explicitly release previous graph before backward
         optimizer.zero_grad()
-        if data_iter_step > 0:
-            torch.cuda.empty_cache()  # Clears the CUDA memory
 
         print(f"iter: {data_iter_step}------------------------------------------")
         # we use a per iteration (instead of per epoch) lr scheduler
@@ -61,6 +59,8 @@ def train_one_epoch(model: LLamaAdapter,
                                                               codellama_labels=codellama_labels,)
         print(f"Step {data_iter_step}: Calculating loss...")
         loss = codellama_loss + codellama_loss2 * 0
+        codellama_loss.detach()
+        codellama_loss2.detach()
         print(f"Step {data_iter_step}: Loss value: {loss.item()}")
 
         loss_value = loss.item()
@@ -74,6 +74,7 @@ def train_one_epoch(model: LLamaAdapter,
         #             update_grad=(data_iter_step + 1) % accum_iter == 0)
         print(loss)
         loss.backward()
+        loss.detach()
         if (data_iter_step + 1) % accum_iter == 0:
             optimizer.zero_grad()
 
