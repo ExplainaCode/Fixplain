@@ -68,11 +68,11 @@ def train_one_epoch(model: LLamaAdapter,
         # loss_scaler(loss, optimizer, parameters=model.parameters(),
         #             update_grad=(data_iter_step + 1) % accum_iter == 0)
         loss.backward()
-        if (data_iter_step + 1) % accum_iter == 0:
-            optimizer.zero_grad()
-        optimizer.zero_grad() # for deugging.
+        # if (data_iter_step + 1) % accum_iter == 0:
+        #     optimizer.zero_grad()
+        # optimizer.zero_grad() # for deugging.
 
-        # torch.cuda.synchronize()
+        torch.cuda.synchronize()
 
         metric_logger.update(closs=loss_value)
         # metric_logger.update(mloss=m_loss_value)
