@@ -147,7 +147,6 @@ class LLamaAdapter(nn.Module):
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
-        print(repairllama_mask)
         repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
 
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
@@ -179,6 +178,7 @@ class LLamaAdapter(nn.Module):
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.   
             assert(self.attention_hooks_data.get(i)!=None)
             dynamic_adapter = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
+            del self.attention_hooks_data[i]
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
         self.attention_hooks_data={} # Resetting can also be done in the above loop. 
 
