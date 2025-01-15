@@ -116,13 +116,12 @@ class LLamaAdapter(nn.Module):
             para.requires_grad = False
 
         if phase == 'finetune':
-            pass
-            # target_keywords = ["lora", "adapter", "gate"]
-            # for name, para in self.named_parameters():
-            #     if name.startswith("codellama"):
-            #         if any(keyword in name for keyword in target_keywords):
-            #             para.data = para.data.float()
-            #             para.requires_grad = True
+            target_keywords = ["lora", "gate"]
+            for name, para in self.named_parameters():
+                if name.startswith("codellama"):
+                    if any(keyword in name for keyword in target_keywords):
+                        para.data = para.data.float()
+                        para.requires_grad = True
                 # print(name, para.requires_grad)    #debugging
         
         elif phase == 'inference':
