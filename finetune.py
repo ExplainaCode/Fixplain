@@ -59,9 +59,10 @@ def train_one_epoch(model: LLamaAdapter,
             print("Loss is {}, stopping training".format(codellama_loss_value))
             sys.exit(1)
 
-        codellama_loss /= accum_iter
+        codellama_loss = codellama_loss / accum_iter
+
         loss_scaler(codellama_loss, optimizer, parameters=model.parameters(),
-                    update_grad=(data_iter_step + 1) % accum_iter == 0)
+                    update_grad=(data_iter_step + 1) % accum_iter == 0, retain_graph=True)
         if (data_iter_step + 1) % accum_iter == 0:
             optimizer.zero_grad()
 
