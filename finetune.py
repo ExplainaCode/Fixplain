@@ -130,15 +130,10 @@ def train_one_epoch(model: LLamaAdapter,
         print("_______________________________",data_iter_step, "__________________________________")
         codellama_loss = model(reapirllama_examples, codellama_examples,
                                                             repairllama_labels=repairllama_labels,
-                                                            codellama_labels=codellama_labels,)
-        codellama_loss.backward()
-        model.attention_hooks_data={}
-        optimizer.zero_grad()
+                                                            codellama_labels=codellama_labels,optimizer)
         # codellama_loss.backward()
-        # optimizer.step()
-
-        # Clear any temporary data in the model
-        # model.attention_hooks_data = {}
+        # model.attention_hooks_data={}
+        # optimizer.zero_grad()
     return codellama_loss
 
     
