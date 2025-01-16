@@ -127,6 +127,7 @@ def train_one_epoch(model: LLamaAdapter,
     for data_iter_step, (reapirllama_examples, repairllama_labels, codellama_examples, codellama_labels, codellama_mask) in enumerate((data_loader)):
         # optimizer.zero_grad()
         # with torch.cuda.amp.autocast():
+        print("_______________________________",data_iter_step, "__________________________________")
         codellama_loss = model(reapirllama_examples, codellama_examples,
                                                             repairllama_labels=repairllama_labels,
                                                             codellama_labels=codellama_labels,)
