@@ -133,7 +133,7 @@ class LLamaAdapter(nn.Module):
 
 
     def forward(self, repairllama_input_ids, codellama_input_ids, 
-                repairllama_labels, codellama_labels, optimizer):
+                repairllama_labels, codellama_labels, optimizer=None):
         torch.autograd.set_detect_anomaly(True)
         # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
         repairllama_input_ids=repairllama_input_ids.to(device)
@@ -200,9 +200,9 @@ class LLamaAdapter(nn.Module):
             assert self.codellama.vocab_size == self.codellama_tokenizer.n_words #Do we need this line?, in load codellama this is set
             codellama_c_loss = self.criterion(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
         
-        codellama_c_loss.backward()
-        optimizer.zero_grad()
-        return codellama_c_loss.item()
+        # codellama_c_loss.backward()
+        # optimizer.zero_grad()
+        return codellama_c_loss
     
     @torch.inference_mode()
     def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int, repairllama_past_key_values=None, adapter=False):
