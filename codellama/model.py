@@ -272,8 +272,8 @@ class Attention(nn.Module):
 
         self.cache_k[:bsz, start_pos : start_pos + seqlen] = xk
         # self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
-        self.cache_v = self.cache_v.clone().detach()
-        self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
+        cache_v1 = self.cache_v.clone().detach()
+        cache_v1[:bsz, start_pos : start_pos + seqlen] = xv
 
         if adapter is not None:
             adapter_len = adapter.shape[1]
@@ -289,7 +289,7 @@ class Attention(nn.Module):
                 adapter_k = adapter_k.transpose(1, 2)
 
         keys = self.cache_k[:bsz, : start_pos + seqlen]
-        values = self.cache_v[:bsz, : start_pos + seqlen]
+        values = cache_v1[:bsz, : start_pos + seqlen]
 
         # repeat k/v heads if n_kv_heads < n_heads
         # keys = repeat_kv(keys, self.n_rep)  # (bs, seqlen, n_local_heads, head_dim) # chnage, originally not commented , now commwntwd for testig check this.
