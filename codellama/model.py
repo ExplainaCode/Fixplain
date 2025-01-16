@@ -229,6 +229,7 @@ class Attention(nn.Module):
                 args.n_heads * self.head_dim,
                 bias=False
             ).half()
+            print("_______________________________________", self.adapter_wk.weight.dtype)
             self.adapter_wv = Linear(
                 args.dim,
                 args.n_heads * self.head_dim,
