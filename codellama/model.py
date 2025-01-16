@@ -229,13 +229,13 @@ class Attention(nn.Module):
                 args.n_heads * self.head_dim,
                 bias=False
             ).half()
-            print("_______________________________________", self.adapter_wk.weight.dtype)
+            # print("_______________________________________", self.adapter_wk.weight.dtype)
             self.adapter_wv = Linear(
                 args.dim,
                 args.n_heads * self.head_dim,
                 bias=False   
             ).half()
-            print("wv___________________________________", self.adapter_wv.weight.dtype)
+            # print("wv___________________________________", self.adapter_wv.weight.dtype)
         self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
         
         self.w_new_gate = args.w_new_gate
@@ -274,9 +274,9 @@ class Attention(nn.Module):
         self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
         if adapter is not None:
             adapter_len = adapter.shape[1]
-            print("adapter_w: ", self.adapter_wv.weight.dtype)
+            # print("adapter_w: ", self.adapter_wv.weight.dtype)
             self.adapter_wv.half()
-            print("adapter_w2: ", self.adapter_wv.weight.dtype)
+            # print("adapter_w2: ", self.adapter_wv.weight.dtype)
             adapter_v = self.adapter_wv(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
             adapter_v = adapter_v.transpose(1, 2)
 
@@ -305,9 +305,10 @@ class Attention(nn.Module):
             if adapter_len > 1:
                 adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
                 adapter_scores = self.gate.tanh() * F.softmax(adapter_scores.float(), dim=-1).type_as(xq)
-                adapter_scores.half()
                 if self.w_new_gate:
                     adapter_scores = self.new_gate * adapter_scores
+                    
+                adapter_scores.half()
                 print("________________",adapter_scores.dtype, adapter_v.dtype)
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
