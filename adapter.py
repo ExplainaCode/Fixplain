@@ -140,9 +140,6 @@ class LLamaAdapter(nn.Module):
         # RepairLLama configuration before forward pass
         print("repairllama_input_ids", repairllama_input_ids)
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
-        # print("__________________________", repairllama_seqlen)
-
-        # print("Repairllama_input_ids", repairllama_input_ids)
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
         # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
@@ -163,26 +160,16 @@ class LLamaAdapter(nn.Module):
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
 
-        # if repairllama_past_key_values is None:
-        #     from transformers.cache_utils import DynamicCache
-        #     repairllama_past_key_values = DynamicCache()
-
-        # repairllama_past_key_values_len = repairllama_past_key_values.__len__()
         for i in range(n_layers):
-            # if i < repairllama_past_key_values_len:
-            #     past_key_values = repairllama_past_key_values.__getitem__(i)
-            # else:
-            #     past_key_values = None
-            # if past_key_values:
-            #     past_key_values = tuple(pkv.contiguous() for pkv in past_key_values)
             repairllama_h, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous()
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.   
             assert(self.attention_hooks_data.get(i)!=None)
-            dynamic_adapter = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
-            del self.attention_hooks_data[i]
+            with torch.no_grad():
+                dynamic_adapter = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
+            # del self.attention_hooks_data[i]
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
-        self.attention_hooks_data={} # Resetting can also be done in the above loop. 
+        # self.attention_hooks_data={}
 
 
         # Processing RepairLLama output
@@ -210,7 +197,7 @@ class LLamaAdapter(nn.Module):
             assert self.codellama.vocab_size == self.codellama_tokenizer.n_words #Do we need this line?, in load codellama this is set
             codellama_c_loss = self.criterion(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
 
-        return codellama_c_loss, codellama_c_loss
+        return codellama_c_loss.detach()
     
     @torch.inference_mode()
     def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int, repairllama_past_key_values=None, adapter=False):
