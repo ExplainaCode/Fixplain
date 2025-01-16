@@ -151,22 +151,22 @@ class Attention(nn.Module):
             args.dim,
             args.n_heads * self.head_dim,
             bias=False
-        )
+        ).half()
         self.wk = Linear(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False
-        )
+        ).half()
         self.wv = Linear(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False
-        )
+        ).half()
         self.wo = Linear(
             args.n_heads * self.head_dim,
             args.dim,
             bias=False
-        )
+        ).half()
 
         # self.cache_k = torch.zeros(
         #     (
@@ -186,21 +186,21 @@ class Attention(nn.Module):
         # ).to(device)
         self.w_lora = args.w_lora
         if args.w_lora:
-           self.lora_wq_l1 = Linear(args.dim, args.lora_rank, bias=False)
-           self.lora_wq_l2 = Linear(args.lora_rank, args.dim, bias=False)
+           self.lora_wq_l1 = Linear(args.dim, args.lora_rank, bias=False).half()
+           self.lora_wq_l2 = Linear(args.lora_rank, args.dim, bias=False).half()
 
-           self.lora_wk_l1 = Linear(args.dim, args.lora_rank, bias=False)
-           self.lora_wk_l2 = Linear(args.lora_rank, args.dim, bias=False)
+           self.lora_wk_l1 = Linear(args.dim, args.lora_rank, bias=False).half()
+           self.lora_wk_l2 = Linear(args.lora_rank, args.dim, bias=False).half()
 
-           self.lora_wv_l1 = Linear(args.dim, args.lora_rank, bias=False)
-           self.lora_wv_l2 = Linear(args.lora_rank, args.dim, bias=False)
+           self.lora_wv_l1 = Linear(args.dim, args.lora_rank, bias=False).half()
+           self.lora_wv_l2 = Linear(args.lora_rank, args.dim, bias=False).half()
 
-           self.lora_wo_l1 = Linear(args.dim, args.lora_rank, bias=False)
-           self.lora_wo_l2 = Linear(args.lora_rank, args.dim, bias=False)
-           nn.init.constant_(self.lora_wq_l2.weight.data, 0)
-           nn.init.constant_(self.lora_wk_l2.weight.data, 0)
-           nn.init.constant_(self.lora_wv_l2.weight.data, 0)
-           nn.init.constant_(self.lora_wo_l2.weight.data, 0)
+           self.lora_wo_l1 = Linear(args.dim, args.lora_rank, bias=False).half()
+           self.lora_wo_l2 = Linear(args.lora_rank, args.dim, bias=False).half()
+           nn.init.constant_(self.lora_wq_l2.weight.data, 0, dtype=torch.float16)
+           nn.init.constant_(self.lora_wk_l2.weight.data, 0, dtype=torch.float16)
+           nn.init.constant_(self.lora_wv_l2.weight.data, 0, dtype=torch.float16)
+           nn.init.constant_(self.lora_wo_l2.weight.data, 0, dtype=torch.float16)
 
         self.cache_k = torch.zeros(
             (self.args.max_batch_size, self.args.max_seq_len, self.n_local_heads, self.head_dim)
@@ -228,17 +228,17 @@ class Attention(nn.Module):
                 args.dim,
                 args.n_heads * self.head_dim,
                 bias=False
-            )
+            ).half()
             self.adapter_wv = Linear(
                 args.dim,
                 args.n_heads * self.head_dim,
                 bias=False   
-            )
-        self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
+            ).half()
+        self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1), dtype=torch.float16)
         
         self.w_new_gate = args.w_new_gate
         if args.w_new_gate:
-            self.new_gate = torch.nn.Parameter(torch.ones(1, 1, 1, 1))
+            self.new_gate = torch.nn.Parameter(torch.ones(1, 1, 1, 1), dtype=torch.float16)
 
     def forward(
         self,
@@ -272,7 +272,6 @@ class Attention(nn.Module):
         self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
         if adapter is not None:
             adapter_len = adapter.shape[1]
-            print("adapter_w", self.adapter_wv.weight.dtype)
             adapter_v = self.adapter_wv(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
             adapter_v = adapter_v.transpose(1, 2)
 
