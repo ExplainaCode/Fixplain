@@ -134,7 +134,7 @@ class LLamaAdapter(nn.Module):
 
     def forward(self, repairllama_input_ids, codellama_input_ids, 
                 repairllama_labels, codellama_labels, optimizer):
-        # torch.autograd.set_detect_anomaly(True)
+        torch.autograd.set_detect_anomaly(True)
         # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
         repairllama_input_ids=repairllama_input_ids.to(device)
         codellama_input_ids=codellama_input_ids.to(device)
