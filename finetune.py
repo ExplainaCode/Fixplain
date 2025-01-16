@@ -254,9 +254,9 @@ def main(args):
     print("Trainable Params:")
     print([(key, val.shape) for key, val in model.named_parameters() if val.requires_grad])
 
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
-        model_without_ddp = model.module
+    # if args.distributed:
+    #     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
+    #     model_without_ddp = model.module
 
     # training detail
     eff_batch_size = args.batch_size * args.accum_iter * misc.get_world_size()
@@ -317,11 +317,12 @@ def main(args):
         #     log_writer=log_writer,
         #     args=args
         # )
+        model2 = model.deepcopy()
         train_stats = train_one_epoch(
             model, data_loader_train, optimizer,device, epoch
         )
         train_stats2 = train_one_epoch2(
-            model, data_loader_train, optimizer,device, epoch
+            model2, data_loader_train, optimizer,device, epoch
         )
         if args.output_dir and (epoch % 5 == 0 or epoch + 1 == args.epochs):
             misc.save_model(
