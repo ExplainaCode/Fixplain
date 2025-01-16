@@ -281,6 +281,7 @@ class Attention(nn.Module):
             adapter_v = adapter_v.transpose(1, 2)
 
             if adapter_len > 1:
+                self.adapter_wk.half()
                 adapter_k = self.adapter_wk(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
                 adapter_k = adapter_k.transpose(1, 2)
 
