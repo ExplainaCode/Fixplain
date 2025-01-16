@@ -134,6 +134,8 @@ def train_one_epoch(model: LLamaAdapter,
         # codellama_loss.backward()
         # model.attention_hooks_data={}
         # optimizer.zero_grad()
+        if data_iter_step >=5:
+            break
     return codellama_loss
    
 def get_args_parser():
