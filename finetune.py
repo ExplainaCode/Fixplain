@@ -126,12 +126,20 @@ def train_one_epoch(model: LLamaAdapter,
                     device: torch.device, epoch: int):
     for data_iter_step, (reapirllama_examples, repairllama_labels, codellama_examples, codellama_labels, codellama_mask) in enumerate((data_loader)):
         with torch.cuda.amp.autocast():
+            optimizer.zero_grad()
             codellama_loss = model(reapirllama_examples, codellama_examples,
                                                             repairllama_labels=repairllama_labels,
                                                             codellama_labels=codellama_labels,)
+        # codellama_loss.backward()
+        # model.attention_hooks_data={}
+        # optimizer.zero_grad()
         codellama_loss.backward()
-        model.attention_hooks_data={}
-        optimizer.zero_grad()
+
+        # Update model parameters
+        optimizer.step()
+
+        # Clear any temporary data in the model
+        model.attention_hooks_data = {}
     return codellama_loss
 
     
