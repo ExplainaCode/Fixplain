@@ -235,7 +235,7 @@ class Attention(nn.Module):
                 args.n_heads * self.head_dim,
                 bias=False   
             ).half()
-            print("wv___________________________________", self.adapter_wv.weights.dtype)
+            print("wv___________________________________", self.adapter_wv.weight.dtype)
         self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
         
         self.w_new_gate = args.w_new_gate
