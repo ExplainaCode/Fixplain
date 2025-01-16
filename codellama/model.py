@@ -270,8 +270,6 @@ class Attention(nn.Module):
 
         self.cache_k[:bsz, start_pos : start_pos + seqlen] = xk
         self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
-        adapter = adapter.half()
-        print("adapter_dtype: ", adapter.dtype)
         if adapter is not None:
             adapter_len = adapter.shape[1]
             adapter_v = self.adapter_wv(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
