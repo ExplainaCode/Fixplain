@@ -271,7 +271,10 @@ class Attention(nn.Module):
         self.cache_v = self.cache_v.to(xq)
 
         self.cache_k[:bsz, start_pos : start_pos + seqlen] = xk
+        # self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
+        self.cache_v = self.cache_v.clone()
         self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
+
         if adapter is not None:
             adapter_len = adapter.shape[1]
             # print("adapter_w: ", self.adapter_wv.weight.dtype)
