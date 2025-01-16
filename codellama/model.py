@@ -311,7 +311,7 @@ class Attention(nn.Module):
                     adapter_scores = self.new_gate * adapter_scores
 
                 adapter_scores = adapter_scores.half()
-                print("________________",adapter_scores.dtype, adapter_v.dtype)
+                # print("________________",adapter_scores.dtype, adapter_v.dtype)
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
                 output = output + self.gate.tanh() * adapter_v
