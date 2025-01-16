@@ -136,24 +136,6 @@ def train_one_epoch(model: LLamaAdapter,
         # optimizer.zero_grad()
         break
     return codellama_loss
-
-
-def train_one_epoch2(model: LLamaAdapter,
-                    data_loader: Iterable, optimizer: torch.optim.Optimizer,
-                    device: torch.device, epoch: int):
-    for data_iter_step, (reapirllama_examples, repairllama_labels, codellama_examples, codellama_labels, codellama_mask) in enumerate((data_loader)):
-        # optimizer.zero_grad()
-        # with torch.cuda.amp.autocast():
-        if data_iter_step == 1:
-            print("_______________________________",data_iter_step, "__________________________________")
-            codellama_loss = model(reapirllama_examples, codellama_examples,
-                                                                repairllama_labels=repairllama_labels,
-                                                                codellama_labels=codellama_labels,optimizer=optimizer)
-            # codellama_loss.backward()
-            # model.attention_hooks_data={}
-            # optimizer.zero_grad()
-            break
-    return codellama_loss
    
 def get_args_parser():
     parser = argparse.ArgumentParser('llama_adapter pre-training', add_help=False)
@@ -317,13 +299,8 @@ def main(args):
         #     log_writer=log_writer,
         #     args=args
         # )
-        import copy
-        model2 = copy.deepcopy(model)
         train_stats = train_one_epoch(
             model, data_loader_train, optimizer,device, epoch
-        )
-        train_stats2 = train_one_epoch2(
-            model2, data_loader_train, optimizer,device, epoch
         )
         if args.output_dir and (epoch % 5 == 0 or epoch + 1 == args.epochs):
             misc.save_model(
