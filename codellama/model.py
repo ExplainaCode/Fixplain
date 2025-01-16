@@ -43,7 +43,7 @@ class ModelArgs:
 
     w_new_gate: bool = False
 
-    w_lora: bool = False
+    w_lora: bool = True
     lora_rank: int = 16
     
 class RMSNorm(torch.nn.Module):
