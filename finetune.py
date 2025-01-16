@@ -317,7 +317,8 @@ def main(args):
         #     log_writer=log_writer,
         #     args=args
         # )
-        model2 = model.deepcopy()
+        import copy
+        model2 = copy.deepcopy(model)
         train_stats = train_one_epoch(
             model, data_loader_train, optimizer,device, epoch
         )
