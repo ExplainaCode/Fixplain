@@ -234,11 +234,11 @@ class Attention(nn.Module):
                 args.n_heads * self.head_dim,
                 bias=False   
             ).half()
-        self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1), dtype=torch.float16)
+        self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
         
         self.w_new_gate = args.w_new_gate
         if args.w_new_gate:
-            self.new_gate = torch.nn.Parameter(torch.ones(1, 1, 1, 1), dtype=torch.float16)
+            self.new_gate = torch.nn.Parameter(torch.ones(1, 1, 1, 1))
 
     def forward(
         self,
