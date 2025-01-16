@@ -198,6 +198,7 @@ class LLamaAdapter(nn.Module):
         else:
             assert self.codellama.vocab_size == self.codellama_tokenizer.n_words #Do we need this line?, in load codellama this is set
             codellama_c_loss = self.criterion(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
+        torch.autograd.set_detect_anomaly(True)
         codellama_c_loss.backward()
         optimizer.zero_grad()
         return codellama_c_loss.item()
