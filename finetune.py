@@ -56,9 +56,9 @@ def train_one_epoch(model: LLamaAdapter,
 
         loss_value = loss.item()
         print("Loss is: ",loss)
-        # if not math.isfinite(loss_value):
-        #     print("Loss is {}, stopping training".format(loss_value))
-        #     sys.exit(1)
+        if not math.isfinite(loss_value):
+            print("Loss is {}, stopping training".format(loss_value))
+            sys.exit(1)
 
         loss /= accum_iter
         # if not torch.isfinite(loss).all():
