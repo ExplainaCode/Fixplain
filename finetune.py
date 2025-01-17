@@ -69,7 +69,7 @@ def train_one_epoch(model: LLamaAdapter,
 
         loss.backward()
         if (data_iter_step + 1) % accum_iter == 0:
-            optimizer.step()
+            # optimizer.step()
             optimizer.zero_grad()            
 
         torch.cuda.synchronize()
