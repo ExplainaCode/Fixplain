@@ -69,8 +69,10 @@ def train_one_epoch(model: LLamaAdapter,
 
         loss.backward()
         if (data_iter_step + 1) % accum_iter == 0:
-            # optimizer.step()
-            optimizer.zero_grad()            
+            print("Loss is: ",loss)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            optimizer.zero_grad()      
 
         torch.cuda.synchronize()
 
