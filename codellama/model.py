@@ -312,12 +312,12 @@ class Attention(nn.Module):
                 # print("+++++++++++++++++++++++++ gate: \n", self.gate.tanh())
                 adapter_scores = self.gate.tanh() * F.softmax(adapter_scores.float(), dim=-1).type_as(xq)
                 # adapter_scores = self.gate.tanh() * F.softmax(adapter_scores.float(), dim=-1).to(torch.float16)
-                print("_________________________adapter scores:\n", adapter_scores.float())
-                if torch.isnan(adapter_scores).any():
-                    print("The tensor contains NaN values.")
-                    sys.exit(1)
-                else:
-                    print("The tensor does not contain NaN values.")
+                # print("_________________________adapter scores:\n", adapter_scores.float())
+                # if torch.isnan(adapter_scores).any():
+                #     print("The tensor contains NaN values.")
+                #     sys.exit(1)
+                # else:
+                #     print("The tensor does not contain NaN values.")
 
                 if self.w_new_gate:
                     adapter_scores = self.new_gate * adapter_scores
