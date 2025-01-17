@@ -63,7 +63,7 @@ class LLamaAdapter(nn.Module):
             ckpt = torch.load(ckpt, map_location="cpu")
             codellama.load_state_dict(ckpt, strict=False)
 
-        codellama = codellama.half()
+        codellama = codellama #.half()
         return codellama, tokenizer 
 
 
@@ -97,7 +97,7 @@ class LLamaAdapter(nn.Module):
                 layer.layer_id = layer_id  # Tag the layer with an ID
                 layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
-        repairllama = repairllama.half()
+        repairllama = repairllama #.half()
         return repairllama, tokenizer
 
     def _hook_fn(self, module, input, output):
@@ -137,17 +137,17 @@ class LLamaAdapter(nn.Module):
         codellama_labels = codellama_labels.to(device)
 
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
-        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids).half()
+        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) #.half()
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
         # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
-        repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h).half()
+        repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)# .half()
 
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
         _bsz, codellama_seqlen = codellama_input_ids.shape
-        codellama_h = self.codellama.tok_embeddings(codellama_input_ids).half()
+        codellama_h = self.codellama.tok_embeddings(codellama_input_ids) #.half()
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
         # #Split real and imaginary parts
         # real_part = codellama_freq_cis.real.half()
@@ -159,7 +159,7 @@ class LLamaAdapter(nn.Module):
         codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
         codellama_mask = None
         codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
-        codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h).half()
+        codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)#.half()
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
@@ -170,7 +170,7 @@ class LLamaAdapter(nn.Module):
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.   
             assert(self.attention_hooks_data.get(i)!=None)
             with torch.no_grad():
-                dynamic_adapter = self.attention_hooks_data[i].get('input').half() # Hooked input to the respective repairllama layer
+                dynamic_adapter = self.attention_hooks_data[i].get('input')#.half() # Hooked input to the respective repairllama layer
             # del self.attention_hooks_data[i]
             # print("dynamic_adapter dtype: ", dynamic_adapter.dtype, codellama_h.dtype, codellama_freq_cis.dtype)
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
@@ -202,8 +202,6 @@ class LLamaAdapter(nn.Module):
             assert self.codellama.vocab_size == self.codellama_tokenizer.n_words #Do we need this line?, in load codellama this is set
             codellama_c_loss = self.criterion(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
         
-        # codellama_c_loss.backward()
-        # optimizer.zero_grad()
         return codellama_c_loss
     
     @torch.inference_mode()

@@ -152,22 +152,22 @@ class Attention(nn.Module):
             args.dim,
             args.n_heads * self.head_dim,
             bias=False
-        ).half()
+        )#.half()
         self.wk = Linear(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False
-        ).half()
+        )#.half()
         self.wv = Linear(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False
-        ).half()
+        )#.half()
         self.wo = Linear(
             args.n_heads * self.head_dim,
             args.dim,
             bias=False
-        ).half()
+        )#.half()
 
         # self.cache_k = torch.zeros(
         #     (
@@ -187,17 +187,17 @@ class Attention(nn.Module):
         # ).to(device)
         self.w_lora = args.w_lora
         if args.w_lora:
-           self.lora_wq_l1 = Linear(args.dim, args.lora_rank, bias=False).half()
-           self.lora_wq_l2 = Linear(args.lora_rank, args.dim, bias=False).half()
+           self.lora_wq_l1 = Linear(args.dim, args.lora_rank, bias=False)#.half()
+           self.lora_wq_l2 = Linear(args.lora_rank, args.dim, bias=False)#.half()
 
-           self.lora_wk_l1 = Linear(args.dim, args.lora_rank, bias=False).half()
-           self.lora_wk_l2 = Linear(args.lora_rank, args.dim, bias=False).half()
+           self.lora_wk_l1 = Linear(args.dim, args.lora_rank, bias=False)#.half()
+           self.lora_wk_l2 = Linear(args.lora_rank, args.dim, bias=False)#.half()
 
-           self.lora_wv_l1 = Linear(args.dim, args.lora_rank, bias=False).half()
-           self.lora_wv_l2 = Linear(args.lora_rank, args.dim, bias=False).half()
+           self.lora_wv_l1 = Linear(args.dim, args.lora_rank, bias=False)#.half()
+           self.lora_wv_l2 = Linear(args.lora_rank, args.dim, bias=False)#.half()
 
-           self.lora_wo_l1 = Linear(args.dim, args.lora_rank, bias=False).half()
-           self.lora_wo_l2 = Linear(args.lora_rank, args.dim, bias=False).half()
+           self.lora_wo_l1 = Linear(args.dim, args.lora_rank, bias=False)#.half()
+           self.lora_wo_l2 = Linear(args.lora_rank, args.dim, bias=False)#.half()
            nn.init.constant_(self.lora_wq_l2.weight.data, 0, dtype=torch.float16)
            nn.init.constant_(self.lora_wk_l2.weight.data, 0, dtype=torch.float16)
            nn.init.constant_(self.lora_wv_l2.weight.data, 0, dtype=torch.float16)
@@ -229,13 +229,13 @@ class Attention(nn.Module):
                 args.dim,
                 args.n_heads * self.head_dim,
                 bias=False
-            ).half()
+            )#.half()
             # print("_______________________________________", self.adapter_wk.weight.dtype)
             self.adapter_wv = Linear(
                 args.dim,
                 args.n_heads * self.head_dim,
                 bias=False   
-            ).half()
+            )#.half()
             # print("wv___________________________________", self.adapter_wv.weight.dtype)
         self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
         
@@ -280,12 +280,12 @@ class Attention(nn.Module):
 
         if adapter is not None:
             adapter_len = adapter.shape[1]
-            self.adapter_wv.half()
+            self.adapter_wv#.half()
             adapter_v = self.adapter_wv(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
             adapter_v = adapter_v.transpose(1, 2)
 
             if adapter_len > 1:
-                self.adapter_wk.half()
+                self.adapter_wk#.half()
                 adapter_k = self.adapter_wk(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
                 adapter_k = adapter_k.transpose(1, 2)
 
@@ -322,7 +322,7 @@ class Attention(nn.Module):
                 if self.w_new_gate:
                     adapter_scores = self.new_gate * adapter_scores
 
-                adapter_scores = adapter_scores.half()
+                adapter_scores = adapter_scores#.half()
                 # print("________________",adapter_scores.dtype, adapter_v.dtype)
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
