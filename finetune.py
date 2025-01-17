@@ -60,7 +60,9 @@ def train_one_epoch(model: LLamaAdapter,
             sys.exit(1)
 
         loss /= accum_iter
-        
+        if not torch.isfinite(loss).all():
+            print("Loss contains NaNs or Infs:", loss)
+
         loss_scaler(loss, optimizer, parameters=model.parameters(),
                     update_grad=(data_iter_step + 1) % accum_iter == 0)
         # loss.backward()
