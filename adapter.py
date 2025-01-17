@@ -55,7 +55,6 @@ class LLamaAdapter(nn.Module):
         tokenizer = Tokenizer(model_path=codellama_tokenizer)
         model_args.vocab_size = tokenizer.n_words
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
-        # torch.set_default_tensor_type(torch.FloatTensor) # load to cpu
         codellama = Transformer(model_args)
         torch.set_default_tensor_type(torch.FloatTensor)
 
@@ -94,8 +93,7 @@ class LLamaAdapter(nn.Module):
             Registers hooks on all LlamaSdpaAttention modules.
             """
             layer_id = 0
-            for layer in repairllama.model.model.layers:
-                # attention_layer = layer.self_attn
+            for layer in repairllama.model.model.layers: # Hooks is registered to layer lock not to attention lock - no harm
                 layer.layer_id = layer_id  # Tag the layer with an ID
                 layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
@@ -108,7 +106,6 @@ class LLamaAdapter(nn.Module):
         """
         layer_id = module.layer_id
         self.attention_hooks_data[layer_id] = { # {0:{"input": (x, )}}
-            # "input": tuple(inp.detach() for inp in input),
             "input": input[0].detach(),
         }
 
@@ -123,7 +120,6 @@ class LLamaAdapter(nn.Module):
                     if any(keyword in name for keyword in target_keywords):
                         para.data = para.data.float()
                         para.requires_grad = True
-                # print(name, para.requires_grad)    #debugging
         
         elif phase == 'inference':
             pass
@@ -135,12 +131,11 @@ class LLamaAdapter(nn.Module):
     def forward(self, repairllama_input_ids, codellama_input_ids, 
                 repairllama_labels, codellama_labels, optimizer=None):
         torch.autograd.set_detect_anomaly(True)
-        # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
+
         repairllama_input_ids=repairllama_input_ids.to(device)
         codellama_input_ids=codellama_input_ids.to(device)
         codellama_labels = codellama_labels.to(device)
-        # RepairLLama configuration before forward pass
-        print("repairllama_input_ids", repairllama_input_ids)
+
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids).half()
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
@@ -205,13 +200,12 @@ class LLamaAdapter(nn.Module):
         return codellama_c_loss
     
     @torch.inference_mode()
-    def forward_inference(self, repairllama_input_ids, codellama_input_ids, start_pos:int, repairllama_past_key_values=None, adapter=False):
+    def forward_inference(self, repairllama_input_ids, codellama_input_ids, repairllama_start_pos: int,codellama_start_pos:int, repairllama_past_key_values=None, adapter=False):
         # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
 
         repairllama_input_ids=repairllama_input_ids.to(device) #Decide whether this is the optimal position to move to the device #probably in training we can directly load to the device at once?
         if adapter:
             codellama_input_ids=codellama_input_ids.to(device)
-        # RepairLLama configuration before forward pass
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) # apass through embedding layer
@@ -221,7 +215,7 @@ class LLamaAdapter(nn.Module):
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
-        repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h) #this should change.
+        repairllama_mask = torch.triu(repairllama_mask, diagonal=repairllama_start_pos + 1).type_as(repairllama_h) #this should change.
 
         if adapter:
             # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
@@ -231,7 +225,7 @@ class LLamaAdapter(nn.Module):
             codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
             codellama_mask = None
             codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
-            codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h) #This should change
+            codellama_mask = torch.triu(codellama_mask, diagonal=codellama_start_pos + 1).type_as(repairllama_h)
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
@@ -239,12 +233,6 @@ class LLamaAdapter(nn.Module):
         if repairllama_past_key_values is None:
             from transformers.cache_utils import DynamicCache
             repairllama_past_key_values = DynamicCache()
-
-        # print("________________________________________")
-        # print("repairllama_h: ", repairllama_h.shape)
-        # print("repairllama_mask: ", repairllama_mask.shape)
-        # print("repairllama_position_ids: ", repairllama_position_ids)
-        # print("repairllama_past_key_values: ", repairllama_past_key_values.__len__())
 
         repairllama_past_key_values_len = repairllama_past_key_values.__len__()
         for i in range(n_layers):
@@ -254,20 +242,16 @@ class LLamaAdapter(nn.Module):
                 past_key_values = None
             if past_key_values:
                 past_key_values = tuple(pkv.contiguous() for pkv in past_key_values)
-            # print(repairllama_h)
-            # print(repairllama_mask)
-            # print(repairllama_position_ids)
 
             repairllama_h, next_repairllama_cache, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous(), past_key_values, use_cache=True
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.        
             assert(self.attention_hooks_data.get(i)!=None)
-            # print(self.attention_hooks_data)
+
             if adapter:
                 dynamic_adapter  = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
-                codellama_h = self.codellama.layers[i](codellama_h, start_pos, codellama_freq_cis, codellama_mask, dynamic_adapter)
+                codellama_h = self.codellama.layers[i](codellama_h, codellama_start_pos, codellama_freq_cis, codellama_mask, dynamic_adapter)
 
-        # print(self.attention_hooks_data)   
         self.attention_hooks_data={} # Resetting can also be done in the above loop. 
 
 
@@ -286,9 +270,9 @@ class LLamaAdapter(nn.Module):
 
         return repairllama_output, codellama_output.float() if codellama_output is not None else None, next_repairllama_cache
     
-    @torch.inference_mode() #To be completed
+    @torch.inference_mode()
     def generate(self, repairllama_input_ids, codellama_input_ids=None,
-                 max_gen_len: int=256, temperature: float=0.1,
+                 max_gen_len: int=256, max_codellama_gen_len:int=125, temperature: float=0.1,
                  top_p: float=0.75):
         bsz = len(repairllama_input_ids)
         if codellama_input_ids==None:
@@ -322,7 +306,7 @@ class LLamaAdapter(nn.Module):
         min_codellama_prompt_size = min([len(t[0]) for t in codellama_input_ids])
         max_codellama_prompt_size = max([len(t[0]) for t in codellama_input_ids])
 
-        max_codellama_gen_len = max_gen_len # max_codellama_gen_len should be taken from the parameters, for the testing it is equal to the max_gen_len (in repairllama)
+        # max_codellama_gen_len = max_gen_len # max_codellama_gen_len should be taken from the parameters, for the testing it is equal to the max_gen_len (in repairllama)
         total_repairllama_len = min(params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
         repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_token_id).cuda().long()
         total_codellama_len = min(params.max_seq_len, max_codellama_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text.
@@ -351,9 +335,9 @@ class LLamaAdapter(nn.Module):
         for cur_pos in range(repairllama_start_pos, total_repairllama_len):
             with torch.cuda.amp.autocast():
                 if cur_pos -repairllama_start_pos  <= codellama_iter_start_pos:
-                    repairllama_output, _ , next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, codellama_pre_pos,repairllama_past_key_values=next_repairllama_cache, adapter=False)
+                    repairllama_output, _ , next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], None, prev_pos, codellama_pre_pos,repairllama_past_key_values=next_repairllama_cache, adapter=False)
                 else:
-                    repairllama_output, codellama_logits, next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_tokens[:, codellama_pre_pos:codellama_cur_pos], codellama_pre_pos, repairllama_past_key_values=next_repairllama_cache, adapter=True)
+                    repairllama_output, codellama_logits, next_repairllama_cache = self.forward_inference(repairllama_tokens[:, prev_pos:cur_pos], codellama_tokens[:, codellama_pre_pos:codellama_cur_pos], prev_pos, codellama_pre_pos, repairllama_past_key_values=next_repairllama_cache, adapter=True)
             # print("Repairllama logits: ", repairllama_logits, repairllama_logits.shape)
             # if temperature > 0:
             #     probs = torch.softmax(repairllama_logits / temperature, dim=-1)

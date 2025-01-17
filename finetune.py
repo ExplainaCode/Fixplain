@@ -202,15 +202,15 @@ def main(args):
 
     model.to(device)
 
-    model_without_ddp = model
+    model_without_ddp = model.codellama
     print("Model = %s" % str(model_without_ddp))
 
     print("Trainable Params:")
     print([(key, val.shape) for key, val in model.named_parameters() if val.requires_grad])
 
-    # if args.distributed:
-    #     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
-    #     model_without_ddp = model.module
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
+        model_without_ddp = model.module
 
     # training detail
     eff_batch_size = args.batch_size * args.accum_iter * misc.get_world_size()
@@ -274,7 +274,7 @@ def main(args):
 
         if args.output_dir and (epoch % 5 == 0 or epoch + 1 == args.epochs):
             misc.save_model(
-                args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
+                args=args, model=model.codellama, model_without_ddp=model_without_ddp, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
