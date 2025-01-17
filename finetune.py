@@ -55,6 +55,7 @@ def train_one_epoch(model: LLamaAdapter,
                                                             codellama_labels=codellama_labels,)
 
         loss_value = loss.item()
+        print("Loss is: ",loss)
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
             sys.exit(1)
@@ -69,7 +70,6 @@ def train_one_epoch(model: LLamaAdapter,
 
         loss.backward()
         if (data_iter_step + 1) % accum_iter == 0:
-            print("Loss is: ",loss)
             # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad()      
