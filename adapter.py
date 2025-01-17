@@ -319,9 +319,9 @@ class LLamaAdapter(nn.Module):
 
         for k, t in enumerate(repairllama_input_ids):
             if total_repairllama_len <= len(t[0]): #Deugging
-                repairllama_tokens[k, : total_repairllama_len] = torch.tensor(t[0]).cuda().long()
+                repairllama_tokens[k, : total_repairllama_len] = torch.tensor(t).cuda().long()
             else:
-                repairllama_tokens[k, : len(t[0])] = torch.tensor(t[0]).cuda().long()
+                repairllama_tokens[k, : len(t[0])] = torch.tensor(t).cuda().long()
 
         input_repairllama_text_mask = repairllama_tokens != self.repairllama_tokenizer.pad_token_id
         repairllama_start_pos = min_repairllama_prompt_size
