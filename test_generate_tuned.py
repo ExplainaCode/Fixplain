@@ -20,14 +20,43 @@ def main(args):
     repairllama_input_ids = torch.load(f"{args.repairllama_input_pth}",  map_location=torch.device('cpu'))
     codellama_input_ids = torch.load(args.codellama_input_pth) if args.codellama_input_pth is not None else None
     
-    # Run forward_inference
+
+    # Prepare a file to write the outputs
+    output_file = "generated_outputs.txt"
+
+    # Run forward inference and save outputs
     with torch.no_grad():
         print("Running generate...")
-        repairllama_outputs, codellama_outputs = llama_adapter.generate(
-            repairllama_input_ids=[repairllama_input_ids[0], repairllama_input_ids[1]], codellama_input_ids=codellama_input_ids
-        )
-        print("Repairllama: \n", repairllama_outputs)
-        print("Codellama: \n", codellama_outputs)
+        
+        all_repairllama_outputs = []
+        all_codellama_outputs = []
+
+        # Process each input ID in repairllama_input_ids
+        for i, repair_input in enumerate(repairllama_input_ids):
+            print(f"Processing record {i + 1}/{len(repairllama_input_ids)}...")
+            
+            # Generate outputs for the current input
+            repairllama_outputs, codellama_outputs = llama_adapter.generate(
+                repairllama_input_ids=[repair_input],  # Process single input at a time
+                codellama_input_ids=codellama_input_ids
+            )
+
+            # Collect outputs
+            all_repairllama_outputs.append(repairllama_outputs)
+            all_codellama_outputs.append(codellama_outputs)
+
+        # Write all outputs to a file
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write("Repairllama Outputs:\n")
+            for i, output in enumerate(all_repairllama_outputs):
+                f.write(f"Record {i + 1}:\n{output}\n\n")
+
+            f.write("\nCodellama Outputs:\n")
+            for i, output in enumerate(all_codellama_outputs):
+                f.write(f"Record {i + 1}:\n{output}\n\n")
+
+    print(f"All outputs saved to {output_file}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pass configuration paths.")
