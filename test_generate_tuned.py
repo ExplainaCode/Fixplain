@@ -13,7 +13,7 @@ def main(args):
         codellama_tokenizer=args.codellama_tokenizer_path,
         repairllama_model_dir=args.repairllama_model_dir or 'codellama/CodeLlama-7b-hf',
         repairllama_lora_dir=args.repairllama_lora_dir or './repairllama-lora',
-        max_seq_len=512,
+        max_seq_len=1024,
         max_batch_size=args.max_batch_size,
     )
     
