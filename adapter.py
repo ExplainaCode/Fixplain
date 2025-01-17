@@ -148,7 +148,14 @@ class LLamaAdapter(nn.Module):
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
         _bsz, codellama_seqlen = codellama_input_ids.shape
         codellama_h = self.codellama.tok_embeddings(codellama_input_ids).half()
-        codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device).half()
+        codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
+                # Split real and imaginary parts
+        real_part = codellama_freq_cis.real.half()
+        imag_part = codellama_freq_cis.imag.half()
+
+        # Optionally, store them separately or recombine when needed
+        codellama_freq_cis = torch.complex(real_part, imag_part)  # Recombine as complex
+
         codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
         codellama_mask = None
         codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
