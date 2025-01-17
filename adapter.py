@@ -149,12 +149,12 @@ class LLamaAdapter(nn.Module):
         _bsz, codellama_seqlen = codellama_input_ids.shape
         codellama_h = self.codellama.tok_embeddings(codellama_input_ids).half()
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
-                # Split real and imaginary parts
-        real_part = codellama_freq_cis.real.half()
-        imag_part = codellama_freq_cis.imag.half()
+        # #Split real and imaginary parts
+        # real_part = codellama_freq_cis.real.half()
+        # imag_part = codellama_freq_cis.imag.half()
 
-        # Optionally, store them separately or recombine when needed
-        codellama_freq_cis = torch.complex(real_part, imag_part)  # Recombine as complex
+        # # Optionally, store them separately or recombine when needed
+        # codellama_freq_cis = torch.complex(real_part, imag_part)  # Recombine as complex
 
         codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
         codellama_mask = None
