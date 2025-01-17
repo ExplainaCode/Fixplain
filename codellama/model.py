@@ -307,7 +307,7 @@ class Attention(nn.Module):
         if adapter is not None:
             if adapter_len > 1:
                 adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
-                print(adapter_scores)
+                print("_________________________adapter scores:\n", adapter_scores)
                 adapter_scores = self.gate.tanh() * F.softmax(adapter_scores.float(), dim=-1).type_as(xq)
                 # adapter_scores = self.gate.tanh() * F.softmax(adapter_scores.float(), dim=-1).to(torch.float16)
 
