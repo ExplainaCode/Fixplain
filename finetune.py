@@ -64,12 +64,13 @@ def train_one_epoch(model: LLamaAdapter,
             print("Loss contains NaNs or Infs:", loss)
             sys.exit(1)
 
-        loss_scaler(loss, optimizer, parameters=model.parameters(),
-                    update_grad=(data_iter_step + 1) % accum_iter == 0)
-        # loss.backward()
-        
+        # loss_scaler(loss, optimizer, parameters=model.parameters(),
+        #             update_grad=(data_iter_step + 1) % accum_iter == 0)
+
+        loss.backward()
         if (data_iter_step + 1) % accum_iter == 0:
-            optimizer.zero_grad()
+            optimizer.step()
+            optimizer.zero_grad()            
 
         torch.cuda.synchronize()
 
