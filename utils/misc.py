@@ -259,8 +259,6 @@ class NativeScalerWithGradNormCount:
         self._scaler = torch.cuda.amp.GradScaler()
 
     def __call__(self, loss, optimizer, clip_grad=None, parameters=None, create_graph=False, update_grad=True):
-        if hasattr(loss, "grad_fn") and loss.grad_fn is None:
-            raise RuntimeError("Backward pass was already computed for this loss!")
         self._scaler.scale(loss).backward(create_graph=create_graph)
         if update_grad:
             if clip_grad is not None:
