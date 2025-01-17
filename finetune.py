@@ -49,8 +49,8 @@ def train_one_epoch(model: LLamaAdapter,
         if data_iter_step % accum_iter == 0:
             lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
 
-        with torch.amp.autocast("cuda"):
-            loss = model(reapirllama_examples, codellama_examples,
+        # with torch.amp.autocast("cuda"):
+        loss = model(reapirllama_examples, codellama_examples,
                                                             repairllama_labels=repairllama_labels,
                                                             codellama_labels=codellama_labels,)
 
