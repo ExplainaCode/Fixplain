@@ -2,3 +2,7 @@ torch
 fairscale
 fire
 sentencepiece
+pandas
+transformers==4.47.1
+tensorboard
+pandas
