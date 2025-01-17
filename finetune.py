@@ -65,14 +65,14 @@ def train_one_epoch(model: LLamaAdapter,
         #     print("Loss contains NaNs or Infs:", loss)
         #     sys.exit(1)
 
-        # loss_scaler(loss, optimizer, parameters=model.parameters(),
-        #             update_grad=(data_iter_step + 1) % accum_iter == 0)
+        loss_scaler(loss, optimizer, parameters=model.parameters(),
+                    update_grad=(data_iter_step + 1) % accum_iter == 0)
 
-        loss.backward()
+        # loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         if (data_iter_step + 1) % accum_iter == 0:
             # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            optimizer.step()
+            # optimizer.step()
             optimizer.zero_grad()      
 
         torch.cuda.synchronize()
