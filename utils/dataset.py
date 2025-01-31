@@ -45,7 +45,7 @@ class FinetuneDataset(Dataset):
         self.repairllama_max_output_len = args.repairllama_max_output_len
         self.codellama_max_output_len = args.codellama_max_output_len
 
-        required_columns = ['buggy_code', 'fixed_code', 'explanation']
+        required_columns = ['buggy_code', 'fixed_code', 'gpt_explanation']
         if not all(col in self.data.columns for col in required_columns):
             raise ValueError(f"DataFrame must contain the following columns: {', '.join(required_columns)}")
 
@@ -65,7 +65,7 @@ class FinetuneDataset(Dataset):
         row = self.data.iloc[index]
         buggy_code = row['buggy_code']
         fixed_code = row['fixed_code']
-        explanation = row['explanation']
+        explanation = row['gpt_explanation']
     
         repairllama_input_ids =  torch.flatten(self.repairllama_tokenizer.encode(buggy_code, return_tensors='pt'))
         repairllama_label_ids = torch.flatten(self.repairllama_tokenizer.encode(fixed_code, return_tensors='pt'))
