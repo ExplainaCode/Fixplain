@@ -97,7 +97,7 @@ class LLamaAdapter(nn.Module):
                 layer.layer_id = layer_id  # Tag the layer with an ID
                 layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
-        repairllama = repairllama #.half()
+        repairllama = repairllama.half()
         return repairllama, tokenizer
 
     def _hook_fn(self, module, input, output):
