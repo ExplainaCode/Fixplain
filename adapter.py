@@ -63,7 +63,7 @@ class LLamaAdapter(nn.Module):
             ckpt = torch.load(ckpt, map_location="cpu")
             codellama.load_state_dict(ckpt, strict=False)
 
-        codellama = codellama #.half()
+        codellama = codellama.half()
         return codellama, tokenizer 
 
 
