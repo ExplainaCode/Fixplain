@@ -62,30 +62,37 @@ class FinetuneDataset(Dataset):
 
 
     def __getitem__(self, index):
-        row = self.data.iloc[index]
-        buggy_code = row['buggy_code']
-        fixed_code = row['fixed_code']
-        explanation = row['gpt_explanation']
-        if not(fixed_code, str):
+        try:
+            row = self.data.iloc[index]
+            buggy_code = row['buggy_code']
+            fixed_code = row['fixed_code']
+            explanation = row['gpt_explanation']
+            if not(fixed_code, str):
+                print(f"fixed code type: {type(fixed_code)}, value: {fixed_code}")
+        
+            repairllama_input_ids =  torch.flatten(self.repairllama_tokenizer.encode(buggy_code, return_tensors='pt'))
+            repairllama_label_ids = torch.flatten(self.repairllama_tokenizer.encode(fixed_code, return_tensors='pt'))
+            codellama_input_ids = torch.tensor(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
+
+            repairllama_input_ids = self.__get_padding__(repairllama_input_ids, self.repairllama_max_input_len, minus = 0)
+            repairllama_label_ids = self.__get_padding__(repairllama_label_ids, self.repairllama_max_output_len, minus =0)
+            codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_max_output_len, minus = 1)
+
+            codellama_label_ids = copy.deepcopy(codellama_input_ids)
+            codellama_input_ids_mask  = codellama_input_ids.ge(0)
+            codellama_label_mask = codellama_label_ids.ge(0)
+            codellama_input_ids[~codellama_input_ids_mask] = 0
+            codellama_label_ids[~codellama_label_mask] = 0
+            codellama_label_mask = codellama_label_mask.float()
+            codellama_input_ids_mask = codellama_input_ids_mask.float()
+
+            return repairllama_input_ids, repairllama_label_ids, codellama_input_ids, codellama_label_ids, codellama_input_ids_mask
+        
+        except Exception as e:
+            # Catch and log any exceptions
+            print(f"Error processing index {index}: {e}")
             print(f"fixed code type: {type(fixed_code)}, value: {fixed_code}")
-    
-        repairllama_input_ids =  torch.flatten(self.repairllama_tokenizer.encode(buggy_code, return_tensors='pt'))
-        repairllama_label_ids = torch.flatten(self.repairllama_tokenizer.encode(fixed_code, return_tensors='pt'))
-        codellama_input_ids = torch.tensor(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
-
-        repairllama_input_ids = self.__get_padding__(repairllama_input_ids, self.repairllama_max_input_len, minus = 0)
-        repairllama_label_ids = self.__get_padding__(repairllama_label_ids, self.repairllama_max_output_len, minus =0)
-        codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_max_output_len, minus = 1)
-
-        codellama_label_ids = copy.deepcopy(codellama_input_ids)
-        codellama_input_ids_mask  = codellama_input_ids.ge(0)
-        codellama_label_mask = codellama_label_ids.ge(0)
-        codellama_input_ids[~codellama_input_ids_mask] = 0
-        codellama_label_ids[~codellama_label_mask] = 0
-        codellama_label_mask = codellama_label_mask.float()
-        codellama_input_ids_mask = codellama_input_ids_mask.float()
-
-        return repairllama_input_ids, repairllama_label_ids, codellama_input_ids, codellama_label_ids, codellama_input_ids_mask
+            raise 
 
 
 # class PretrainDataset(Dataset):
