@@ -66,6 +66,8 @@ class FinetuneDataset(Dataset):
         buggy_code = row['buggy_code']
         fixed_code = row['fixed_code']
         explanation = row['gpt_explanation']
+        if not(fixed_code, str):
+            print(f"fixed code type: {type(fixed_code)}, value: {fixed_code}")
     
         repairllama_input_ids =  torch.flatten(self.repairllama_tokenizer.encode(buggy_code, return_tensors='pt'))
         repairllama_label_ids = torch.flatten(self.repairllama_tokenizer.encode(fixed_code, return_tensors='pt'))
