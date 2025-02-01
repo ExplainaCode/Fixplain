@@ -76,6 +76,12 @@ def train_one_epoch(model: LLamaAdapter,
                     raise ValueError("NaN in gradients.")
             optimizer.step()
             optimizer.zero_grad() 
+
+            for name, param in model.named_parameters():
+                if torch.isnan(param).any():
+                    print(f"NaN detected in weights for {name}!")
+                    raise ValueError("NaN in weights.")
+                
             print("__Passed through optimizer__")     
 
         torch.cuda.synchronize()
