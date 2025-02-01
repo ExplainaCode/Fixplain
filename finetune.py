@@ -70,7 +70,7 @@ def train_one_epoch(model: LLamaAdapter,
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         if (data_iter_step + 1) % accum_iter == 0:
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad() 
             print("__Passed through optimizer__")     
