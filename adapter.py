@@ -210,6 +210,9 @@ class LLamaAdapter(nn.Module):
         codellama_output = codellama_output[:, :-1, :]
         codellama_labels = codellama_labels[:, 1:]
 
+        if codellama_output is None or codellama_labels is None:
+            raise ValueError("codellama_output or codellama_labels is None. Check the forward pass.")
+
         if codellama_labels.sum()==0 :
             codellama_c_loss = codellama_output.mean() * 0
         else:
