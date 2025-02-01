@@ -223,6 +223,10 @@ class LLamaAdapter(nn.Module):
         print("codellama_labels shape:", codellama_labels.shape)
 
         print("_______________________________", codellama_c_loss)
+        if torch.isnan(codellama_output).any() or torch.isinf(codellama_output).any():
+            raise ValueError("codellama_output contains NaN or inf values.___________")
+        if torch.isnan(codellama_labels).any() or torch.isinf(codellama_labels).any():
+            raise ValueError("codellama_labels contains NaN or inf values.___________")
         return codellama_c_loss
     
     @torch.inference_mode()
