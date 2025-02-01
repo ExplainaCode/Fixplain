@@ -204,10 +204,18 @@ class LLamaAdapter(nn.Module):
         #     reapirllama_c_loss = self.criterion(repairllama_output.reshape(-1, self.repairllama.vocab_size), repairllama_labels.flatten())
 
         # Processing CodeLLama output
+        if torch.isnan(codellama_output).any() or torch.isinf(codellama_output).any():
+            raise ValueError("codellama_output contains NaN or inf values.___________1")
 
         codellama_h = self.codellama.norm(codellama_h)
+        if torch.isnan(codellama_output).any() or torch.isinf(codellama_output).any():
+            raise ValueError("codellama_output contains NaN or inf values.___________2")
         codellama_output = self.codellama.output(codellama_h)
+        if torch.isnan(codellama_output).any() or torch.isinf(codellama_output).any():
+            raise ValueError("codellama_output contains NaN or inf values.___________3")
         codellama_output = codellama_output[:, :-1, :]
+        if torch.isnan(codellama_output).any() or torch.isinf(codellama_output).any():
+            raise ValueError("codellama_output contains NaN or inf values.___________4")
         codellama_labels = codellama_labels[:, 1:]
 
         if codellama_output is None or codellama_labels is None:
