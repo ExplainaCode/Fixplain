@@ -188,6 +188,8 @@ class LLamaAdapter(nn.Module):
             # self.attention_hooks_data[i] = None
             # print("dynamic_adapter dtype: ", dynamic_adapter.dtype, codellama_h.dtype, codellama_freq_cis.dtype)
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
+            if torch.isnan(codellama_h).any() or torch.isinf(codellama_h).any():
+                raise ValueError("codellama_h contains NaN or inf values.___________0", i)
         # self.attention_hooks_data={}
 
 
