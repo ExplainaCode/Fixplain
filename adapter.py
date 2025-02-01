@@ -25,7 +25,7 @@ class LLamaAdapter(nn.Module):
                  repairllama_lora_dir='./repairllama-lora', repairllama_model_dir="codellama/CodeLlama-7b-hf",
                  max_seq_len=512, max_batch_size=2,
                  w_bias=False,
-                 w_lora=True, lora_rank=16, 
+                 w_lora=False, lora_rank=16, 
                  w_new_gate=False,
                  phase="inference",):
         super().__init__()
@@ -67,8 +67,8 @@ class LLamaAdapter(nn.Module):
         codellama = codellama.to("cuda")
 
         # Print data type of model parameters
-        for name, param in codellama.named_parameters():
-            print(f"Parameter: {name}, dtype: {param.dtype}")
+        # for name, param in codellama.named_parameters():
+        #     print(f"Parameter: {name}, dtype: {param.dtype}")
 
         return codellama, tokenizer
 
@@ -104,8 +104,8 @@ class LLamaAdapter(nn.Module):
                 layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
 
-        for name, param in repairllama.named_parameters():
-            print(f"Parameter: {name}, dtype: {param.dtype}")
+        # for name, param in repairllama.named_parameters():
+        #     print(f"Parameter: {name}, dtype: {param.dtype}")
 
         return repairllama, tokenizer
 
@@ -129,7 +129,7 @@ class LLamaAdapter(nn.Module):
                     if any(keyword in name for keyword in target_keywords):
                         # para.data = para.data.float()
                         para.requires_grad = True
-                print(f"Parameter: {name}, dtype: {para.dtype}")
+                # print(f"Parameter: {name}, dtype: {para.dtype}")
         
         elif phase == 'inference':
             pass
