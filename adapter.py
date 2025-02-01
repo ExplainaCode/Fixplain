@@ -214,6 +214,7 @@ class LLamaAdapter(nn.Module):
             raise ValueError("codellama_output or codellama_labels is None. Check the forward pass.")
 
         if codellama_labels.sum()==0 :
+            print("Codellama labels sum is 0")
             codellama_c_loss = codellama_output.mean() * 0
         else:
             assert self.codellama.vocab_size == self.codellama_tokenizer.n_words #Do we need this line?, in load codellama this is set
