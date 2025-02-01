@@ -70,9 +70,12 @@ def train_one_epoch(model: LLamaAdapter,
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         if (data_iter_step + 1) % accum_iter == 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            # optimizer.step()
-            # optimizer.zero_grad() 
+            for name, param in model.named_parameters():
+                if param.grad is not None and torch.isnan(param.grad).any():
+                    print(f"NaN detected in gradients for {name}!")
+                    raise ValueError("NaN in gradients.")
+            optimizer.step()
+            optimizer.zero_grad() 
             print("__Passed through optimizer__")     
 
         torch.cuda.synchronize()
