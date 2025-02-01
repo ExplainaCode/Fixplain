@@ -219,7 +219,7 @@ class LLamaAdapter(nn.Module):
         else:
             assert self.codellama.vocab_size == self.codellama_tokenizer.n_words #Do we need this line?, in load codellama this is set
             codellama_c_loss = self.criterion(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
-        
+        print("_______________________________", codellama_c_loss)
         return codellama_c_loss
     
     @torch.inference_mode()
