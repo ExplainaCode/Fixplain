@@ -12,19 +12,6 @@ from transformers import (
 AutoTokenizer,
 )
 
-PROMPT_DICT = {
-    "prompt_input": (
-        "Below is an instruction that describes a task, paired with an input that provides further context. "
-        "Write a response that appropriately completes the request.\n\n"
-        "### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:"
-    ),
-    "prompt_no_input": (
-        "Below is an instruction that describes a task. "
-        "Write a response that appropriately completes the request.\n\n"
-        "### Instruction:\n{instruction}\n\n### Response:"
-    ),
-}
-
 @dataclass
 class DatasetArgs:
     repairllama_max_input_len = 1024
@@ -49,10 +36,11 @@ class FinetuneDataset(Dataset):
         if not all(col in self.data.columns for col in required_columns):
             raise ValueError(f"DataFrame must contain the following columns: {', '.join(required_columns)}")
         
-        df_cleaned = self.data.dropna(subset=['buggy_code', 'fixed_code', 'gpt_explanation'])
-
-        # Reset the index after dropping rows (optional)
-        self.data = df_cleaned.reset_index(drop=True)
+        if (self.data[['buggy_code', 'fixed_code', 'gpt_explanation']].isnull().any().any()):
+            raise ValueError(f"Dataframe contains 'null' values")
+        
+        # df_cleaned = self.data.dropna(subset=['buggy_code', 'fixed_code', 'gpt_explanation'])
+        # self.data = df_cleaned.reset_index(drop=True)
 
     def __len__(self):
         return len(self.data)

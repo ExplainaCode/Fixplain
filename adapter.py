@@ -24,8 +24,8 @@ class LLamaAdapter(nn.Module):
                  codellama_ckpt_dir, codellama_tokenizer,
                  repairllama_lora_dir='./repairllama-lora', repairllama_model_dir="codellama/CodeLlama-7b-hf",
                  max_seq_len=512, max_batch_size=2,
-                 w_bias=False, 
-                 w_lora=False, lora_rank=16, 
+                 w_bias=False,
+                 w_lora=True, lora_rank=16, 
                  w_new_gate=False,
                  phase="inference",):
         super().__init__()
@@ -54,17 +54,23 @@ class LLamaAdapter(nn.Module):
         )
         tokenizer = Tokenizer(model_path=codellama_tokenizer)
         model_args.vocab_size = tokenizer.n_words
-        torch.set_default_tensor_type(torch.cuda.HalfTensor)
-        codellama = Transformer(model_args)
-        torch.set_default_tensor_type(torch.FloatTensor)
+        # torch.set_default_tensor_type(torch.cuda.HalfTensor)
+        codellama = Transformer(model_args).to(dtype=torch.float16, device="cpu")
+        # torch.set_default_tensor_type(torch.FloatTensor)
 
         ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
         for ckpt in ckpts:
-            ckpt = torch.load(ckpt, map_location="cpu")
-            codellama.load_state_dict(ckpt, strict=False)
+            state_dict = torch.load(ckpt, map_location="cpu")
+            state_dict = {k: v.half() for k, v in state_dict.items()} 
+            codellama.load_state_dict(state_dict, strict=False)
+        
+        codellama = codellama.to("cuda")
 
-        codellama = codellama.half()
-        return codellama, tokenizer 
+        # Print data type of model parameters
+        for name, param in codellama.named_parameters():
+            print(f"Parameter: {name}, dtype: {param.dtype}")
+
+        return codellama, tokenizer
 
 
     def _load_repairllama(self, repairllama_model_dir, repairllama_lora_dir, register_Attention_hooks=True):
@@ -97,7 +103,10 @@ class LLamaAdapter(nn.Module):
                 layer.layer_id = layer_id  # Tag the layer with an ID
                 layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
-        repairllama = repairllama.half()
+
+        for name, param in repairllama.named_parameters():
+            print(f"Parameter: {name}, dtype: {param.dtype}")
+
         return repairllama, tokenizer
 
     def _hook_fn(self, module, input, output):
@@ -118,8 +127,9 @@ class LLamaAdapter(nn.Module):
             for name, para in self.named_parameters():
                 if name.startswith("codellama"):
                     if any(keyword in name for keyword in target_keywords):
-                        para.data = para.data.float()
+                        # para.data = para.data.float()
                         para.requires_grad = True
+                print(f"Parameter: {name}, dtype: {para.dtype}")
         
         elif phase == 'inference':
             pass
@@ -131,6 +141,9 @@ class LLamaAdapter(nn.Module):
     def forward(self, repairllama_input_ids, codellama_input_ids, 
                 repairllama_labels, codellama_labels, optimizer=None):
         torch.autograd.set_detect_anomaly(True)
+
+        self.codellama = torch.compile(self.codellama)
+        self.repairllama = torch.compile(self.repairllama)
 
         repairllama_input_ids=repairllama_input_ids.to(device)
         codellama_input_ids=codellama_input_ids.to(device)
@@ -172,6 +185,7 @@ class LLamaAdapter(nn.Module):
             with torch.no_grad():
                 dynamic_adapter = self.attention_hooks_data[i].get('input')#.half() # Hooked input to the respective repairllama layer
             # del self.attention_hooks_data[i]
+            self.attention_hooks_data[i] = None
             # print("dynamic_adapter dtype: ", dynamic_adapter.dtype, codellama_h.dtype, codellama_freq_cis.dtype)
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
         # self.attention_hooks_data={}
