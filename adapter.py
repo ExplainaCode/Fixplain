@@ -65,7 +65,7 @@ class LLamaAdapter(nn.Module):
             # state_dict = torch.load(ckpt, map_location="cuda")
             # state_dict = {k: v.half() for k, v in state_dict.items()} 
             # codellama.load_state_dict(state_dict, strict=False)
-
+            print("started to load...")
             state_dict = torch.load(ckpt, map_location="cpu")
             state_dict = {k: v.half() for k, v in state_dict.items()}
             codellama.load_state_dict(state_dict, strict=False)
