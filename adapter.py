@@ -59,7 +59,9 @@ class LLamaAdapter(nn.Module):
         print("after tokenizer load")
         model_args.vocab_size = tokenizer.n_words
         print("Initializing model...")
+        torch.set_default_tensor_type(torch.cuda.HalfTensor)
         codellama = Transformer(model_args)
+        torch.set_default_tensor_type(torch.FloatTensor)
         print("Model initialized. Moving to GPU...")
         codellama = codellama.to(dtype=torch.float16, device="cuda")
         print("Model moved to GPU.")
