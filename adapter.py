@@ -34,7 +34,7 @@ class LLamaAdapter(nn.Module):
         self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
             repairllama_model_dir, repairllama_lora_dir,
             register_Attention_hooks=True)
-        print("repairllama is loaded... codellama is about to load...")
+        print("repairllama is loaded... codellama is about to load....")
 
         self.codellama, self.codellama_tokenizer = self._load_codellama(
             codellama_ckpt_dir, max_seq_len,
@@ -54,10 +54,13 @@ class LLamaAdapter(nn.Module):
             w_lora=w_lora, lora_rank=lora_rank,
             **params
         )
+        print("efore tokenizer loading...")
         tokenizer = Tokenizer(model_path=codellama_tokenizer)
+        print("after tokenizer load")
         model_args.vocab_size = tokenizer.n_words
         # torch.set_default_tensor_type(torch.cuda.HalfTensor)
         codellama = Transformer(model_args).to(dtype=torch.float16, device="cuda")
+        print("after model load")
         # torch.set_default_tensor_type(torch.FloatTensor)
 
         ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
