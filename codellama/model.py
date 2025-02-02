@@ -111,82 +111,32 @@ def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
 class Attention(nn.Module):
     def __init__(self, args: ModelArgs):
         super().__init__()
-        # self.n_kv_heads = args.n_heads if args.n_kv_heads is None else args.n_kv_heads
-        # model_parallel_size = fs_init.get_model_parallel_world_size()
-        # self.n_local_heads = args.n_heads // model_parallel_size
-        # self.n_local_kv_heads = self.n_kv_heads // model_parallel_size
-        # self.n_rep = self.n_local_heads // self.n_local_kv_heads
-        # self.head_dim = args.dim // args.n_heads
+
         self.args=args
         self.n_local_heads = args.n_heads
         self.head_dim = args.dim // args.n_heads
 
-
-        # self.wq = ColumnParallelLinear(
-        #     args.dim,
-        #     args.n_heads * self.head_dim,
-        #     bias=False,
-        #     gather_output=False,
-        #     init_method=lambda x: x,
-        # )
-        # self.wk = ColumnParallelLinear(
-        #     args.dim,
-        #     self.n_kv_heads * self.head_dim,
-        #     bias=False,
-        #     gather_output=False,
-        #     init_method=lambda x: x,
-        # )
-        # self.wv = ColumnParallelLinear(
-        #     args.dim,
-        #     self.n_kv_heads * self.head_dim,
-        #     bias=False,
-        #     gather_output=False,
-        #     init_method=lambda x: x,
-        # )
-        # self.wo = RowParallelLinear(
-        #     args.n_heads * self.head_dim,
-        #     args.dim,
-        #     bias=False,
-        #     input_is_parallel=True,
-        #     init_method=lambda x: x,
-        # )
         self.wq = Linear(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False
-        )#.half()
+        )
         self.wk = Linear(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False
-        )#.half()
+        )
         self.wv = Linear(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False
-        )#.half()
+        )
         self.wo = Linear(
             args.n_heads * self.head_dim,
             args.dim,
             bias=False
-        )#.half()
+        )
 
-        # self.cache_k = torch.zeros(
-        #     (
-        #         args.max_batch_size,
-        #         args.max_seq_len,
-        #         self.n_local_kv_heads,
-        #         self.head_dim,
-        #     )
-        # ).to(device)
-        # self.cache_v = torch.zeros(
-        #     (
-        #         args.max_batch_size,
-        #         args.max_seq_len,
-        #         self.n_local_kv_heads,
-        #         self.head_dim,
-        #     )
-        # ).to(device)
         self.w_lora = args.w_lora
         if args.w_lora:
             self.lora_wq_l1 = Linear(args.dim, args.lora_rank, bias=False)#.half()
@@ -221,20 +171,6 @@ class Attention(nn.Module):
         ).to(device)
 
         if args.adapter:
-            # self.adapter_wk = ColumnParallelLinear(
-            #     args.dim,
-            #     self.n_kv_heads * self.head_dim,
-            #     bias=False,
-            #     gather_output=False,
-            #     init_method=lambda x: x,
-            # )
-            # self.adapter_wv = ColumnParallelLinear(
-            #     args.dim,
-            #     self.n_kv_heads * self.head_dim,
-            #     bias=False,
-            #     gather_output=False,
-            #     init_method=lambda x: x,
-            # )
             self.adapter_wk = Linear(
                 args.dim,
                 args.n_heads * self.head_dim,
@@ -264,9 +200,6 @@ class Attention(nn.Module):
         bsz, seqlen, *_ = x.shape
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
 
-        # xq = xq.view(bsz, seqlen, self.n_local_heads, self.head_dim)
-        # xk = xk.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
-        # xv = xv.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
         if self.w_lora:
             xq = xq + self.lora_wq_l2(self.lora_wq_l1(x))
             xk = xk + self.lora_wk_l2(self.lora_wk_l1(x))
@@ -362,15 +295,6 @@ class FeedForward(nn.Module):
             hidden_dim = int(ffn_dim_multiplier * hidden_dim)
         hidden_dim = multiple_of * ((hidden_dim + multiple_of - 1) // multiple_of)
 
-        # self.w1 = ColumnParallelLinear(
-        #     dim, hidden_dim, bias=False, gather_output=False, init_method=lambda x: x
-        # )
-        # self.w2 = RowParallelLinear(
-        #     hidden_dim, dim, bias=False, input_is_parallel=True, init_method=lambda x: x
-        # )
-        # self.w3 = ColumnParallelLinear(
-        #     dim, hidden_dim, bias=False, gather_output=False, init_method=lambda x: x
-        # )
         self.w1 = Linear(
             dim, hidden_dim, bias=False
         )
@@ -443,10 +367,6 @@ class Transformer(nn.Module):
         self.config = {  # static config Change to adapt with the model 
             "num_hidden_layers": 32,
         }
-
-        # self.tok_embeddings = ParallelEmbedding(
-        #     params.vocab_size, params.dim, init_method=lambda x: x,
-        # )
 
         self.tok_embeddings = Embedding(
             params.vocab_size, params.dim

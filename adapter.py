@@ -62,6 +62,9 @@ class LLamaAdapter(nn.Module):
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         with torch.device("cpu"):
             codellama = Transformer(model_args)
+        from torchinfo import summary
+        print(summary(codellama, input_size=(1, 512)))  # Adjust input_size based on your model
+
         torch.set_default_tensor_type(torch.FloatTensor)
         print("Model initialized. Moving to GPU...")
         
