@@ -62,9 +62,14 @@ class LLamaAdapter(nn.Module):
 
         ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
         for ckpt in ckpts:
-            state_dict = torch.load(ckpt, map_location="cuda")
-            state_dict = {k: v.half() for k, v in state_dict.items()} 
+            # state_dict = torch.load(ckpt, map_location="cuda")
+            # state_dict = {k: v.half() for k, v in state_dict.items()} 
+            # codellama.load_state_dict(state_dict, strict=False)
+
+            state_dict = torch.load(ckpt, map_location="cpu")
+            state_dict = {k: v.half() for k, v in state_dict.items()}
             codellama.load_state_dict(state_dict, strict=False)
+            print("Moved one tensor.....")
         
         # codellama = codellama.to("cuda")
 
