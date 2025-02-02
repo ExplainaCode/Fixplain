@@ -85,12 +85,14 @@ class LLamaAdapter(nn.Module):
                 load_in_8bit=True,
                 llm_int8_threshold=6.0
             ),
+            device_map="auto",
         )
 
         repairllama = PeftModel.from_pretrained(
             repairllama,
             repairllama_lora_dir,
             torch_dtype=torch.float16,
+            device_map="auto",
         )
         repairllama.config.pad_token = tokenizer.pad_token = tokenizer.unk_token 
 
