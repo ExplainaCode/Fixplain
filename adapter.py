@@ -63,7 +63,7 @@ class LLamaAdapter(nn.Module):
         codellama = Transformer(model_args)
         torch.set_default_tensor_type(torch.FloatTensor)
         print("Model initialized. Moving to GPU...")
-        codellama = codellama.to(dtype=torch.float16, device="cuda")
+        # codellama = codellama.to(dtype=torch.float16, device="cuda")
         print("Model moved to GPU.")
         # torch.set_default_tensor_type(torch.cuda.HalfTensor)
         # codellama = Transformer(model_args).to(dtype=torch.float16, device="cuda")
