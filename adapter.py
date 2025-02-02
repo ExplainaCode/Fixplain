@@ -29,15 +29,17 @@ class LLamaAdapter(nn.Module):
                  w_new_gate=False,
                  phase="inference",):
         super().__init__()
-        self.attention_hooks_data = {} 
+        self.attention_hooks_data = {}
+
+        self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
+            repairllama_model_dir, repairllama_lora_dir,
+            register_Attention_hooks=True)
+        print("repairllama is loaded... codellama is about to load...")
 
         self.codellama, self.codellama_tokenizer = self._load_codellama(
             codellama_ckpt_dir, max_seq_len,
             max_batch_size, codellama_tokenizer,
             w_lora, lora_rank)
-        self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
-            repairllama_model_dir, repairllama_lora_dir,
-            register_Attention_hooks=True)
         
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
         self.phase = phase
