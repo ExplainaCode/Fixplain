@@ -24,7 +24,7 @@ from torch import nn
 # else:
 #     device = "cpu"
 
-deice  ="cpu"
+device  ="cpu"
 
 @dataclass
 class ModelArgs:
