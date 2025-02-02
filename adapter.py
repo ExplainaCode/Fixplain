@@ -55,16 +55,16 @@ class LLamaAdapter(nn.Module):
         tokenizer = Tokenizer(model_path=codellama_tokenizer)
         model_args.vocab_size = tokenizer.n_words
         # torch.set_default_tensor_type(torch.cuda.HalfTensor)
-        codellama = Transformer(model_args).to(dtype=torch.float16, device="cpu")
+        codellama = Transformer(model_args).to(dtype=torch.float16, device="cuda")
         # torch.set_default_tensor_type(torch.FloatTensor)
 
         ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
         for ckpt in ckpts:
-            state_dict = torch.load(ckpt, map_location="cpu")
+            state_dict = torch.load(ckpt, map_location="cuda")
             state_dict = {k: v.half() for k, v in state_dict.items()} 
             codellama.load_state_dict(state_dict, strict=False)
         
-        codellama = codellama.to("cuda")
+        # codellama = codellama.to("cuda")
 
         # Print data type of model parameters
         # for name, param in codellama.named_parameters():
