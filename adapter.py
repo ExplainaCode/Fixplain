@@ -54,7 +54,7 @@ class LLamaAdapter(nn.Module):
             w_lora=w_lora, lora_rank=lora_rank,
             **params
         )
-        print("efore tokenizer loading...")
+        print("before tokenizer loading...")
         tokenizer = Tokenizer(model_path=codellama_tokenizer)
         print("after tokenizer load")
         model_args.vocab_size = tokenizer.n_words
@@ -62,10 +62,11 @@ class LLamaAdapter(nn.Module):
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         with torch.device("cpu"):
             codellama = Transformer(model_args)
-        from torchinfo import summary
-        print(summary(codellama, input_size=(1, 512)))  # Adjust input_size based on your model
 
         torch.set_default_tensor_type(torch.FloatTensor)
+        for name, param in codellama.named_parameters():
+            print(f"{name}: {param.shape}, grad: {param.grad}")
+
         print("Model initialized. Moving to GPU...")
         
         if torch.cuda.device_count() > 1:
@@ -134,8 +135,9 @@ class LLamaAdapter(nn.Module):
                 layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
 
-        # for name, param in repairllama.named_parameters():
-        #     print(f"Parameter: {name}, dtype: {param.dtype}")
+            for name, param in repairllama.named_parameters():
+                print(f"{name}: {param.shape}, grad: {param.grad}")
+
 
         return repairllama, tokenizer
 
