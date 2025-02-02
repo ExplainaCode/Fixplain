@@ -64,8 +64,38 @@ class LLamaAdapter(nn.Module):
             codellama = Transformer(model_args)
 
         torch.set_default_tensor_type(torch.FloatTensor)
+        total_memory = 0  # Initialize total memory usage
+
         for name, param in codellama.named_parameters():
-            print(f"{name}: {param.shape}, grad: {param.grad}")
+            # Get the number of elements in the parameter
+            num_elements = param.numel()
+            
+            # Check the data type of the parameter
+            dtype = param.dtype
+            
+            # Set the bytes per element based on the data type
+            if dtype == torch.float32:
+                bytes_per_element = 4
+            elif dtype == torch.float64:
+                bytes_per_element = 8
+            elif dtype == torch.float16:
+                bytes_per_element = 2
+            else:
+                # Handle other data types, if necessary
+                bytes_per_element = 4  # Default to float32 size if unknown
+            
+            # Calculate memory usage for the parameter (in bytes)
+            memory_for_param = num_elements * bytes_per_element
+            
+            # Optionally, print each parameter's memory usage
+            print(f"Parameter {name}: shape {param.shape}, dtype {dtype}, memory {memory_for_param / (1024**2):.2f} MB")
+            
+            # Add to the total memory usage
+            total_memory += memory_for_param
+
+        # Print the total memory usage of the model
+        print(f"Total memory for the model: {total_memory / (1024**3):.2f} GB")
+
 
         print("Model initialized. Moving to GPU...")
         
@@ -135,8 +165,22 @@ class LLamaAdapter(nn.Module):
                 layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
 
+            total_memory = 0  # Initialize total memory usage
+
             for name, param in repairllama.named_parameters():
-                print(f"{name}: {param.shape}, grad: {param.grad}")
+                # Get the number of elements in the parameter
+                num_elements = param.numel()
+                
+                # Check the data type of the parameter
+                dtype = param.dtype
+                bytes_per_element = 1  # Default to float32 size if unknown
+                memory_for_param = num_elements * bytes_per_element
+                
+                print(f"Parameter {name}: shape {param.shape}, dtype {dtype}, memory {memory_for_param / (1024**2):.2f} MB")
+                total_memory += memory_for_param
+
+            # Print the total memory usage of the model
+            print(f"Total memory for the model: {total_memory / (1024**3):.2f} GB")
 
 
         return repairllama, tokenizer
