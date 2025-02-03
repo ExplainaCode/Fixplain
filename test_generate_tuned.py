@@ -11,6 +11,8 @@ def main(args):
         repairllama_lora_dir=args.repairllama_lora_dir or './repairllama-lora',
         max_seq_len=args.max_seq_len,
         max_batch_size=args.max_batch_size,
+        w_lora=args.w_lora,
+        lora_rank=args.lora_rank
     )
     
     # repairllama_input_ids = torch.load(f"{args.repairllama_input_pth}",  map_location=torch.device('cpu'))
@@ -65,6 +67,8 @@ if __name__ == "__main__":
     parser.add_argument("--repairllama_lora_dir", type=str, required=False, help="Path to RepairLlama LoRA directory")
     parser.add_argument("--max_batch_size", type=int, required=True, help="Max batch size")
     parser.add_argument('--max_seq_len', default=512, type=int, help='max number of input words')
+    parser.add_argument('--w_lora', default=False, type=bool)
+    parser.add_argument('--lora_rank', default=16, type=int, help='This only apply if the w_lora parameter is "True"')
     
     args = parser.parse_args()
     main(args)

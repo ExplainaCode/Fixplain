@@ -135,6 +135,9 @@ def get_args_parser():
     parser.add_argument('--epochs', default=400, type=int)
     parser.add_argument('--accum_iter', default=1, type=int,
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
+    parser.add_argument('--w_lora', default=False, type=bool)
+    parser.add_argument('--lora_rank', default=16, type=int,
+                        help='This only apply if the w_lora parameter is "True"')
 
     # Model parameters
     parser.add_argument('--codellama_ckpt_dir', default='/path/to/codellama', type=str,
@@ -218,7 +221,8 @@ def main(args):
     # define the model
     model = LLamaAdapter(args.codellama_ckpt_dir, args.codellama_tokenizer_ckpt_dir,
                          args.repairllama_lora_dir, args.repairllama_ckpt_dir, phase="finetune", 
-                         max_batch_size=args.batch_size, max_seq_len=args.max_seq_len)
+                         max_batch_size=args.batch_size, max_seq_len=args.max_seq_len,
+                         w_lora=args.w_lora, lora_rank=args.lora_rank)
     # codellama_tokenizer = model.codellama_tokenizer
     # repairllama_tokenizer = model.repairllama_tokenizer
 
