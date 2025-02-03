@@ -337,6 +337,9 @@ class LLamaAdapter(nn.Module):
             codellama_input_ids = [self.codellama_tokenizer.encode(x, bos=True, eos=False) for x in codellama_input_ids]
         
         #Clipplig to max_seq_len
+        # Convert list of tensors into a single tensor
+        repairllama_input_ids = torch.stack(repairllama_input_ids)
+        codellama_input_ids = torch.stack(codellama_input_ids)
         repairllama_input_ids = repairllama_input_ids[:, :, :params.max_seq_len]
         codellama_input_ids = codellama_input_ids[:, :, :params.max_seq_len]
 
