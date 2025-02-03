@@ -147,7 +147,7 @@ def get_args_parser():
                         help='path to RepairLLaMA pretrained checkpoint')
     parser.add_argument('--pretrained_path', default='/path/to/pretrained', type=str,
                         help='path to checkpoint from pretrain stage')
-    parser.add_argument('--max_words', default=512, type=int,
+    parser.add_argument('--max_seq_len', default=512, type=int,
                         help='max number of input words')
     parser.add_argument('--data_path', default='/path/to/dataset', type=str,
                         help='path to dataset')
@@ -217,7 +217,8 @@ def main(args):
 
     # define the model
     model = LLamaAdapter(args.codellama_ckpt_dir, args.codellama_tokenizer_ckpt_dir,
-                         args.repairllama_lora_dir, args.repairllama_ckpt_dir, phase="finetune", max_batch_size=args.batch_size)
+                         args.repairllama_lora_dir, args.repairllama_ckpt_dir, phase="finetune", 
+                         max_batch_size=args.batch_size, max_seq_len=args.max_seq_len)
     # codellama_tokenizer = model.codellama_tokenizer
     # repairllama_tokenizer = model.repairllama_tokenizer
 
