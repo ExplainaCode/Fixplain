@@ -68,6 +68,8 @@ class LLamaAdapter(nn.Module):
         ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
         for ckpt_path in ckpts:
             ckpt = torch.load(ckpt_path, map_location="cpu")
+            if "model" in ckpt: #for the later loading
+                ckpt = ckpt["model"]
             missing_keys, unexpected_keys = codellama.load_state_dict(ckpt, strict=False)
 
             print(f"Checkpoint: {ckpt_path}")
