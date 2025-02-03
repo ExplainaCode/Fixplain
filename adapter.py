@@ -63,8 +63,8 @@ class LLamaAdapter(nn.Module):
         # codellama = codellama.to("cuda")
 
         # Print data type of model parameters
-        # for name, param in codellama.named_parameters():
-        #     print(f"Parameter: {name}, dtype: {param.dtype}")
+        for name, param in codellama.named_parameters():
+            print(f"Parameter: {name}, dtype: {param.dtype}")
 
         return codellama, tokenizer
 
