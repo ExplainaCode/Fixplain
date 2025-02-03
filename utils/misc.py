@@ -306,6 +306,9 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
     # Extract only updated (trainable and changed) parameters
     trainable_state_dict = {name: param for name, param in model_without_ddp.named_parameters() 
                             if param.requires_grad and param.grad is not None}
+    for name, param in model_without_ddp.named_parameters():
+        print("_______________in model saving______________________-")
+        print(name)
 
     print("Inside Save Keys in trainable_state_dict:")
     for key in trainable_state_dict.keys():
