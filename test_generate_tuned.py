@@ -3,10 +3,6 @@ import argparse
 import torch
 
 def main(args):
-    # print("CodeLlama Checkpoint Directory:", args.codellama_ckpt_dir)
-    # print("CodeLlama Tokenizer Path:", args.codellama_tokenizer_path)
-    # print("RepairLlama Model Directory:", args.repairllama_model_dir)
-    # print("RepairLlama LoRA Directory:", args.repairllama_lora_dir)
 
     llama_adapter = LLamaAdapter(
         codellama_ckpt_dir=args.codellama_ckpt_dir,
@@ -30,7 +26,7 @@ def main(args):
         
         all_repairllama_outputs = []
         all_codellama_outputs = []
-
+        repairllama_input_ids[70]
         # Process each input ID in repairllama_input_ids
         for i, repair_input in enumerate(repairllama_input_ids[70:75]):
             print(f"Processing record {i + 1}/{len(repairllama_input_ids[70:75])}...")

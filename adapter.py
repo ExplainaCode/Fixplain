@@ -63,8 +63,8 @@ class LLamaAdapter(nn.Module):
         # codellama = codellama.to("cuda")
 
         # Print data type of model parameters
-        for name, param in codellama.named_parameters():
-            print(f"Parameter: {name}, dtype: {param.dtype}")
+        # for name, param in codellama.named_parameters():
+        #     print(f"Parameter: {name}, dtype: {param.dtype}")
 
         return codellama, tokenizer
 
@@ -227,7 +227,7 @@ class LLamaAdapter(nn.Module):
         # print("codellama_output shape:", codellama_output.shape)
         # print("codellama_labels shape:", codellama_labels.shape)
 
-        print("_______________________________", codellama_c_loss)
+        # print("_______________________________", codellama_c_loss)
         if torch.isnan(codellama_output).any() or torch.isinf(codellama_output).any():
             raise ValueError("codellama_output contains NaN or inf values.___________")
         if torch.isnan(codellama_labels).any() or torch.isinf(codellama_labels).any():
