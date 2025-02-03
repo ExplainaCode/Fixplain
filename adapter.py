@@ -122,11 +122,11 @@ class LLamaAdapter(nn.Module):
         missing_keys, unexpected_keys = self.codellama.load_state_dict(ckpt, strict=False)
 
         print("____________________in trained weights loading___________________")
-        # print(f"Checkpoint: {ckpt_path}")
-        # print("Missing Keys (not updated):", missing_keys)
-        # print("Unexpected Keys (not in model):", unexpected_keys)
-        # print("-" * 50)
-        print(ckpt.keys())
+        print(f"Checkpoint: {ckpt_path}")
+        print("Missing Keys (not updated):", missing_keys)
+        print("Unexpected Keys (not in model):", unexpected_keys)
+        print("-" * 50)
+        # print(ckpt.keys())
 
 
     def _hook_fn(self, module, input, output):
