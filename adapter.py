@@ -117,15 +117,16 @@ class LLamaAdapter(nn.Module):
         ckpts = sorted(Path(codellama_trained_weight_dir).glob("*.pth"))
         ckpt_path = ckpts[-1]
 
-        ckpt = torch.load(ckpt_path, map_location="cpu")
-        ckpt = ckpt["model"] # This ckeckpoint contains other parameters as well
+        ckpt = torch.load(ckpt_path, map_location="cpu") # This ckeckpoint contains other parameters as well
+        ckpt = ckpt["model"] 
         missing_keys, unexpected_keys = self.codellama.load_state_dict(ckpt, strict=False)
 
         print("____________________in trained weights loading___________________")
-        print(f"Checkpoint: {ckpt_path}")
-        print("Missing Keys (not updated):", missing_keys)
-        print("Unexpected Keys (not in model):", unexpected_keys)
-        print("-" * 50)
+        # print(f"Checkpoint: {ckpt_path}")
+        # print("Missing Keys (not updated):", missing_keys)
+        # print("Unexpected Keys (not in model):", unexpected_keys)
+        # print("-" * 50)
+        print(ckpt.keys())
 
 
     def _hook_fn(self, module, input, output):
