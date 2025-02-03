@@ -312,9 +312,9 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
     print("_______________trainable_state_dict_______________")
     print(trainable_state_dict.keys())
 
-    print("Inside Save Keys in trainable_state_dict:")
-    for key in trainable_state_dict.keys():
-        print(key)
+    # print("Inside Save Keys in trainable_state_dict:")
+    # for key in trainable_state_dict.keys():
+    #     print(key)
         
     # Prepare the checkpoint dictionary
     checkpoint = {
