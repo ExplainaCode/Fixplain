@@ -19,7 +19,7 @@ def main(args):
 
     # Prepare a file to write the outputs
     output_file = "generated_outputs.txt"
-    print(repairllama_input_ids[70])
+    print(repairllama_input_ids[70:72])
     # Run forward inference and save outputs
     with torch.no_grad():
         print("Running generate...")
