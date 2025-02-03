@@ -315,7 +315,7 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
     print("Inside Save Keys in trainable_state_dict:")
     for name, param in model_without_ddp.named_parameters():
         if param.requires_grad:
-            print(name, param.grad)
+            print(name, param.grad, param)
             break
         
     # Prepare the checkpoint dictionary
