@@ -1,7 +1,7 @@
 from .adapter import LLamaAdapter
 import argparse
 import torch
-
+import pandas as pd
 def main(args):
 
     llama_adapter = LLamaAdapter(
@@ -13,13 +13,15 @@ def main(args):
         max_batch_size=args.max_batch_size,
     )
     
-    repairllama_input_ids = torch.load(f"{args.repairllama_input_pth}",  map_location=torch.device('cpu'))
+    # repairllama_input_ids = torch.load(f"{args.repairllama_input_pth}",  map_location=torch.device('cpu'))
+    df = pd.read_csv(args.repairlla_input_pth)
+    repairllama_input = df["buggy_code"].tolist()
     codellama_input_ids = torch.load(args.codellama_input_pth) if args.codellama_input_pth is not None else None
     
 
     # Prepare a file to write the outputs
     output_file = "generated_outputs.txt"
-    print(repairllama_input_ids[70:72])
+    print(repairllama_input[70:72])
     # Run forward inference and save outputs
     with torch.no_grad():
         print("Running generate...")
@@ -27,8 +29,8 @@ def main(args):
         all_repairllama_outputs = []
         all_codellama_outputs = []
         # Process each input ID in repairllama_input_ids
-        for i, repair_input in enumerate(repairllama_input_ids[70:75]):
-            print(f"Processing record {i + 1}/{len(repairllama_input_ids[70:75])}...")
+        for i, repair_input in enumerate(repairllama_input[70:75]):
+            print(f"Processing record {i + 1}/{len(repairllama_input[70:75])}...")
             
             # Generate outputs for the current input
             repairllama_outputs, codellama_outputs = llama_adapter.generate(
