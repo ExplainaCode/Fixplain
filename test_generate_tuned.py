@@ -9,7 +9,7 @@ def main(args):
         codellama_tokenizer=args.codellama_tokenizer_path,
         repairllama_model_dir=args.repairllama_model_dir or 'codellama/CodeLlama-7b-hf',
         repairllama_lora_dir=args.repairllama_lora_dir or './repairllama-lora',
-        max_seq_len=512,
+        max_seq_len=args.max_seq_len,
         max_batch_size=args.max_batch_size,
     )
     
@@ -64,6 +64,7 @@ if __name__ == "__main__":
     parser.add_argument("--repairllama_model_dir", type=str, required=False, help="Path to RepairLlama model directory")
     parser.add_argument("--repairllama_lora_dir", type=str, required=False, help="Path to RepairLlama LoRA directory")
     parser.add_argument("--max_batch_size", type=int, required=True, help="Max batch size")
+    parser.add_argument('--max_seq_len', default=512, type=int, help='max number of input words')
     
     args = parser.parse_args()
     main(args)
