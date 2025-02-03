@@ -34,7 +34,7 @@ class LLamaAdapter(nn.Module):
         self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
             repairllama_model_dir, repairllama_lora_dir,
             register_Attention_hooks=True)
-        print("repairllama is loaded... codellama is about to load....")
+        # print("repairllama is loaded... codellama is about to load....")
 
         self.codellama, self.codellama_tokenizer = self._load_codellama(
             codellama_ckpt_dir, max_seq_len,
@@ -54,74 +54,11 @@ class LLamaAdapter(nn.Module):
             w_lora=w_lora, lora_rank=lora_rank,
             **params
         )
-        print("before tokenizer loading...")
         tokenizer = Tokenizer(model_path=codellama_tokenizer)
-        print("after tokenizer load")
         model_args.vocab_size = tokenizer.n_words
-        print("Initializing model...")
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
-        with torch.device("cpu"):
-            codellama = Transformer(model_args)
-
+        codellama = Transformer(model_args)
         torch.set_default_tensor_type(torch.FloatTensor)
-        total_memory = 0  # Initialize total memory usage
-
-        for name, param in codellama.named_parameters():
-            # Get the number of elements in the parameter
-            num_elements = param.numel()
-            
-            # Check the data type of the parameter
-            dtype = param.dtype
-            
-            # Set the bytes per element based on the data type
-            if dtype == torch.float32:
-                bytes_per_element = 4
-            elif dtype == torch.float64:
-                bytes_per_element = 8
-            elif dtype == torch.float16:
-                bytes_per_element = 2
-            else:
-                # Handle other data types, if necessary
-                bytes_per_element = 4  # Default to float32 size if unknown
-            
-            # Calculate memory usage for the parameter (in bytes)
-            memory_for_param = num_elements * bytes_per_element
-            
-            # Optionally, print each parameter's memory usage
-            print(f"Parameter {name}: shape {param.shape}, dtype {dtype}, memory {memory_for_param / (1024**2):.2f} MB")
-            
-            # Add to the total memory usage
-            total_memory += memory_for_param
-
-        # Print the total memory usage of the model
-        print(f"Total memory for the model: {total_memory / (1024**3):.2f} GB")
-
-
-        print("Model initialized. Moving to GPU...")
-        
-        if torch.cuda.device_count() > 1:
-            print(f"Using {torch.cuda.device_count()} GPUs!")
-            codellama = nn.DataParallel(codellama)  # Distribute model across GPUs
-
-        # Step 3: Move model to GPU(s) with float16 precision
-        codellama = codellama.to(dtype=torch.float16, device="cuda")
-
-        print("Model moved to GPU.")
-        # torch.set_default_tensor_type(torch.cuda.HalfTensor)
-        # codellama = Transformer(model_args).to(dtype=torch.float16, device="cuda")
-        print("after model load")
-        # torch.set_default_tensor_type(torch.FloatTensor)
-
-        ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
-        for ckpt in ckpts:
-            # state_dict = torch.load(ckpt, map_location="cuda")
-            # state_dict = {k: v.half() for k, v in state_dict.items()} 
-            # codellama.load_state_dict(state_dict, strict=False)
-            print("started to load...")
-            state_dict = torch.load(ckpt, map_location="cpu")
-            state_dict = {k: v.half() for k, v in state_dict.items()}
-            codellama.load_state_dict(state_dict, strict=False)
-            print("Moved one tensor.....")
         
         # codellama = codellama.to("cuda")
 
@@ -164,24 +101,6 @@ class LLamaAdapter(nn.Module):
                 layer.layer_id = layer_id  # Tag the layer with an ID
                 layer.register_forward_hook(self._hook_fn)
                 layer_id += 1
-
-            total_memory = 0  # Initialize total memory usage
-
-            for name, param in repairllama.named_parameters():
-                # Get the number of elements in the parameter
-                num_elements = param.numel()
-                
-                # Check the data type of the parameter
-                dtype = param.dtype
-                bytes_per_element = 1  # Default to float32 size if unknown
-                memory_for_param = num_elements * bytes_per_element
-                
-                print(f"Parameter {name}: shape {param.shape}, dtype {dtype}, memory {memory_for_param / (1024**2):.2f} MB")
-                total_memory += memory_for_param
-
-            # Print the total memory usage of the model
-            print(f"Total memory for the model: {total_memory / (1024**3):.2f} GB")
-
 
         return repairllama, tokenizer
 

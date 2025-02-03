@@ -17,14 +17,12 @@ import torch.nn.functional as F
 from torch.nn import Linear, Embedding
 from torch import nn
 
-# if torch.cuda.is_available():
-#     device = "cuda"
-# elif torch.backends.mps.is_available():
-#     device = "mps"
-# else:
-#     device = "cpu"
-
-device  ="cpu"
+if torch.cuda.is_available():
+    device = "cuda"
+elif torch.backends.mps.is_available():
+    device = "mps"
+else:
+    device = "cpu"
 
 @dataclass
 class ModelArgs:
