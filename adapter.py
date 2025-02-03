@@ -65,6 +65,15 @@ class LLamaAdapter(nn.Module):
         # Print data type of model parameters
         # for name, param in codellama.named_parameters():
         #     print(f"Parameter: {name}, dtype: {param.dtype}")
+        ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
+        for ckpt_path in ckpts:
+            ckpt = torch.load(ckpt_path, map_location="cpu")
+            missing_keys, unexpected_keys = codellama.load_state_dict(ckpt, strict=False)
+
+            print(f"Checkpoint: {ckpt_path}")
+            print("Missing Keys (not updated):", missing_keys)
+            print("Unexpected Keys (not in model):", unexpected_keys)
+            print("-" * 50)
 
         return codellama, tokenizer
 
