@@ -335,6 +335,10 @@ class LLamaAdapter(nn.Module):
         if isinstance(codellama_input_ids[0], str):
             # This has custom tokenizer encode in codellama directory
             codellama_input_ids = [self.codellama_tokenizer.encode(x, bos=True, eos=False) for x in codellama_input_ids]
+        
+        #Clipplig to max_seq_len
+        repairllama_input_ids = repairllama_input_ids[:, :, :params.max_seq_len]
+        codellama_input_ids = codellama_input_ids[:, :, :params.max_seq_len]
 
         min_repairllama_prompt_size = min([len(t[0]) for t in repairllama_input_ids])
         max_repairllama_prompt_size = max([len(t[0]) for t in repairllama_input_ids])
