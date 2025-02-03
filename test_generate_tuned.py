@@ -19,14 +19,13 @@ def main(args):
 
     # Prepare a file to write the outputs
     output_file = "generated_outputs.txt"
-
+    print(repairllama_input_ids[70])
     # Run forward inference and save outputs
     with torch.no_grad():
         print("Running generate...")
         
         all_repairllama_outputs = []
         all_codellama_outputs = []
-        repairllama_input_ids[70]
         # Process each input ID in repairllama_input_ids
         for i, repair_input in enumerate(repairllama_input_ids[70:75]):
             print(f"Processing record {i + 1}/{len(repairllama_input_ids[70:75])}...")
