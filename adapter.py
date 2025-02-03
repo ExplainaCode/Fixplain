@@ -70,10 +70,10 @@ class LLamaAdapter(nn.Module):
             ckpt = torch.load(ckpt_path, map_location="cpu")
             missing_keys, unexpected_keys = codellama.load_state_dict(ckpt, strict=False)
 
-            print(f"Checkpoint: {ckpt_path}")
-            print("Missing Keys (not updated):", missing_keys)
-            print("Unexpected Keys (not in model):", unexpected_keys)
-            print("-" * 50)
+            # print(f"Checkpoint: {ckpt_path}")
+            # print("Missing Keys (not updated):", missing_keys)
+            # print("Unexpected Keys (not in model):", unexpected_keys)
+            # print("-" * 50)
 
         return codellama, tokenizer
 
@@ -121,11 +121,11 @@ class LLamaAdapter(nn.Module):
         ckpt = ckpt["model"] 
         missing_keys, unexpected_keys = self.codellama.load_state_dict(ckpt, strict=False)
 
-        print("____________________in trained weights loading___________________")
-        print(f"Checkpoint: {ckpt_path}")
-        print("Missing Keys (not updated):", missing_keys)
-        print("Unexpected Keys (not in model):", unexpected_keys)
-        print("-" * 50)
+        # print("____________________in trained weights loading___________________")
+        # print(f"Checkpoint: {ckpt_path}")
+        # print("Missing Keys (not updated):", missing_keys)
+        # print("Unexpected Keys (not in model):", unexpected_keys)
+        # print("-" * 50)
         # print(ckpt.keys())
 
 
