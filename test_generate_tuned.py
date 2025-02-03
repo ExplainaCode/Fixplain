@@ -14,7 +14,7 @@ def main(args):
     )
     
     # repairllama_input_ids = torch.load(f"{args.repairllama_input_pth}",  map_location=torch.device('cpu'))
-    df = pd.read_csv(args.repairlla_input_pth)
+    df = pd.read_csv(args.repairllama_input_pth)
     repairllama_input = df["buggy_code"].tolist()
     codellama_input_ids = torch.load(args.codellama_input_pth) if args.codellama_input_pth is not None else None
     
