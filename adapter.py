@@ -180,7 +180,7 @@ class LLamaAdapter(nn.Module):
             with torch.no_grad():
                 dynamic_adapter = self.attention_hooks_data[i].get('input')#.half() # Hooked input to the respective repairllama layer
             # del self.attention_hooks_data[i]
-            # self.attention_hooks_data[i] = None
+            self.attention_hooks_data[i] = None
             # print("dynamic_adapter dtype: ", dynamic_adapter.dtype, codellama_h.dtype, codellama_freq_cis.dtype)
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
             if torch.isnan(codellama_h).any() or torch.isinf(codellama_h).any():
