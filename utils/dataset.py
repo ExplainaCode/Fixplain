@@ -14,10 +14,10 @@ AutoTokenizer,
 
 @dataclass
 class DatasetArgs:
-    repairllama_max_input_len = 1024
-    repairllama_max_output_len = 512 # no need for training 
-    codellama_max_input_len = 256
-    codellama_max_output_len = 256 # no need for training
+    repairllama_max_input_len: int = 1024
+    repairllama_max_output_len: int = 512 # no need for training 
+    codellama_max_input_len: int = 256
+    codellama_max_output_len: int = 256 # no need for training
 
     dataframe_path :str = ""
 
