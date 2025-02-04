@@ -15,9 +15,9 @@ AutoTokenizer,
 @dataclass
 class DatasetArgs:
     repairllama_max_input_len = 1024
-    repairllama_max_output_len = 512
-    codellama_max_input_len = 128 #not relevent at the moment
-    codellama_max_output_len = 256
+    repairllama_max_output_len = 512 # no need for training 
+    codellama_max_input_len = 256
+    codellama_max_output_len = 256 # no need for training
 
     dataframe_path :str = ""
 
@@ -30,7 +30,7 @@ class FinetuneDataset(Dataset):
         self.repairllama_tokenizer = AutoTokenizer.from_pretrained(repairllama_model_dir, trust_remote_code=True)
         self.repairllama_max_input_len = args.repairllama_max_input_len
         self.repairllama_max_output_len = args.repairllama_max_output_len
-        self.codellama_max_output_len = args.codellama_max_output_len
+        self.codellama_max_input_len = args.codellama_max_input_len
 
         required_columns = ['buggy_code', 'fixed_code', 'gpt_explanation']
         if not all(col in self.data.columns for col in required_columns):
@@ -67,7 +67,7 @@ class FinetuneDataset(Dataset):
 
             repairllama_input_ids = self.__get_padding__(repairllama_input_ids, self.repairllama_max_input_len, minus = 0)
             repairllama_label_ids = self.__get_padding__(repairllama_label_ids, self.repairllama_max_output_len, minus =0)
-            codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_max_output_len, minus = 1)
+            codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_max_input_len, minus = 1)
 
             codellama_label_ids = copy.deepcopy(codellama_input_ids)
             codellama_input_ids_mask  = codellama_input_ids.ge(0)

@@ -150,8 +150,10 @@ def get_args_parser():
                         help='path to RepairLLaMA pretrained checkpoint')
     parser.add_argument('--pretrained_path', default='/path/to/pretrained', type=str,
                         help='path to checkpoint from pretrain stage')
-    parser.add_argument('--max_seq_len', default=512, type=int,
-                        help='max number of input words')
+    parser.add_argument('--repairllama_max_input_len', default=1024, type=int,
+                        help='max number of input words(embeddings) in repairllama')
+    parser.add_argument('--codellama_max_input_len', default=254, type=int,
+                        help='max number of input words(embeddings) in codellama')
     parser.add_argument('--data_path', default='/path/to/dataset', type=str,
                         help='path to dataset')
 
@@ -221,7 +223,7 @@ def main(args):
     # define the model
     model = LLamaAdapter(args.codellama_ckpt_dir, args.codellama_tokenizer_ckpt_dir,
                          args.repairllama_lora_dir, args.repairllama_ckpt_dir, phase="finetune", 
-                         max_batch_size=args.batch_size, max_seq_len=args.max_seq_len,
+                         max_batch_size=args.batch_size,
                          w_lora=args.w_lora, lora_rank=args.lora_rank)
     # codellama_tokenizer = model.codellama_tokenizer
     # repairllama_tokenizer = model.repairllama_tokenizer
@@ -258,8 +260,10 @@ def main(args):
 
     # misc.load_model(model_without_ddp, args.pretrained_path)
 
-    dataset_args = DatasetArgs()
-    dataset_args.dataframe_path = args.data_path
+    dataset_args = DatasetArgs(dataframe_path = args.data_path, 
+                               codellama_max_input_len = args.codellama_max_input_len,
+                               repairllama_max_input_len = args.repairllama_max_input_len)
+
     dataset_train = FinetuneDataset(args.codellama_tokenizer_ckpt_dir, args.repairllama_ckpt_dir, dataset_args)
     print(dataset_train)
     num_tasks = misc.get_world_size()

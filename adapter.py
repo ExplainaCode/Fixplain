@@ -226,22 +226,11 @@ class LLamaAdapter(nn.Module):
         #     reapirllama_c_loss = self.criterion(repairllama_output.reshape(-1, self.repairllama.vocab_size), repairllama_labels.flatten())
 
         # Processing CodeLLama output
-        if torch.isnan(codellama_h).any() or torch.isinf(codellama_h).any():
-            raise ValueError("codellama_output contains NaN or inf values.___________1")
 
         codellama_h = self.codellama.norm(codellama_h)
-        if torch.isnan(codellama_h).any() or torch.isinf(codellama_h).any():
-            raise ValueError("codellama_output contains NaN or inf values.___________2")
         codellama_output = self.codellama.output(codellama_h)
-        if torch.isnan(codellama_output).any() or torch.isinf(codellama_output).any():
-            raise ValueError("codellama_output contains NaN or inf values.___________3")
         codellama_output = codellama_output[:, :-1, :]
-        if torch.isnan(codellama_output).any() or torch.isinf(codellama_output).any():
-            raise ValueError("codellama_output contains NaN or inf values.___________4")
         codellama_labels = codellama_labels[:, 1:]
-
-        if codellama_output is None or codellama_labels is None:
-            raise ValueError("codellama_output or codellama_labels is None. Check the forward pass.")
 
         if codellama_labels.sum()==0 :
             print("Codellama labels sum is 0")
@@ -253,15 +242,12 @@ class LLamaAdapter(nn.Module):
         # print("codellama_labels shape:", codellama_labels.shape)
 
         # print("_______________________________", codellama_c_loss)
-        if torch.isnan(codellama_output).any() or torch.isinf(codellama_output).any():
-            raise ValueError("codellama_output contains NaN or inf values.___________")
-        if torch.isnan(codellama_labels).any() or torch.isinf(codellama_labels).any():
-            raise ValueError("codellama_labels contains NaN or inf values.___________")
         return codellama_c_loss
     
     @torch.inference_mode()
-    def forward_inference(self, repairllama_input_ids, codellama_input_ids, repairllama_start_pos: int,codellama_start_pos:int, repairllama_past_key_values=None, adapter=False):
-        # assert repairllama_input_ids.shape[0]==codellama_input_ids.shape[0] # batch_size should be equal
+    def forward_inference(self, repairllama_input_ids, codellama_input_ids, 
+                          repairllama_start_pos: int,codellama_start_pos:int, 
+                          repairllama_past_key_values=None, adapter=False):
 
         repairllama_input_ids=repairllama_input_ids.to(device) #Decide whether this is the optimal position to move to the device #probably in training we can directly load to the device at once?
         if adapter:
