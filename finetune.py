@@ -152,7 +152,7 @@ def get_args_parser():
                         help='path to checkpoint from pretrain stage')
     parser.add_argument('--repairllama_max_input_len', default=1024, type=int,
                         help='max number of input words(embeddings) in repairllama')
-    parser.add_argument('--codellama_max_input_len', default=254, type=int,
+    parser.add_argument('--codellama_max_input_len', default=256, type=int,
                         help='max number of input words(embeddings) in codellama')
     parser.add_argument('--data_path', default='/path/to/dataset', type=str,
                         help='path to dataset')
