@@ -221,12 +221,10 @@ class Attention(nn.Module):
 
         if adapter is not None:
             adapter_len = adapter.shape[1]
-            self.adapter_wv#.half()
             adapter_v = self.adapter_wv(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
             adapter_v = adapter_v.transpose(1, 2)
 
             if adapter_len > 1:
-                self.adapter_wk#.half()
                 adapter_k = self.adapter_wk(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
                 adapter_k = adapter_k.transpose(1, 2)
 
@@ -263,7 +261,6 @@ class Attention(nn.Module):
                 if self.w_new_gate:
                     adapter_scores = self.new_gate * adapter_scores
 
-                adapter_scores = adapter_scores#.half()
                 # print("________________",adapter_scores.dtype, adapter_v.dtype)
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
