@@ -58,21 +58,11 @@ def load_codellama(codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_to
     torch.set_default_tensor_type(torch.cuda.HalfTensor)
     codellama = Transformer(model_args)
     torch.set_default_tensor_type(torch.FloatTensor)
-    
-    # codellama = codellama.to("cuda")
 
-    # Print data type of model parameters
-    # for name, param in codellama.named_parameters():
-    #     print(f"Parameter: {name}, dtype: {param.dtype}")
     ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
     for ckpt_path in ckpts:
         ckpt = torch.load(ckpt_path, map_location="cpu")
         missing_keys, unexpected_keys = codellama.load_state_dict(ckpt, strict=False)
-
-        # print(f"Checkpoint: {ckpt_path}")
-        # print("Missing Keys (not updated):", missing_keys)
-        # print("Unexpected Keys (not in model):", unexpected_keys)
-        # print("-" * 50)
 
     return codellama, tokenizer
 
@@ -204,7 +194,8 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
     return codellama_decoded
 
 def main(args):
-    codellama, tokenizer = load_codellama_ddp(args.codellama_ckpt_dir,
+    codellama, tokenizer = load_codellama_ddp(args.rank, args.world_size,
+                                              args.codellama_ckpt_dir,
                                           args.max_seq_len, args.max_batch_size,
                                           args.codellama_tokenizer_path,
                                           False, 16)
@@ -225,6 +216,8 @@ if __name__ == "__main__":
     parser.add_argument('--max_seq_len', default=512, type=int, help='max number of input words')
     parser.add_argument('--w_lora', default=False, type=bool)
     parser.add_argument('--lora_rank', default=16, type=int, help='This only apply if the w_lora parameter is "True"')
+    parser.add_argument("--rank", type=int, default=int(os.environ["RANK"]), help="Process rank")
+    parser.add_argument("--world_size", type=int, default=int(os.environ["WORLD_SIZE"]), help="Total number of processes")
     
     args = parser.parse_args()
     main(args)
