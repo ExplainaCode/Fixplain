@@ -32,15 +32,16 @@ def load_codellama_ddp(rank, world_size, codellama_ckpt_dir, max_seq_len, max_ba
     model_args.vocab_size = tokenizer.n_words
     
     torch.set_default_tensor_type(torch.cuda.HalfTensor)
-    codellama = Transformer(model_args).to(rank)
-    
+    codellama = Transformer(model_args).to(rank).half()
+
     # Load checkpoint
     ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
     for ckpt_path in ckpts:
         ckpt = torch.load(ckpt_path, map_location="cpu")
         codellama.load_state_dict(ckpt, strict=False)
+    codellama.half()
 
-    codellama = DDP(codellama, device_ids=[rank], output_device=rank)
+    codellama = DDP(codellama, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     return codellama, tokenizer
 
