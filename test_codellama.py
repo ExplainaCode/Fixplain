@@ -8,6 +8,7 @@ from pathlib import Path
 from .adapter_utils import sample_top_p
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 if torch.cuda.is_available():
     device = "cuda"
@@ -15,6 +16,36 @@ elif torch.backends.mps.is_available():
     device = "mps"
 else:
     device = "cpu"
+
+def load_codellama_fsdp(rank, world_size, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer, w_lora, lora_rank):
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
+
+    with open(os.path.join(codellama_ckpt_dir, "params.json"), 'r') as f:
+        params = json.loads(f.read())
+
+    model_args: ModelArgs = ModelArgs(
+        max_seq_len=max_seq_len, max_batch_size=max_batch_size, 
+        w_lora=w_lora, lora_rank=lora_rank,
+        **params
+    )
+    tokenizer = Tokenizer(model_path=codellama_tokenizer)
+    model_args.vocab_size = tokenizer.n_words
+
+    torch.set_default_tensor_type(torch.cuda.HalfTensor)
+    codellama = Transformer(model_args).to("cpu").half()
+
+    # Load checkpoint
+    ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
+    for ckpt_path in ckpts:
+        ckpt = torch.load(ckpt_path, map_location="cpu")
+        codellama.load_state_dict(ckpt, strict=False)
+    codellama.half()
+
+    # Wrap with FSDP instead of DDP
+    codellama = FSDP(codellama, device_id=rank)
+
+    return codellama, tokenizer
 
 def load_codellama_ddp(rank, world_size, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer, w_lora, lora_rank):
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
@@ -195,7 +226,7 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
     return codellama_decoded
 
 def main(args):
-    codellama, tokenizer = load_codellama_ddp(args.rank, args.world_size,
+    codellama, tokenizer = load_codellama_fsdp(args.rank, args.world_size,
                                               args.codellama_ckpt_dir,
                                           args.max_seq_len, args.max_batch_size,
                                           args.codellama_tokenizer_path,
