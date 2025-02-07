@@ -354,6 +354,9 @@ class LLamaAdapter(nn.Module):
         repairllama_input_ids = repairllama_input_ids[:, :, :params.max_seq_len]
         codellama_input_ids = codellama_input_ids[:, :, :params.max_seq_len]
 
+        print("repairllama_input_ids: ", repairllama_input_ids)
+        print("codellama_input_ids: ", codellama_input_ids)
+        
         min_repairllama_prompt_size = min([len(t[0]) for t in repairllama_input_ids])
         max_repairllama_prompt_size = max([len(t[0]) for t in repairllama_input_ids])
         min_codellama_prompt_size = min([len(t[0]) for t in codellama_input_ids])

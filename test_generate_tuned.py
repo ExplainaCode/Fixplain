@@ -34,8 +34,9 @@ def main(args):
         # Process each input ID in repairllama_input_ids
         for i, repair_input in enumerate(repairllama_input[:5]):
             print(f"Processing record {i + 1}/{len(repairllama_input[:5])}...")
-            print("repairllama_input", repair_input)
-            print("codellama_input_ids", codellama_input_ids)
+            # print("repairllama_input", repair_input)
+            # print("codellama_input_ids", codellama_input_ids)
+            
             # Generate outputs for the current input
             repairllama_outputs, codellama_outputs = llama_adapter.generate(
                 repairllama_input_ids=[repair_input],  # Process single input at a time
