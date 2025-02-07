@@ -76,6 +76,7 @@ def load_codellama_ddp(rank, world_size, codellama_ckpt_dir, max_seq_len, max_ba
 
     return codellama, tokenizer
 
+
 def load_codellama(codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer, w_lora, lora_rank):
     with open(os.path.join(codellama_ckpt_dir, "params.json"), 'r') as f:
         params = json.loads(f.read())
@@ -86,15 +87,26 @@ def load_codellama(codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_to
         **params
     )
     tokenizer = Tokenizer(model_path=codellama_tokenizer)
+    tokenizer.pad_id = tokenizer.eos_id
     model_args.vocab_size = tokenizer.n_words
     torch.set_default_tensor_type(torch.cuda.HalfTensor)
     codellama = Transformer(model_args)
     torch.set_default_tensor_type(torch.FloatTensor)
+    
+    # codellama = codellama.to("cuda")
 
+    # Print data type of model parameters
+    # for name, param in codellama.named_parameters():
+    #     print(f"Parameter: {name}, dtype: {param.dtype}")
     ckpts = sorted(Path(codellama_ckpt_dir).glob("*.pth"))
     for ckpt_path in ckpts:
         ckpt = torch.load(ckpt_path, map_location="cpu")
         missing_keys, unexpected_keys = codellama.load_state_dict(ckpt, strict=False)
+
+        # print(f"Checkpoint: {ckpt_path}")
+        # print("Missing Keys (not updated):", missing_keys)
+        # print("Unexpected Keys (not in model):", unexpected_keys)
+        # print("-" * 50)
 
     return codellama, tokenizer
 
@@ -148,7 +160,7 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
     bsz = len(codellama_input_ids)
     if codellama_input_ids==None:
         codellama_input_ids = [
-            torch.full((1, 1), fill_value=0, dtype=torch.long) #  torch.full((1, seq_len), fill_value=0, dtype=torch.long) 
+            torch.full((1, 1), fill_value=codellama_tokenizer.pad_id, dtype=torch.long) #  torch.full((1, seq_len), fill_value=0, dtype=torch.long) 
             for _ in range(bsz)
         ]
     
@@ -177,7 +189,7 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
 
     # max_codellama_gen_len = max_gen_len # max_codellama_gen_len should be taken from the parameters, for the testing it is equal to the max_gen_len (in repairllama)
     total_codellama_len = min(params.max_seq_len, max_codellama_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text.
-    codellama_tokens = torch.full((bsz, total_codellama_len), 0).cuda().long() # 0 used instead of self.codellama_tokenizer.pad_id for testing
+    codellama_tokens = torch.full((bsz, total_codellama_len), codellama_tokenizer.pad_id).cuda().long() # 0 used instead of self.codellama_tokenizer.pad_id for testing
 
     for k, t in enumerate(codellama_input_ids):
         if total_codellama_len <=len(t[0]):
@@ -185,7 +197,7 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
         else:
             codellama_tokens[k, : len(t[0])] = torch.tensor(t).cuda().long() # cuda
 
-    input_codellama_text_mask = codellama_tokens != 0 # o used instead of self.codellama_tokenizer.pad_id for testing (#important)
+    input_codellama_text_mask = codellama_tokens != codellama_tokenizer.pad_id # o used instead of self.codellama_tokenizer.pad_id for testing (#important)
     codellama_start_pos = min_codellama_prompt_size
     # assert total_repairllama_len >= total_codellama_len
 
@@ -226,8 +238,8 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
     return codellama_decoded
 
 def main(args):
-    codellama, tokenizer = load_codellama_fsdp(2, 2,
-                                              args.codellama_ckpt_dir,
+    codellama, tokenizer = load_codellama(
+                                          args.codellama_ckpt_dir,
                                           args.max_seq_len, args.max_batch_size,
                                           args.codellama_tokenizer_path,
                                           False, 16)
