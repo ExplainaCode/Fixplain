@@ -144,7 +144,7 @@ def forward_inference(codellama, codellama_input_ids, codellama_start_pos:int, a
 
     for i in range(n_layers):
         # dynamic_adapter  = attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
-        dynamic_adapter = torch.tensor(torch.randn(codellama_seqlen, 4096),).to(device)
+        dynamic_adapter = torch.randn(1, codellama_seqlen, 4096, dtype=torch.float16, device='cuda')
         codellama_h = codellama.layers[i](codellama_h, codellama_start_pos, codellama_freq_cis, codellama_mask, dynamic_adapter)
 
 
