@@ -356,7 +356,7 @@ class LLamaAdapter(nn.Module):
 
         print("repairllama_input_ids: ", repairllama_input_ids)
         print("codellama_input_ids: ", codellama_input_ids)
-        
+
         min_repairllama_prompt_size = min([len(t[0]) for t in repairllama_input_ids])
         max_repairllama_prompt_size = max([len(t[0]) for t in repairllama_input_ids])
         min_codellama_prompt_size = min([len(t[0]) for t in codellama_input_ids])
@@ -453,6 +453,7 @@ class LLamaAdapter(nn.Module):
                 pass
             repairllama_decoded.append(self.repairllama_tokenizer.decode(t))
         
+        print("codellama_tokens: ",  codellama_tokens)
         codellama_decoded = []
         for i, t in enumerate(codellama_tokens.tolist()):
 
