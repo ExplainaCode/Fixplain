@@ -251,7 +251,7 @@ def main(args):
                                           args.max_seq_len, args.max_batch_size,
                                           args.codellama_tokenizer_path,
                                           False, 16)
-    # codellama = load_codellma_tuned(codellama, args.codellama_trained_weight_dir)
+    codellama = load_codellma_tuned(codellama, args.codellama_trained_weight_dir)
     codellama_decoded = generate(codellama, tokenizer, None)
     print(codellama_decoded)
 
