@@ -69,12 +69,12 @@ class FinetuneDataset(Dataset):
             codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_pad_id, self.codellama_max_input_len, minus = 1)
 
             codellama_label_ids = copy.deepcopy(codellama_input_ids)
-            codellama_input_ids_mask  = codellama_input_ids.ge(0)
-            codellama_label_mask = codellama_label_ids.ge(0)
-            codellama_input_ids[~codellama_input_ids_mask] = 0
-            codellama_label_ids[~codellama_label_mask] = 0
-            codellama_label_mask = codellama_label_mask.float()
-            codellama_input_ids_mask = codellama_input_ids_mask.float()
+            codellama_input_ids_mask  = codellama_input_ids.ge(0) # just for keep functions work for now - no need !
+            # codellama_label_mask = codellama_label_ids.ge(0)
+            # codellama_input_ids[~codellama_input_ids_mask] = 0
+            # codellama_label_ids[~codellama_label_mask] = 0
+            # codellama_label_mask = codellama_label_mask.float()
+            # codellama_input_ids_mask = codellama_input_ids_mask.float()
 
             if (index==0):
                 print("repairllama_pad_id: ", self.repairllama_pad_id)
