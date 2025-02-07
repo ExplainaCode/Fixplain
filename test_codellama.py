@@ -206,7 +206,7 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
 
     for codellama_cur_pos in range(codellama_start_pos, total_codellama_len):
         with torch.cuda.amp.autocast():
-            codellama_logits = forward_inference(codellama_tokens[:, codellama_pre_pos:codellama_cur_pos], codellama_pre_pos, adapter=True)
+            codellama_logits = forward_inference(codellama, codellama_tokens[:, codellama_pre_pos:codellama_cur_pos], codellama_pre_pos, adapter=True)
 
         if temperature > 0:
             probs = torch.softmax(codellama_logits / temperature, dim=-1)
