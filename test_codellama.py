@@ -182,7 +182,7 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
 
     if isinstance(codellama_input_ids[0], str):
         # This has custom tokenizer encode in codellama directory
-        codellama_input_ids = [codellama_tokenizer.encode(x, bos=True, eos=False) for x in codellama_input_ids]
+        codellama_input_ids = [torch.tensor(codellama_tokenizer.encode(x, bos=True, eos=False) for x in codellama_input_ids)]
     print(codellama_input_ids)
     #Clipplig to max_seq_len
     # Convert list of tensors into a single tensor
