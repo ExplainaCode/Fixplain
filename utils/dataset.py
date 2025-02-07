@@ -76,6 +76,10 @@ class FinetuneDataset(Dataset):
             codellama_label_mask = codellama_label_mask.float()
             codellama_input_ids_mask = codellama_input_ids_mask.float()
 
+            if (index==0):
+                print("repairllama_input_ids: ",repairllama_input_ids)
+                print("codellama_input_ids: ", codellama_input_ids)
+                
             return repairllama_input_ids, repairllama_label_ids, codellama_input_ids, codellama_label_ids, codellama_input_ids_mask
         
         except Exception as e:
