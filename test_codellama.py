@@ -180,13 +180,12 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
 
     if isinstance(codellama_input_ids[0], str):
         # This has custom tokenizer encode in codellama directory
-        print("HI________")
         codellama_input_ids = [codellama_tokenizer.encode(x, bos=True, eos=False) for x in codellama_input_ids]
     
     #Clipplig to max_seq_len
     # Convert list of tensors into a single tensor
-    codellama_input_ids = torch.stack(codellama_input_ids)
-    codellama_input_ids = codellama_input_ids[:, :, :params.max_seq_len]
+    # codellama_input_ids = torch.stack(codellama_input_ids)
+    # codellama_input_ids = codellama_input_ids[:, :, :params.max_seq_len]
 
     min_codellama_prompt_size = min([len(t[0]) for t in codellama_input_ids])
     max_codellama_prompt_size = max([len(t[0]) for t in codellama_input_ids])
