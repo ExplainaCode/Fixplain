@@ -157,7 +157,7 @@ def forward_inference(codellama, codellama_input_ids, codellama_start_pos:int, a
 def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
                 max_gen_len: int=256, max_codellama_gen_len:int=125, temperature: float=0.1,
                 top_p: float=0.75):
-    bsz = len(codellama_input_ids)
+    bsz = 1# len(codellama_input_ids)
     if codellama_input_ids==None:
         codellama_input_ids = [
             torch.full((1, 1), fill_value=codellama_tokenizer.pad_id, dtype=torch.long) #  torch.full((1, seq_len), fill_value=0, dtype=torch.long) 
