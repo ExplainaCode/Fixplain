@@ -76,11 +76,11 @@ class FinetuneDataset(Dataset):
             # codellama_label_mask = codellama_label_mask.float()
             # codellama_input_ids_mask = codellama_input_ids_mask.float()
 
-            if (index==0):
-                print("repairllama_pad_id: ", self.repairllama_pad_id)
-                print("codellama_pad_id: ", self.codellama_pad_id)
-                print("repairllama_input_ids: ",repairllama_input_ids, repairllama_input_ids.shape)
-                print("codellama_input_ids: ", codellama_input_ids, codellama_input_ids.shape)
+            # if (index==0):
+            #     print("repairllama_pad_id: ", self.repairllama_pad_id)
+            #     print("codellama_pad_id: ", self.codellama_pad_id)
+            #     print("repairllama_input_ids: ",repairllama_input_ids, repairllama_input_ids.shape)
+            #     print("codellama_input_ids: ", codellama_input_ids, codellama_input_ids.shape)
 
             return repairllama_input_ids, repairllama_label_ids, codellama_input_ids, codellama_label_ids, codellama_input_ids_mask
         
