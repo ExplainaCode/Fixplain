@@ -14,7 +14,7 @@ def main(args):
         w_lora=args.w_lora,
         lora_rank=args.lora_rank
     )
-    llama_adapter.load_codellma_tuned(args.codellama_trained_weight_dir)
+    # llama_adapter.load_codellma_tuned(args.codellama_trained_weight_dir)
     
     # repairllama_input_ids = torch.load(f"{args.repairllama_input_pth}",  map_location=torch.device('cpu'))
     df = pd.read_csv(args.repairllama_input_pth)
