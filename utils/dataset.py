@@ -44,10 +44,10 @@ class FinetuneDataset(Dataset):
     def __len__(self):
         return len(self.data)
     
-    def __get_padding__(self, ids, pad_id, max_len, minus=0):
+    def __get_padding__(self, ids, pad_id, max_len):
         padding_len = max_len - ids.shape[0]
         if padding_len > 0:
-            ids = torch.cat((ids, torch.full((padding_len,), pad_id - minus, dtype=torch.int64)))
+            ids = torch.cat((ids, torch.full((padding_len,), pad_id, dtype=torch.int64)))
         elif padding_len<0:
             ids = ids[: max_len]
         return ids
@@ -64,9 +64,9 @@ class FinetuneDataset(Dataset):
             repairllama_label_ids = torch.flatten(self.repairllama_tokenizer.encode(fixed_code, return_tensors='pt'))
             codellama_input_ids = torch.tensor(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
 
-            repairllama_input_ids = self.__get_padding__(repairllama_input_ids, self.repairllama_pad_id, self.repairllama_max_input_len, minus = 0)
-            repairllama_label_ids = self.__get_padding__(repairllama_label_ids, self.repairllama_pad_id, self.repairllama_max_output_len, minus =0)
-            codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_pad_id, self.codellama_max_input_len, minus = 1)
+            repairllama_input_ids = self.__get_padding__(repairllama_input_ids, self.repairllama_pad_id, self.repairllama_max_input_len)
+            repairllama_label_ids = self.__get_padding__(repairllama_label_ids, self.repairllama_pad_id, self.repairllama_max_output_len)
+            codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_pad_id, self.codellama_max_input_len)
 
             codellama_label_ids = copy.deepcopy(codellama_input_ids)
             codellama_input_ids_mask  = codellama_input_ids.ge(0) # just for keep functions work for now - no need !
