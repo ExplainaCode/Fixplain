@@ -145,7 +145,8 @@ class LLamaAdapter(nn.Module):
         if (layer_id==0):
             print("__________")
             print(self.attention_hooks_data[0])
-            print(self.attention_hooks_data[0].shape)
+            print(self.attention_hooks_data[0].get('input').shape)
+            exit(0)
         
 
     def set_trainale_params(self, phase='inference'):
