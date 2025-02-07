@@ -158,14 +158,16 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
                 max_gen_len: int=256, max_codellama_gen_len:int=125, temperature: float=0.1,
                 top_p: float=0.75):
     bsz = 1# len(codellama_input_ids)
-    codellama_input_ids = ["""def fibonacci_iter(n):
-    a, b = 0, 1
-    for _ in range(n):"""]
+    # codellama_input_ids = ["""def fibonacci_iter(n):
+    # a, b = 0, 1
+    # for _ in range(n):"""]
     if codellama_input_ids==None:
         codellama_input_ids = [
             torch.full((1, 1), fill_value=codellama_tokenizer.pad_id, dtype=torch.long) #  torch.full((1, seq_len), fill_value=0, dtype=torch.long) 
             for _ in range(bsz)
         ]
+        print("_______________")
+        print(codellama_input_ids, codellama_input_ids[0].shape)
     
     # is this need to be checked. because batch sizes of both inputs are equal and both use same model. hece comment down and 
     # create a single params. check this
@@ -184,8 +186,8 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
     
     #Clipplig to max_seq_len
     # Convert list of tensors into a single tensor
-    # codellama_input_ids = torch.stack(codellama_input_ids)
-    # codellama_input_ids = codellama_input_ids[:, :, :params.max_seq_len]
+    codellama_input_ids = torch.stack(codellama_input_ids)
+    codellama_input_ids = codellama_input_ids[:, :, :params.max_seq_len]
 
     min_codellama_prompt_size = min([len(t[0]) for t in codellama_input_ids])
     max_codellama_prompt_size = max([len(t[0]) for t in codellama_input_ids])
