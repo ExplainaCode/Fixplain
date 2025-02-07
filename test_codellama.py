@@ -158,6 +158,9 @@ def generate(codellama, codellama_tokenizer, codellama_input_ids=None,
                 max_gen_len: int=256, max_codellama_gen_len:int=125, temperature: float=0.1,
                 top_p: float=0.75):
     bsz = 1# len(codellama_input_ids)
+    codellama_input_ids = ["""def fibonacci_iter(n):
+    a, b = 0, 1
+    for _ in range(n):"""]
     if codellama_input_ids==None:
         codellama_input_ids = [
             torch.full((1, 1), fill_value=codellama_tokenizer.pad_id, dtype=torch.long) #  torch.full((1, seq_len), fill_value=0, dtype=torch.long) 
