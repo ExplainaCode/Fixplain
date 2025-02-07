@@ -264,7 +264,7 @@ def main(args):
                                codellama_max_input_len = args.codellama_max_input_len,
                                repairllama_max_input_len = args.repairllama_max_input_len)
 
-    dataset_train = FinetuneDataset(args.codellama_tokenizer_ckpt_dir, args.repairllama_ckpt_dir, dataset_args)
+    dataset_train = FinetuneDataset(model.codellama_tokenizer, model.repairllama_tokenizer, dataset_args)
     print(dataset_train)
     num_tasks = misc.get_world_size()
     global_rank = misc.get_rank()

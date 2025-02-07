@@ -41,7 +41,7 @@ class LLamaAdapter(nn.Module):
             max_batch_size, codellama_tokenizer,
             w_lora, lora_rank)
         
-        self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
+        self.criterion = torch.nn.CrossEntropyLoss(ignore_index=self.codellama_tokenizer.pad_id)
         self.phase = phase
         self.set_trainale_params(self.phase)
 
@@ -55,6 +55,7 @@ class LLamaAdapter(nn.Module):
             **params
         )
         tokenizer = Tokenizer(model_path=codellama_tokenizer)
+        tokenizer.pad_id = tokenizer.eos_id
         model_args.vocab_size = tokenizer.n_words
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         codellama = Transformer(model_args)
@@ -79,7 +80,11 @@ class LLamaAdapter(nn.Module):
 
 
     def _load_repairllama(self, repairllama_model_dir, repairllama_lora_dir, register_Attention_hooks=True):
-        tokenizer = AutoTokenizer.from_pretrained(repairllama_model_dir, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(repairllama_model_dir, 
+                                                  trust_remote_code=True,
+                                                  padding_size='left')
+        tokenizer.pad_token = tokenizer.unk_token
+        tokenizer.pad_token_id = tokenizer.unk_token_id
 
         repairllama = AutoModelForCausalLM.from_pretrained(
             repairllama_model_dir,
@@ -162,9 +167,6 @@ class LLamaAdapter(nn.Module):
                 repairllama_labels, codellama_labels, optimizer=None):
         torch.autograd.set_detect_anomaly(True)
 
-        # self.codellama = torch.compile(self.codellama)
-        # self.repairllama = torch.compile(self.repairllama)
-
         repairllama_input_ids=repairllama_input_ids.to(device)
         codellama_input_ids=codellama_input_ids.to(device)
         codellama_labels = codellama_labels.to(device)
@@ -176,23 +178,17 @@ class LLamaAdapter(nn.Module):
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
-        repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)# .half()
+        repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
 
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
         _bsz, codellama_seqlen = codellama_input_ids.shape
-        codellama_h = self.codellama.tok_embeddings(codellama_input_ids) #.half()
+        codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
-        # #Split real and imaginary parts
-        # real_part = codellama_freq_cis.real.half()
-        # imag_part = codellama_freq_cis.imag.half()
-
-        # # Optionally, store them separately or recombine when needed
-        # codellama_freq_cis = torch.complex(real_part, imag_part)  # Recombine as complex
 
         codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
         codellama_mask = None
         codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
-        codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)#.half()
+        codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
@@ -206,7 +202,6 @@ class LLamaAdapter(nn.Module):
                 dynamic_adapter = self.attention_hooks_data[i].get('input')#.half() # Hooked input to the respective repairllama layer
             # del self.attention_hooks_data[i]
             self.attention_hooks_data[i] = None
-            # print("dynamic_adapter dtype: ", dynamic_adapter.dtype, codellama_h.dtype, codellama_freq_cis.dtype)
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
             if torch.isnan(codellama_h).any() or torch.isinf(codellama_h).any():
                 raise ValueError("codellama_h contains NaN or inf values.___________0", i)
@@ -241,7 +236,6 @@ class LLamaAdapter(nn.Module):
         # print("codellama_output shape:", codellama_output.shape)
         # print("codellama_labels shape:", codellama_labels.shape)
 
-        # print("_______________________________", codellama_c_loss)
         return codellama_c_loss
     
     @torch.inference_mode()
@@ -363,7 +357,7 @@ class LLamaAdapter(nn.Module):
         total_repairllama_len = min(params.max_seq_len, max_gen_len + max_repairllama_prompt_size)
         repairllama_tokens = torch.full((bsz, total_repairllama_len), self.repairllama_tokenizer.pad_token_id).cuda().long()
         total_codellama_len = min(params.max_seq_len, max_codellama_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text.
-        codellama_tokens = torch.full((bsz, total_codellama_len), 0).cuda().long() # 0 used instead of self.codellama_tokenizer.pad_id for testing
+        codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long() # 0 used instead of self.codellama_tokenizer.pad_id for testing
 
         for k, t in enumerate(repairllama_input_ids):
             if total_repairllama_len <= len(t[0]): #Deugging
@@ -380,7 +374,7 @@ class LLamaAdapter(nn.Module):
             else:
                 codellama_tokens[k, : len(t[0])] = torch.tensor(t).cuda().long() # cuda
 
-        input_codellama_text_mask = codellama_tokens != 0 # o used instead of self.codellama_tokenizer.pad_id for testing
+        input_codellama_text_mask = codellama_tokens != self.codellama_tokenizer.pad_id # o used instead of self.codellama_tokenizer.pad_id for testing
         codellama_start_pos = min_codellama_prompt_size
         # assert total_repairllama_len >= total_codellama_len
         codellama_iter_start_pos = (total_repairllama_len - min_repairllama_prompt_size) - (total_codellama_len - min_codellama_prompt_size)
