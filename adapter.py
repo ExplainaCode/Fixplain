@@ -251,6 +251,8 @@ class LLamaAdapter(nn.Module):
             print("codellama input ids: ", codellama_input_ids)
             print("codellama input ids (for 0 th example in the atch): ", self.codellama_tokenizer.decode(codellama_input_ids[0].tolist()))
             print("codellama_output (for 0 th output): ",  codellama_output[0])
+            token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
+            decoded_text = self.codellama_tokenizer.decode(token_ids) 
             # codellama_decoded = []
             # for i, t in enumerate(codellama_output[0].tolist()):
             #     # cut to max gen len
@@ -263,7 +265,7 @@ class LLamaAdapter(nn.Module):
             #     codellama_decoded.append(self.codellama_tokenizer.decode(t))
 
             # print("codellama_decoded: " , codellama_decoded)
-            print ("codellama decoded: ", self.codellama_tokenizer.decode(codellama_output[0].tolist()))
+            print ("codellama decoded: ", decoded_text)
             self.test_var+=1
         # _____________________________Testing____________________________
 
