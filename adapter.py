@@ -251,18 +251,19 @@ class LLamaAdapter(nn.Module):
             print("codellama input ids: ", codellama_input_ids)
             print("codellama input ids (for 0 th example in the atch): ", self.codellama_tokenizer.decode(codellama_input_ids[0].tolist()))
             print("codellama_output (for 0 th output): ",  codellama_output[0])
-            codellama_decoded = []
-            for i, t in enumerate(codellama_output[0].tolist()):
-                # cut to max gen len
-                # t = t[len(codellama_input_ids[i]): len(codellama_input_ids[i]) + max_gen_len]
-                # cut to eos tok if any
-                try:
-                    t = t[: t.index(self.codellama_tokenizer.eos_id)]
-                except ValueError:
-                    pass
-                codellama_decoded.append(self.codellama_tokenizer.decode(t.tolist()))
+            # codellama_decoded = []
+            # for i, t in enumerate(codellama_output[0].tolist()):
+            #     # cut to max gen len
+            #     # t = t[len(codellama_input_ids[i]): len(codellama_input_ids[i]) + max_gen_len]
+            #     # cut to eos tok if any
+            #     try:
+            #         t = t[: t.index(self.codellama_tokenizer.eos_id)]
+            #     except ValueError:
+            #         pass
+            #     codellama_decoded.append(self.codellama_tokenizer.decode(t))
 
-            print("codellama_decoded: " , codellama_decoded)
+            # print("codellama_decoded: " , codellama_decoded)
+            print ("codellama decoded: ", self.codellama_tokenizer.decode(codellama_output[0].tolist()))
             self.test_var+=1
         # _____________________________Testing____________________________
 
