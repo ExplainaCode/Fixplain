@@ -249,7 +249,7 @@ class LLamaAdapter(nn.Module):
             print("codellama output shape: ", codellama_output.shape)
             print("codellama laels shape: ", codellama_labels.shape)
             print("codellama input ids: ", codellama_input_ids)
-            print("codellama input ids (for 0 th example in the atch): ", self.codellama_tokenizer.decode(codellama_input_ids[0]))
+            print("codellama input ids (for 0 th example in the atch): ", self.codellama_tokenizer.decode(codellama_input_ids))
             print("codellama_output (for 0 th output): ",  codellama_output[0])
             codellama_decoded = []
             for i, t in enumerate(codellama_output[0].tolist()):
