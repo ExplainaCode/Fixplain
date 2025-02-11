@@ -260,7 +260,7 @@ class LLamaAdapter(nn.Module):
                     t = t[: t.index(self.codellama_tokenizer.eos_id)]
                 except ValueError:
                     pass
-                codellama_decoded.append(self.codellama_tokenizer.decode(t))
+                codellama_decoded.append(self.codellama_tokenizer.decode(t.tolist()))
 
             print("codellama_decoded: " , codellama_decoded)
             self.test_var+=1
