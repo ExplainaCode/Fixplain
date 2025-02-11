@@ -248,6 +248,7 @@ class LLamaAdapter(nn.Module):
         if self.test_var <= 0:
             print("codellama output shape: ", codellama_output.shape)
             print("codellama laels shape: ", codellama_labels.shape)
+            print("codellama input ids: ", codellama_input_ids)
             print("codellama input ids (for 0 th example in the atch): ", self.codellama_tokenizer.decode(codellama_input_ids[0]))
             print("codellama_output (for 0 th output): ",  codellama_output[0])
             codellama_decoded = []
