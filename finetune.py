@@ -202,6 +202,8 @@ def get_args_parser():
                         help='url used to set up distributed training')
     parser.add_argument('--saving_frequency', default=10, type=int,
                         help='model checkpont saving frequency (after how many epocs the model should be saved)')
+    parser.add_argument('--codellama_trained_weight_dir' ,default="", type=str,
+                        help='this is for testing')
 
     return parser
 
@@ -227,7 +229,7 @@ def main(args):
                          w_lora=args.w_lora, lora_rank=args.lora_rank)
     # codellama_tokenizer = model.codellama_tokenizer
     # repairllama_tokenizer = model.repairllama_tokenizer
-
+    model.load_codellma_tuned(args.codellama_trained_weight_dir)
     model.to(device)
 
     model_without_ddp = model.codellama

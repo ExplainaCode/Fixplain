@@ -45,6 +45,8 @@ class LLamaAdapter(nn.Module):
         self.phase = phase
         self.set_trainale_params(self.phase)
 
+        self.test_var = 0
+
     def _load_codellama(self, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer, w_lora, lora_rank):
         with open(os.path.join(codellama_ckpt_dir, "params.json"), 'r') as f:
             params = json.loads(f.read())
@@ -241,6 +243,27 @@ class LLamaAdapter(nn.Module):
             codellama_c_loss = self.criterion(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
         # print("codellama_output shape:", codellama_output.shape)
         # print("codellama_labels shape:", codellama_labels.shape)
+
+        # ______________________________Testing____________________________
+        if self.test_var <= 0:
+            print("codellama output shape: ", codellama_output.shape)
+            print("codellama laels shape: ", codellama_labels.shape)
+            print("codellama input ids (for 0 th example in the atch): ", self.codellama_tokenizer.decode(codellama_input_ids[0]))
+            print("codellama_output (for 0 th output): ",  codellama_output[0])
+            codellama_decoded = []
+            for i, t in enumerate(codellama_output[0].tolist()):
+                # cut to max gen len
+                # t = t[len(codellama_input_ids[i]): len(codellama_input_ids[i]) + max_gen_len]
+                # cut to eos tok if any
+                try:
+                    t = t[: t.index(self.codellama_tokenizer.eos_id)]
+                except ValueError:
+                    pass
+                codellama_decoded.append(self.codellama_tokenizer.decode(t))
+
+            print("codellama_decoded: " , codellama_decoded)
+            self.test_var+=1
+        # _____________________________Testing____________________________
 
         return codellama_c_loss
     

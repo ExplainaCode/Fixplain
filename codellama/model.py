@@ -173,14 +173,12 @@ class Attention(nn.Module):
                 args.dim,
                 args.n_heads * self.head_dim,
                 bias=False
-            )#.half()
-            # print("_______________________________________", self.adapter_wk.weight.dtype)
+            )
             self.adapter_wv = Linear(
                 args.dim,
                 args.n_heads * self.head_dim,
                 bias=False   
-            )#.half()
-            # print("wv___________________________________", self.adapter_wv.weight.dtype)
+            )
         self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
         
         self.w_new_gate = args.w_new_gate
@@ -247,21 +245,11 @@ class Attention(nn.Module):
         if adapter is not None:
             if adapter_len > 1:
                 adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
-                
-                # print("+++++++++++++++++++++++++ gate: \n", self.gate.tanh())
                 adapter_scores = self.gate.tanh() * F.softmax(adapter_scores.float(), dim=-1).type_as(xq)
-                # adapter_scores = self.gate.tanh() * F.softmax(adapter_scores.float(), dim=-1).to(torch.float16)
-                # print("_________________________adapter scores:\n", adapter_scores.float())
-                # if torch.isnan(adapter_scores).any():
-                #     print("The tensor contains NaN values.")
-                #     sys.exit(1)
-                # else:
-                #     print("The tensor does not contain NaN values.")
 
                 if self.w_new_gate:
                     adapter_scores = self.new_gate * adapter_scores
 
-                # print("________________",adapter_scores.dtype, adapter_v.dtype)
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
                 output = output + self.gate.tanh() * adapter_v
