@@ -35,7 +35,7 @@ class FinetuneDataset(Dataset):
         if not all(col in self.data.columns for col in required_columns):
             raise ValueError(f"DataFrame must contain the following columns: {', '.join(required_columns)}")
         
-        if (self.data[['buggy_code', 'fixed_code', 'gpt_explanation']].isnull().any().any()):
+        if (self.data[['buggy_code', 'gpt_explanation']].isnull().any().any()): # Remoed fixed_code_column from the list of null check
             raise ValueError(f"Dataframe contains 'null' values")
         
         # df_cleaned = self.data.dropna(subset=['buggy_code', 'fixed_code', 'gpt_explanation'])
