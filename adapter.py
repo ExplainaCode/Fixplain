@@ -372,9 +372,9 @@ class LLamaAdapter(nn.Module):
     @torch.inference_mode()
     def forward_repairllama(self, repairllama_input_ids):
         repairllama_input_ids=repairllama_input_ids.to(device)
-        _bsz, repairllama_seqlen = repairllama_input_ids.shape
+        _bsz, repairllama_seqlen = repairllama_input_ids[0].shape
 
-        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) # apass through embedding layer
+        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids[0]) # apass through embedding layer
 
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
         # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
