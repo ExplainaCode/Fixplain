@@ -38,7 +38,7 @@ def main(args):
             # print("codellama_input_ids", codellama_input_ids)
             
             # Generate outputs for the current input
-            repairllama_outputs, codellama_outputs = llama_adapter.generate(
+            repairllama_outputs, codellama_outputs = llama_adapter.generate_2(
                 repairllama_input_ids=[repair_input],  # Process single input at a time
                 codellama_input_ids=codellama_input_ids
             )
