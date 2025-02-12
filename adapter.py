@@ -359,6 +359,7 @@ class LLamaAdapter(nn.Module):
         n_layers = self.repairllama.config.num_hidden_layers
 
         for i in range(n_layers):
+            print(i)
             dynamic_adapter  = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
             codellama_h = self.codellama.layers[i](codellama_h, codellama_start_pos, codellama_freq_cis, codellama_mask, dynamic_adapter)
 
