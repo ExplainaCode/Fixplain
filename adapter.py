@@ -445,7 +445,7 @@ class LLamaAdapter(nn.Module):
             )
             codellama_tokens[:, cur_pos] = next_codellama_token
             prev_pos = cur_pos
-        
+        self.attention_hooks_data ={} # free the memory
         print("codellama_tokens: ",  codellama_tokens)
         codellama_decoded = []
         for i, t in enumerate(codellama_tokens.tolist()):
