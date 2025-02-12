@@ -354,7 +354,7 @@ class LLamaAdapter(nn.Module):
         codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
         codellama_mask = None
         codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
-        codellama_mask = torch.triu(codellama_mask, diagonal=codellama_start_pos + 1).type_as(torch.float16)
+        codellama_mask = torch.triu(codellama_mask, diagonal=codellama_start_pos + 1).to(torch.float16)
 
         n_layers = self.repairllama.config.num_hidden_layers
 
