@@ -434,7 +434,7 @@ class LLamaAdapter(nn.Module):
 
         for cur_pos in range(codellama_start_pos, total_codellama_len):  
             with torch.cuda.amp.autocast():
-                codellama_logits = self.forward_inference_2(codellama_tokens[:, prev_pos:cur_pos], prev_pos, adapter=True)
+                codellama_logits = self.forward_inference_2(codellama_tokens[:, prev_pos:cur_pos], prev_pos)
             if temperature > 0:
                 probs = torch.softmax(codellama_logits / temperature, dim=-1)
                 next_codellama_token = sample_top_p(probs, top_p)
