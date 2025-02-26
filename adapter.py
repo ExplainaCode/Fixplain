@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import os
+import time
 import json
 from pathlib import Path
 
@@ -15,9 +16,17 @@ GenerationConfig,
 HfArgumentParser,
 BitsAndBytesConfig,
 )
+import inspect
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # codellama_device = device
+import inspect
+
+def debug_info(message:str = None):
+    frame = inspect.currentframe().f_back
+    print(f"Debug: File '{inspect.getfile(frame)}', Line {frame.f_lineno}")
+    if message:
+        print(f"Message: {message}")
 
 class LLamaAdapter(nn.Module):
     def __init__(self,
@@ -47,23 +56,37 @@ class LLamaAdapter(nn.Module):
 
         self.test_var = 0
 
-    def _load_codellama(self, codellama_ckpt_dir, max_seq_len, max_batch_size, codellama_tokenizer, w_lora, lora_rank):
+    def _load_codellama(
+            self, codellama_ckpt_dir, 
+            max_seq_len, max_batch_size, 
+            codellama_tokenizer, 
+            w_lora, lora_rank
+        ):
+        assert os.path.isdir(codellama_ckpt_dir), f"Checkpoint directory '{codellama_ckpt_dir}' does not exist."
+        assert os.path.isfile(codellama_tokenizer), f"Tokenizer file '{codellama_tokenizer}' does not exist."
+
         with open(os.path.join(codellama_ckpt_dir, "params.json"), 'r') as f:
             params = json.loads(f.read())
         
         model_args: ModelArgs = ModelArgs(
-            max_seq_len=max_seq_len, max_batch_size=max_batch_size, 
-            w_lora=w_lora, lora_rank=lora_rank,
+            max_seq_len=max_seq_len, 
+            max_batch_size=max_batch_size, 
+            w_lora=w_lora, 
+            lora_rank=lora_rank,
             **params
         )
+        start_time = time.time()
         tokenizer = Tokenizer(model_path=codellama_tokenizer)
+        assert model_args.vocab_size == tokenizer.n_words
         tokenizer.pad_id = tokenizer.eos_id
         model_args.vocab_size = tokenizer.n_words
-        torch.set_default_tensor_type(torch.cuda.HalfTensor)
-        codellama = Transformer(model_args)
-        torch.set_default_tensor_type(torch.FloatTensor)
         
-        # codellama = codellama.to("cuda")
+        if torch.cuda.is_bf16_supported():
+            torch.set_default_tensor_type(torch.cuda.BFloat16Tensor)
+        else:
+            torch.set_default_tensor_type(torch.cuda.HalfTensor)
+        codellama = Transformer(model_args)
+        # torch.set_default_tensor_type(torch.FloatTensor)
 
         # Print data type of model parameters
         # for name, param in codellama.named_parameters():
@@ -73,11 +96,12 @@ class LLamaAdapter(nn.Module):
             ckpt = torch.load(ckpt_path, map_location="cpu")
             missing_keys, unexpected_keys = codellama.load_state_dict(ckpt, strict=False)
 
-            # print(f"Checkpoint: {ckpt_path}")
-            # print("Missing Keys (not updated):", missing_keys)
-            # print("Unexpected Keys (not in model):", unexpected_keys)
-            # print("-" * 50)
+            debug_info("_"*20)
+            print("Missing Keys (not updated):", missing_keys)
+            print("Unexpected Keys (not in model):", unexpected_keys)
+            debug_info("_"*20)
 
+        print(f"Loaded in {time.time() - start_time:.2f} seconds")
         return codellama, tokenizer
 
 
@@ -128,11 +152,11 @@ class LLamaAdapter(nn.Module):
         ckpt = ckpt["model"] 
         missing_keys, unexpected_keys = self.codellama.load_state_dict(ckpt, strict=False)
 
-        # print("____________________in trained weights loading___________________")
-        # print(f"Checkpoint: {ckpt_path}")
-        # print("Missing Keys (not updated):", missing_keys)
-        # print("Unexpected Keys (not in model):", unexpected_keys)
-        # print("-" * 50)
+        debug_info("____________________in trained weights loading___________________")
+        print(f"Checkpoint: {ckpt_path}")
+        print("Missing Keys (not updated):", missing_keys)
+        print("Unexpected Keys (not in model):", unexpected_keys)
+        debug_info("-" * 20)
         # print(ckpt.keys())
 
 
@@ -156,13 +180,14 @@ class LLamaAdapter(nn.Module):
             para.requires_grad = False
 
         if phase == 'finetune':
-            target_keywords = ["lora", "adapter", "gate"]
-            for name, para in self.named_parameters():
-                if name.startswith("codellama"):
-                    if any(keyword in name for keyword in target_keywords):
-                        # para.data = para.data.float()
-                        para.requires_grad = True
-                # print(f"Parameter: {name}, dtype: {para.dtype}")
+            target_keywords = ["lora", "gate"]
+            for name, para in self.codellama.named_parameters():
+                if any(keyword in name for keyword in target_keywords):
+                    # para.data = para.data.float()
+                    para.requires_grad = True
+
+                    debug_info("-"*20 + "Trainable parameters" + "-"*20)
+                    print(f"Parameter: {name}, dtype: {para.dtype}")
         
         elif phase == 'inference':
             pass
