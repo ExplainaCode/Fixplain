@@ -54,6 +54,7 @@ def train_one_epoch(model: LLamaAdapter,
                     args=None):
     model.train(True)
     ## model.module.set_default_trainability()
+    model.test_var = 0
 
     metric_logger = misc.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
