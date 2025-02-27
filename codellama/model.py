@@ -191,6 +191,14 @@ class Attention(nn.Module):
             raise ValueError("xv contains NaN or inf values.___________0")
 
         if self.w_lora:
+            lora_xq_l1 = self.lora_wq_l1(x)
+            if torch.isnan(lora_xq_l1).any():
+                raise ValueError("lora_wq_l1 output contains NaN")
+
+            lora_xq_l2 = self.lora_wq_l2(lora_xq_l1)
+            if torch.isnan(lora_xq_l2).any():
+                raise ValueError("lora_wq_l2 output contains NaN")
+
             xq = xq + self.lora_wq_l2(self.lora_wq_l1(x))
             xk = xk + self.lora_wk_l2(self.lora_wk_l1(x))
             xv = xv + self.lora_wv_l2(self.lora_wv_l1(x))
