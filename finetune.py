@@ -293,12 +293,15 @@ def main(args):
     )
     print("Sampler_train = %s" % str(sampler_train))
 
+    generator = torch.Generator(device='cuda' if torch.cuda.is_available() else 'cpu')
+
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train, sampler=sampler_train,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
+        generator=generator
     )
 
     # SummaryWrite
