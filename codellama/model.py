@@ -234,7 +234,8 @@ class Attention(nn.Module):
             scores = scores + mask  # (bs, n_local_heads, seqlen, cache_len + seqlen)
         scores = F.softmax(scores.float(), dim=-1).type_as(xq)
         output = torch.matmul(scores, values)  # (bs, n_local_heads, seqlen, head_dim)
-
+        if torch.isnan(output).any() or torch.isinf(output).any():
+                raise ValueError("output 00000000000 contains NaN or inf values.___________0")
         if adapter is not None:
             if adapter_len > 1:
                 adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
