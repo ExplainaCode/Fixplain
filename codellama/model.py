@@ -181,6 +181,15 @@ class Attention(nn.Module):
         bsz, seqlen, _ = x.shape
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
 
+        if torch.isnan(xq).any() or torch.isinf(xq).any():
+            raise ValueError("xq contains NaN or inf values.___________0")
+        
+        if torch.isnan(xk).any() or torch.isinf(xk).any():
+            raise ValueError("xk contains NaN or inf values.___________0")
+        
+        if torch.isnan(xv).any() or torch.isinf(xv).any():
+            raise ValueError("xv contains NaN or inf values.___________0")
+
         if self.w_lora:
             xq = xq + self.lora_wq_l2(self.lora_wq_l1(x))
             xk = xk + self.lora_wk_l2(self.lora_wk_l1(x))
@@ -191,13 +200,13 @@ class Attention(nn.Module):
         xv = xv.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
 
         if torch.isnan(xq).any() or torch.isinf(xq).any():
-            raise ValueError("xq contains NaN or inf values.___________0")
+            raise ValueError("xq contains NaN or inf values.___________1")
         
         if torch.isnan(xk).any() or torch.isinf(xk).any():
-            raise ValueError("xk contains NaN or inf values.___________0")
+            raise ValueError("xk contains NaN or inf values.___________1")
         
         if torch.isnan(xv).any() or torch.isinf(xv).any():
-            raise ValueError("xv contains NaN or inf values.___________0")
+            raise ValueError("xv contains NaN or inf values.___________1")
 
 
 
