@@ -2,7 +2,7 @@ import torch
 import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import Dataset
-
+import random
 import utils.misc as misc
 import utils.lr_sched as lr_sched
 from utils.misc import NativeScalerWithGradNormCount as NativeScaler
@@ -294,6 +294,10 @@ def main(args):
     print("Sampler_train = %s" % str(sampler_train))
 
     # generator = torch.Generator(device='cuda' if torch.cuda.is_available() else 'cpu')
+    def worker_init_fn(worker_id):
+        seed = torch.initial_seed() % (2**32)
+        np.random.seed(seed)
+        random.seed(seed)
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train, sampler=sampler_train,
@@ -301,6 +305,8 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
+        enerator=torch.Generator(device="cuda" if torch.cuda.is_available() else "cpu"),
+        worker_init_fn=worker_init_fn
     )
 
     # SummaryWrite
