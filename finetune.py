@@ -26,7 +26,7 @@ import torch.distributed as dist
 from fairscale.nn.model_parallel import initialize as fs_init
 
 os.environ['MASTER_ADDR'] = 'localhost'   # Use the address of the machine, for single node use 'localhost'
-os.environ['MASTER_PORT'] = '29500'
+# os.environ['MASTER_PORT'] = '29500'
 
 # Initialize the process group for distributed training
 if not dist.is_initialized():
