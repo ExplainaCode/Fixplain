@@ -154,7 +154,10 @@ class LLamaAdapter(nn.Module):
 
         debug_info("____________________in trained weights loading___________________")
         print(f"Checkpoint: {ckpt_path}")
+        print("Expected Keys (Model Parameters):", set(self.codellama.state_dict().keys()))
+        debug_info("_______________________________________")
         print("Missing Keys (not updated):", missing_keys)
+        debug_info("_______________________________________")
         print("Unexpected Keys (not in model):", unexpected_keys)
         debug_info("-" * 20)
         # print(ckpt.keys())
