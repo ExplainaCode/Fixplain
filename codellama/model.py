@@ -191,6 +191,15 @@ class Attention(nn.Module):
             raise ValueError("xv contains NaN or inf values.___________0")
 
         if self.w_lora:
+            if torch.isnan(x).any() or torch.isinf(x).any():
+                raise ValueError("Input x contains NaN or Inf before lora_wq_l1")
+            
+            print("x stats - min:", x.min().item(), " max:", x.max().item(), " mean:", x.mean().item(), " std:", x.std().item())
+            
+            if torch.isnan(self.lora_wq_l1.weight).any():
+                raise ValueError("lora_wq_l1 weights contain NaN")
+
+
             lora_xq_l1 = self.lora_wq_l1(x)
             if torch.isnan(lora_xq_l1).any():
                 raise ValueError("lora_wq_l1 output contains NaN")
