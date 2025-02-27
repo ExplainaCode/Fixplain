@@ -289,7 +289,6 @@ def main(args):
     global_rank = misc.get_rank()
     sampler_train = torch.utils.data.DistributedSampler(
         dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, 
-        generator=torch.Generator(device="cuda" if torch.cuda.is_available() else "cpu")
     )
     print("Sampler_train = %s" % str(sampler_train))
 
