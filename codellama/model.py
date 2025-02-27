@@ -309,6 +309,9 @@ class Transformer(nn.Module):
         self.params = params
         self.vocab_size = params.vocab_size
         self.n_layers = params.n_layers
+        self.config = {  # static config Change to adapt with the model 
+            "num_hidden_layers": 32,
+        }
 
         self.tok_embeddings = VocabParallelEmbedding(
             params.vocab_size, params.dim, init_method=lambda x: x
