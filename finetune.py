@@ -25,8 +25,16 @@ import torch
 import torch.distributed as dist
 from fairscale.nn.model_parallel import initialize as fs_init
 
+import socket
+
+def find_free_port():
+    """Find a free port on the machine"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))            # 0 means select a free port
+        return s.getsockname()[1]  # Return the port number
+
 os.environ['MASTER_ADDR'] = 'localhost'   # Use the address of the machine, for single node use 'localhost'
-# os.environ['MASTER_PORT'] = '29500'
+os.environ['MASTER_PORT'] = str(find_free_port())
 
 # Initialize the process group for distributed training
 if not dist.is_initialized():
