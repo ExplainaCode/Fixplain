@@ -305,7 +305,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
-        enerator=torch.Generator(device="cuda" if torch.cuda.is_available() else "cpu"),
+        generator=torch.Generator(device="cuda" if torch.cuda.is_available() else "cpu"),
         worker_init_fn=worker_init_fn
     )
 
