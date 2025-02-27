@@ -21,15 +21,19 @@ import math
 import sys
 from typing import Iterable
 
+import torch
 import torch.distributed as dist
 from fairscale.nn.model_parallel import initialize as fs_init
 
-# Initialize torch distributed
+# Initialize the process group for distributed training
 if not dist.is_initialized():
-    dist.init_process_group(backend="nccl")  # Use "nccl" for GPUs, "gloo" for CPU
+    dist.init_process_group(backend="nccl", 
+                            rank=int(os.getenv('RANK', 0)),   # Get RANK from environment variables
+                            world_size=int(os.getenv('WORLD_SIZE', 1)))  # Get WORLD_SIZE from environment variables
 
-# Initialize model parallel group
+# Initialize FairScale model parallel group
 fs_init.initialize_model_parallel(world_size=dist.get_world_size())
+
 
 
 def train_one_epoch(model: LLamaAdapter,
