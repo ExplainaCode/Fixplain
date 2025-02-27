@@ -206,11 +206,11 @@ class Attention(nn.Module):
 
         if adapter is not None:
             adapter_len = adapter.shape[1]
-            adapter_v = self.wv(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
+            adapter_v = self.wv(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)
             adapter_v = adapter_v.transpose(1, 2)
 
             if adapter_len > 1:
-                adapter_k = self.wk(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
+                adapter_k = self.wk(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)
                 adapter_k = adapter_k.transpose(1, 2)
 
         keys = self.cache_k[:bsz, : start_pos + seqlen]
