@@ -62,8 +62,26 @@ class FinetuneDataset(Dataset):
             buggy_code = row['buggy_code']
             fixed_code = row['fixed_code']
             explanation = row['gpt_explanation']
-            repairllama_input_ids =  torch.flatten(self.repairllama_tokenizer.encode(buggy_code, return_tensors='pt'))
-            repairllama_label_ids = torch.flatten(self.repairllama_tokenizer.encode(fixed_code, return_tensors='pt'))
+
+            repairllama_encoding = self.repairllama_tokenizer.encode_plus(
+                buggy_code,
+                max_length=self.repairllama_max_input_len,
+                padding='max_length',
+                truncation=True,
+                return_tensors='pt'
+            )
+            repairllama_input_ids = repairllama_encoding['input_ids'].squeeze(0)  # [max_len]
+
+            repairllama_label_encoding = self.repairllama_tokenizer.encode_plus(
+                fixed_code,
+                max_length=self.repairllama_max_output_len,
+                padding='max_length',
+                truncation=True,
+                return_tensors='pt'
+            )
+            repairllama_label_ids = repairllama_label_encoding['input_ids'].squeeze(0)
+            # repairllama_input_ids =  torch.flatten(self.repairllama_tokenizer.encode(buggy_code, return_tensors='pt'))
+            # repairllama_label_ids = torch.flatten(self.repairllama_tokenizer.encode(fixed_code, return_tensors='pt'))
             codellama_input_ids = torch.tensor(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
 
             repairllama_input_ids = self.__get_padding__(repairllama_input_ids, self.repairllama_pad_id, self.repairllama_max_input_len)
