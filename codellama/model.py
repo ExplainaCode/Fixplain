@@ -188,33 +188,7 @@ class Attention(nn.Module):
         bsz, seqlen, _ = x.shape
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
 
-        if torch.isnan(xq).any() or torch.isinf(xq).any():
-            raise ValueError("xq contains NaN or inf values.___________0")
-        
-        if torch.isnan(xk).any() or torch.isinf(xk).any():
-            raise ValueError("xk contains NaN or inf values.___________0")
-        
-        if torch.isnan(xv).any() or torch.isinf(xv).any():
-            raise ValueError("xv contains NaN or inf values.___________0")
-
         if self.w_lora:
-            if torch.isnan(x).any() or torch.isinf(x).any():
-                raise ValueError("Input x contains NaN or Inf before lora_wq_l1")
-            
-            print("x stats - min:", x.min().item(), " max:", x.max().item(), " mean:", x.mean().item(), " std:", x.std().item())
-
-            if torch.isnan(self.lora_wq_l1.weight).any():
-                raise ValueError("lora_wq_l1 weights contain NaN")
-
-
-            lora_xq_l1 = self.lora_wq_l1(x)
-            if torch.isnan(lora_xq_l1).any():
-                raise ValueError("lora_wq_l1 output contains NaN")
-
-            lora_xq_l2 = self.lora_wq_l2(lora_xq_l1)
-            if torch.isnan(lora_xq_l2).any():
-                raise ValueError("lora_wq_l2 output contains NaN")
-
             xq = xq + self.lora_wq_l2(self.lora_wq_l1(x))
             xk = xk + self.lora_wk_l2(self.lora_wk_l1(x))
             xv = xv + self.lora_wv_l2(self.lora_wv_l1(x))
@@ -222,17 +196,6 @@ class Attention(nn.Module):
         xq = xq.view(bsz, seqlen, self.n_local_heads, self.head_dim)
         xk = xk.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
         xv = xv.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
-
-        if torch.isnan(xq).any() or torch.isinf(xq).any():
-            raise ValueError("xq contains NaN or inf values.___________1")
-        
-        if torch.isnan(xk).any() or torch.isinf(xk).any():
-            raise ValueError("xk contains NaN or inf values.___________1")
-        
-        if torch.isnan(xv).any() or torch.isinf(xv).any():
-            raise ValueError("xv contains NaN or inf values.___________1")
-
-
 
         xq, xk = apply_rotary_emb(xq, xk, freqs_cis=freqs_cis)
 
@@ -278,8 +241,7 @@ class Attention(nn.Module):
             scores = scores + mask  # (bs, n_local_heads, seqlen, cache_len + seqlen)
         scores = F.softmax(scores.float(), dim=-1).type_as(xq)
         output = torch.matmul(scores, values)  # (bs, n_local_heads, seqlen, head_dim)
-        # if torch.isnan(output).any() or torch.isinf(output).any():
-        #         raise ValueError("output 00000000000 contains NaN or inf values.___________0")
+
         if adapter is not None:
             if adapter_len > 1:
                 adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
@@ -291,8 +253,6 @@ class Attention(nn.Module):
                 output = output + self.gate.tanh() * adapter_v
 
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
-        # if torch.isnan(output).any() or torch.isinf(output).any():
-        #         raise ValueError("output contains NaN or inf values.___________0")
         return self.wo(output)
 
 
