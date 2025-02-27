@@ -21,6 +21,17 @@ import math
 import sys
 from typing import Iterable
 
+import torch.distributed as dist
+from fairscale.nn.model_parallel import initialize as fs_init
+
+# Initialize torch distributed
+if not dist.is_initialized():
+    dist.init_process_group(backend="nccl")  # Use "nccl" for GPUs, "gloo" for CPU
+
+# Initialize model parallel group
+fs_init.initialize_model_parallel(world_size=dist.get_world_size())
+
+
 def train_one_epoch(model: LLamaAdapter,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler,
