@@ -156,19 +156,19 @@ class Attention(nn.Module):
 
 
             self.lora_wk_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
-            self.lora_wk_l2 = ColumnParallelLinear(args.lora_rank, args.dim, bias=False, gather_output=False,init_method=lambda w: nn.init.constant_(w, 0))
+            self.lora_wk_l2 = ColumnParallelLinear(args.lora_rank, self.n_kv_heads*self.head_dim, bias=False, gather_output=False,init_method=lambda w: nn.init.constant_(w, 0))
 
             self.lora_wv_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
-            self.lora_wv_l2 = ColumnParallelLinear(args.lora_rank, args.dim, bias=False, gather_output=False,init_method=lambda w: nn.init.constant_(w, 0))
+            self.lora_wv_l2 = ColumnParallelLinear(args.lora_rank, self.n_kv_heads*self.head_dim, bias=False, gather_output=False,init_method=lambda w: nn.init.constant_(w, 0))
 
             self.lora_wo_l1 = RowParallelLinear(args.dim, args.lora_rank, bias=False, input_is_parallel=True,init_method=lambda x: x)
             self.lora_wo_l2 = RowParallelLinear(args.lora_rank, args.dim, bias=False, input_is_parallel=True,init_method=lambda w: nn.init.constant_(w, 0))
 
 
-            # self.lora_wq_l2.weight.data = self.lora_wq_l2.weight.data.to(torch.float16)
-            # self.lora_wk_l2.weight.data = self.lora_wk_l2.weight.data.to(torch.float16)
-            # self.lora_wv_l2.weight.data = self.lora_wv_l2.weight.data.to(torch.float16)
-            # self.lora_wo_l2.weight.data = self.lora_wo_l2.weight.data.to(torch.float16)
+            self.lora_wq_l2.weight.data = self.lora_wq_l2.weight.data.to(torch.float16)
+            self.lora_wk_l2.weight.data = self.lora_wk_l2.weight.data.to(torch.float16)
+            self.lora_wv_l2.weight.data = self.lora_wv_l2.weight.data.to(torch.float16)
+            self.lora_wo_l2.weight.data = self.lora_wo_l2.weight.data.to(torch.float16)
 
 
     def forward(
@@ -183,11 +183,11 @@ class Attention(nn.Module):
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
 
         if self.w_lora:
-            print("XQ shape: ", xq.shape)
-            print("XK shape:", xk.shape)
-            print("Xv shape: ", xv.shape)
-            print("self.lora_wq_l2(self.lora_wq_l1(x)) shape: "(self.lora_wq_l2(self.lora_wq_l1(x))).shape)
-            print("self.lora_wk_l2(self.lora_wk_l1(x)) shape: ", (self.lora_wk_l2(self.lora_wk_l1(x))).shape)
+            # print("XQ shape: ", xq.shape)
+            # print("XK shape:", xk.shape)
+            # print("Xv shape: ", xv.shape)
+            # print("self.lora_wq_l2(self.lora_wq_l1(x)) shape: "(self.lora_wq_l2(self.lora_wq_l1(x))).shape)
+            # print("self.lora_wk_l2(self.lora_wk_l1(x)) shape: ", (self.lora_wk_l2(self.lora_wk_l1(x))).shape)
             xq = xq + self.lora_wq_l2(self.lora_wq_l1(x))
             xk = xk + self.lora_wk_l2(self.lora_wk_l1(x))
             xv = xv + self.lora_wv_l2(self.lora_wv_l1(x))
