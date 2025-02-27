@@ -190,6 +190,17 @@ class Attention(nn.Module):
         xk = xk.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
         xv = xv.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
 
+        if torch.isnan(xq).any() or torch.isinf(xq).any():
+            raise ValueError("xq contains NaN or inf values.___________0")
+        
+        if torch.isnan(xk).any() or torch.isinf(xk).any():
+            raise ValueError("xk contains NaN or inf values.___________0")
+        
+        if torch.isnan(xv).any() or torch.isinf(xv).any():
+            raise ValueError("xv contains NaN or inf values.___________0")
+
+
+
         xq, xk = apply_rotary_emb(xq, xk, freqs_cis=freqs_cis)
 
         self.cache_k = self.cache_k.to(xq)
@@ -234,8 +245,8 @@ class Attention(nn.Module):
             scores = scores + mask  # (bs, n_local_heads, seqlen, cache_len + seqlen)
         scores = F.softmax(scores.float(), dim=-1).type_as(xq)
         output = torch.matmul(scores, values)  # (bs, n_local_heads, seqlen, head_dim)
-        if torch.isnan(output).any() or torch.isinf(output).any():
-                raise ValueError("output 00000000000 contains NaN or inf values.___________0")
+        # if torch.isnan(output).any() or torch.isinf(output).any():
+        #         raise ValueError("output 00000000000 contains NaN or inf values.___________0")
         if adapter is not None:
             if adapter_len > 1:
                 adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
@@ -247,8 +258,8 @@ class Attention(nn.Module):
                 output = output + self.gate.tanh() * adapter_v
 
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
-        if torch.isnan(output).any() or torch.isinf(output).any():
-                raise ValueError("output contains NaN or inf values.___________0")
+        # if torch.isnan(output).any() or torch.isinf(output).any():
+        #         raise ValueError("output contains NaN or inf values.___________0")
         return self.wo(output)
 
 
