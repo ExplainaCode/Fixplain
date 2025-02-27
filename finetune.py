@@ -7,7 +7,6 @@ import utils.misc as misc
 import utils.lr_sched as lr_sched
 from utils.misc import NativeScalerWithGradNormCount as NativeScaler
 from .adapter import LLamaAdapter
-
 from utils.dataset import FinetuneDataset, DatasetArgs
 
 import argparse
@@ -289,15 +288,10 @@ def main(args):
     num_tasks = misc.get_world_size()
     global_rank = misc.get_rank()
     sampler_train = torch.utils.data.DistributedSampler(
-        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, 
+        generator=torch.Generator(device="cuda" if torch.cuda.is_available() else "cpu")
     )
     print("Sampler_train = %s" % str(sampler_train))
-
-    # generator = torch.Generator(device='cuda' if torch.cuda.is_available() else 'cpu')
-    def worker_init_fn(worker_id):
-        seed = torch.initial_seed() % (2**32)
-        np.random.seed(seed)
-        random.seed(seed)
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train, sampler=sampler_train,
@@ -305,8 +299,6 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
-        generator=torch.Generator(device="cuda" if torch.cuda.is_available() else "cpu"),
-        worker_init_fn=worker_init_fn
     )
 
     # SummaryWrite

@@ -390,7 +390,7 @@ class DistributedSubEpochSampler(torch.utils.data.Sampler):
     def __iter__(self):
         if self.shuffle:
             # deterministically shuffle based on epoch and seed
-            g = torch.Generator(device="cuda" if torch.cuda.is_available() else "cpu")
+            g = torch.Generator()
             g.manual_seed(self.seed + self.epoch // self.split_epoch)
             indices = torch.randperm(len(self.dataset), generator=g).tolist()  # type: ignore[arg-type]
         else:
