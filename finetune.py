@@ -35,7 +35,7 @@ if not dist.is_initialized():
                             world_size=int(os.getenv('WORLD_SIZE', 1)))  # Get WORLD_SIZE from environment variables
 
 # Initialize FairScale model parallel group
-fs_init.initialize_model_parallel()
+fs_init.initialize_model_parallel(model_parallel_size_=1)
 
 
 
