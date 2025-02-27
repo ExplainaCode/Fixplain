@@ -207,10 +207,17 @@ class Attention(nn.Module):
         if adapter is not None:
             adapter_len = adapter.shape[1]
             adapter_v = self.wv(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)
+            # repeat k/v heads if n_kv_heads < n_heads
+            adapter_k = repeat_kv(
+                adapter_k, self.n_rep
+            )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
             adapter_v = adapter_v.transpose(1, 2)
 
             if adapter_len > 1:
                 adapter_k = self.wk(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)
+                adapter_v = repeat_kv(
+                    adapter_v, self.n_rep
+                )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
                 adapter_k = adapter_k.transpose(1, 2)
 
         keys = self.cache_k[:bsz, : start_pos + seqlen]
@@ -236,14 +243,6 @@ class Attention(nn.Module):
         output = torch.matmul(scores, values)  # (bs, n_local_heads, seqlen, head_dim)
 
         if adapter is not None:
-                    # repeat k/v heads if n_kv_heads < n_heads
-            adapter_k = repeat_kv(
-                adapter_k, self.n_rep
-            )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
-            adapter_v = repeat_kv(
-                adapter_v, self.n_rep
-            )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
-            
             if adapter_len > 1:
                 adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
                 adapter_scores = F.softmax(adapter_scores.float(), dim=-1).type_as(xq)
