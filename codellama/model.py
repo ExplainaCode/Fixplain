@@ -151,7 +151,11 @@ class Attention(nn.Module):
         self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
 
         if args.w_lora:
-            self.lora_wq_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
+            # self.lora_wq_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
+            self.lora_wq_l1 = ColumnParallelLinear(
+                args.dim, args.lora_rank, bias=False, gather_output=False,
+                init_method=lambda w: nn.init.kaiming_uniform_(w, a=math.sqrt(5))  # He initialization
+            )
             self.lora_wq_l2 = ColumnParallelLinear(args.lora_rank, args.dim, bias=False, gather_output=False,init_method=lambda w: nn.init.constant_(w, 0))
 
 
@@ -195,7 +199,7 @@ class Attention(nn.Module):
                 raise ValueError("Input x contains NaN or Inf before lora_wq_l1")
             
             print("x stats - min:", x.min().item(), " max:", x.max().item(), " mean:", x.mean().item(), " std:", x.std().item())
-            
+
             if torch.isnan(self.lora_wq_l1.weight).any():
                 raise ValueError("lora_wq_l1 weights contain NaN")
 
