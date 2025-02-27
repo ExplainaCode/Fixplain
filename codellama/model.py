@@ -183,6 +183,11 @@ class Attention(nn.Module):
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
 
         if self.w_lora:
+            print("XQ shape: ", xq.shape)
+            print("XK shape:", xk.shape)
+            print("Xv shape: ", xv.shape)
+            print("self.lora_wq_l2(self.lora_wq_l1(x)) shape: "(self.lora_wq_l2(self.lora_wq_l1(x))).shape)
+            print("self.lora_wk_l2(self.lora_wk_l1(x)) shape: ", (self.lora_wk_l2(self.lora_wk_l1(x))).shape)
             xq = xq + self.lora_wq_l2(self.lora_wq_l1(x))
             xk = xk + self.lora_wk_l2(self.lora_wk_l1(x))
             xv = xv + self.lora_wv_l2(self.lora_wv_l1(x))
