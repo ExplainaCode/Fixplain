@@ -6,6 +6,7 @@ import random
 import utils.misc as misc
 import utils.lr_sched as lr_sched
 from utils.misc import NativeScalerWithGradNormCount as NativeScaler
+from utils.misc import CustomDistributedSampler
 from .adapter import LLamaAdapter
 from utils.dataset import FinetuneDataset, DatasetArgs
 
@@ -287,8 +288,11 @@ def main(args):
     print(dataset_train)
     num_tasks = misc.get_world_size()
     global_rank = misc.get_rank()
-    sampler_train = torch.utils.data.DistributedSampler(
-        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, 
+    # sampler_train = torch.utils.data.DistributedSampler(
+    #     dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, 
+    # )
+    sampler_train = CustomDistributedSampler(
+        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
     )
     print("Sampler_train = %s" % str(sampler_train))
 
@@ -301,11 +305,11 @@ def main(args):
     )
 
     # SummaryWrite
-    # if global_rank == 0 and args.log_dir is not None:
-    #     os.makedirs(args.log_dir, exist_ok=True)
-    #     log_writer = SummaryWriter(log_dir=args.log_dir)
-    # else:
-    log_writer = None
+    if global_rank == 0 and args.log_dir is not None:
+        os.makedirs(args.log_dir, exist_ok=True)
+        log_writer = SummaryWriter(log_dir=args.log_dir)
+    else:
+        log_writer = None
 
 
     print(f"Start training for {args.epochs} epochs")

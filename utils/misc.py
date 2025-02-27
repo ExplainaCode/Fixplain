@@ -17,6 +17,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 import urllib
 from tqdm import tqdm
+import math
 
 import torch
 import torch.utils.data
@@ -371,7 +372,34 @@ def add_weight_decay(model, weight_decay=1e-5, skip_list=()):
         {'params': no_decay, 'weight_decay': 0.},
         {'params': decay, 'weight_decay': weight_decay}]
 
+class CustomDistributedSampler(torch.utils.data.DistributedSampler):
+    def __iter__(self):
+        if self.shuffle:
+            g = torch.Generator()
+            g.manual_seed(self.seed + self.epoch)
+            # Ensure indices are generated on CPU
+            indices = torch.randperm(len(self.dataset), generator=g, device='cpu').tolist()
+        else:
+            indices = list(range(len(self.dataset)))
 
+        if not self.drop_last:
+            # add extra samples to make it evenly divisible
+            padding_size = self.total_size - len(indices)
+            if padding_size <= len(indices):
+                indices += indices[:padding_size]
+            else:
+                indices += (indices * math.ceil(padding_size / len(indices)))[:padding_size]
+        else:
+            # remove tail of data to make it evenly divisible.
+            indices = indices[:self.total_size]
+        assert len(indices) == self.total_size
+
+        # subsample
+        indices = indices[self.rank:self.total_size:self.num_replicas]
+        assert len(indices) == self.num_samples
+
+        return iter(indices)
+    
 class DistributedSubEpochSampler(torch.utils.data.Sampler):
 
     def __init__(self, dataset, num_replicas, rank, shuffle, split_epoch=1, seed=0):
