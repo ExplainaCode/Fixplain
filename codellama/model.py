@@ -236,6 +236,14 @@ class Attention(nn.Module):
         output = torch.matmul(scores, values)  # (bs, n_local_heads, seqlen, head_dim)
 
         if adapter is not None:
+                    # repeat k/v heads if n_kv_heads < n_heads
+            adapter_k = repeat_kv(
+                adapter_k, self.n_rep
+            )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
+            adapter_v = repeat_kv(
+                adapter_v, self.n_rep
+            )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
+            
             if adapter_len > 1:
                 adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
                 adapter_scores = F.softmax(adapter_scores.float(), dim=-1).type_as(xq)
