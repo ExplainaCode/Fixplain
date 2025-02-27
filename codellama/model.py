@@ -246,6 +246,8 @@ class Attention(nn.Module):
                 output = output + self.gate.tanh() * adapter_v
 
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
+        if torch.isnan(output).any() or torch.isinf(output).any():
+                raise ValueError("output contains NaN or inf values.___________0")
         return self.wo(output)
 
 
