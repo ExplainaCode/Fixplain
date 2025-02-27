@@ -159,13 +159,16 @@ class Attention(nn.Module):
             self.lora_wq_l2 = ColumnParallelLinear(args.lora_rank, args.dim, bias=False, gather_output=False,init_method=lambda w: nn.init.constant_(w, 0))
 
 
-            self.lora_wk_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
+            self.lora_wk_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,
+                                                   init_method=lambda w: nn.init.kaiming_uniform_(w, a=math.sqrt(5)) )
             self.lora_wk_l2 = ColumnParallelLinear(args.lora_rank, self.n_kv_heads*self.head_dim, bias=False, gather_output=False,init_method=lambda w: nn.init.constant_(w, 0))
 
-            self.lora_wv_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
+            self.lora_wv_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,
+                                                   init_method=lambda w: nn.init.kaiming_uniform_(w, a=math.sqrt(5)) )
             self.lora_wv_l2 = ColumnParallelLinear(args.lora_rank, self.n_kv_heads*self.head_dim, bias=False, gather_output=False,init_method=lambda w: nn.init.constant_(w, 0))
 
-            self.lora_wo_l1 = RowParallelLinear(args.dim, args.lora_rank, bias=False, input_is_parallel=True,init_method=lambda x: x)
+            self.lora_wo_l1 = RowParallelLinear(args.dim, args.lora_rank, bias=False, input_is_parallel=True,
+                                                init_method=lambda w: nn.init.kaiming_uniform_(w, a=math.sqrt(5)) )
             self.lora_wo_l2 = RowParallelLinear(args.lora_rank, args.dim, bias=False, input_is_parallel=True,init_method=lambda w: nn.init.constant_(w, 0))
 
 
