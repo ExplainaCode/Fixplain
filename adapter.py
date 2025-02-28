@@ -276,7 +276,7 @@ class LLamaAdapter(nn.Module):
         # print("codellama_labels shape:", codellama_labels.shape)
 
         # ______________________________Testing____________________________
-        if self.test_var <= 1:
+        if self.test_var <= 5:
             print("codellama output shape: ", codellama_output.shape)
             print("codellama labels shape: ", codellama_labels.shape)
             # print("codellama input ids: ", codellama_input_ids)
