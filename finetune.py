@@ -54,7 +54,6 @@ def train_one_epoch(model: LLamaAdapter,
                     args=None):
     model.train(True)
     ## model.module.set_default_trainability()
-    model.test_var = 0
 
     metric_logger = misc.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
@@ -328,6 +327,10 @@ def main(args):
         if args.distributed:
             data_loader_train.sampler.set_epoch(epoch)
 
+        if (epoch==args.epochs-1):
+            model.test_var=0
+        else:
+            model.test_var=1000
         train_stats = train_one_epoch(
             model, data_loader_train,
             optimizer, device, epoch, loss_scaler,
