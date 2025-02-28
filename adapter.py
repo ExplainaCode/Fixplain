@@ -298,8 +298,9 @@ class LLamaAdapter(nn.Module):
 
             # print("codellama_decoded: " , codellama_decoded)
             # print ("codellama decoded: ", decoded_text)
-            write_header = not os.path.exists(csv_file)
             csv_file = "codellama_results.csv"
+            write_header = not os.path.exists(csv_file)
+            
             with open(csv_file, mode="a", newline="", encoding="utf-8") as file:
                 import csv
                 writer = csv.writer(file)
