@@ -278,10 +278,10 @@ class LLamaAdapter(nn.Module):
         # ______________________________Testing____________________________
         if self.test_var <= 1:
             print("codellama output shape: ", codellama_output.shape)
-            print("codellama laels shape: ", codellama_labels.shape)
-            print("codellama input ids: ", codellama_input_ids)
+            print("codellama labels shape: ", codellama_labels.shape)
+            # print("codellama input ids: ", codellama_input_ids)
             print("codellama input ids (for 0 th example in the atch): ", self.codellama_tokenizer.decode(codellama_input_ids[0].tolist()))
-            print("codellama_output (for 0 th output): ",  codellama_output[0])
+            # print("codellama_output (for 0 th output): ",  codellama_output[0])
             token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
             decoded_text = self.codellama_tokenizer.decode(token_ids) 
             # codellama_decoded = []
@@ -476,7 +476,7 @@ class LLamaAdapter(nn.Module):
             codellama_tokens[:, cur_pos] = next_codellama_token
             prev_pos = cur_pos
         self.attention_hooks_data ={} # free the memory
-        print("codellama_tokens: ",  codellama_tokens)
+        # print("codellama_tokens: ",  codellama_tokens)
         codellama_decoded = []
         for i, t in enumerate(codellama_tokens.tolist()):
 
