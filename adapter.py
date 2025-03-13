@@ -289,18 +289,18 @@ class LLamaAdapter(nn.Module):
             # print("codellama_output (for 0 th output): ",  codellama_output[0])
             token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
             decoded_text = self.codellama_tokenizer.decode(token_ids) 
-            codellama_decoded = []
-            for i, t in enumerate(codellama_output[0].tolist()):
-                # cut to max gen len
-                # t = t[len(codellama_input_ids[i]): len(codellama_input_ids[i]) + max_gen_len]
-                # cut to eos tok if any
-                try:
-                    t = t[: t.index(self.codellama_tokenizer.eos_id)]
-                except ValueError:
-                    pass
-                codellama_decoded.append(self.codellama_tokenizer.decode(t))
+            # codellama_decoded = []
+            # for i, t in enumerate(codellama_output[0].tolist()):
+            #     # cut to max gen len
+            #     # t = t[len(codellama_input_ids[i]): len(codellama_input_ids[i]) + max_gen_len]
+            #     # cut to eos tok if any
+            #     try:
+            #         t = t[: t.index(self.codellama_tokenizer.eos_id)]
+            #     except ValueError:
+            #         pass
+            #     codellama_decoded.append(self.codellama_tokenizer.decode(t))
 
-            print("codellama_decoded: " , codellama_decoded)
+            # print("codellama_decoded: " , codellama_decoded)
             print ("codellama decoded: ", decoded_text)
             csv_file = "codellama_results.csv"
             write_header = not os.path.exists(csv_file)
