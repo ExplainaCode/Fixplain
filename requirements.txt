@@ -6,3 +6,5 @@ pandas
 transformers==4.47.1
 tensorboard
 pandas
+tiktoken==0.9.0
+blobfile
