@@ -396,8 +396,7 @@ class LLamaAdapter(nn.Module):
 
     @torch.inference_mode()
     def forward_inference_2(self, codellama_input_ids,codellama_start_pos:int):
-        # debug_info("_________________")
-        # print(codellama_input_ids)
+        debug_info(codellama_input_ids)
         codellama_input_ids=codellama_input_ids.to(device)
 
         _bsz, codellama_seqlen = codellama_input_ids.shape
@@ -417,10 +416,10 @@ class LLamaAdapter(nn.Module):
 
         codellama_h = self.codellama.norm(codellama_h)
         codellama_output = self.codellama.output(codellama_h[:,-1, :])
-        token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
-        token_ids=[token_ids]
-        decoded_text = self.codellama_tokenizer.decode(token_ids)
-        debug_info(decoded_text)
+        # token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
+        # token_ids=[token_ids]
+        # decoded_text = self.codellama_tokenizer.decode(token_ids)
+        # debug_info(decoded_text)
         return codellama_output.float()
 
     @torch.inference_mode()
