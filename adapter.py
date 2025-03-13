@@ -396,8 +396,8 @@ class LLamaAdapter(nn.Module):
 
     @torch.inference_mode()
     def forward_inference_2(self, codellama_input_ids,codellama_start_pos:int):
-        debug_info("_________________")
-        print(codellama_input_ids)
+        # debug_info("_________________")
+        # print(codellama_input_ids)
         codellama_input_ids=codellama_input_ids.to(device)
 
         _bsz, codellama_seqlen = codellama_input_ids.shape
