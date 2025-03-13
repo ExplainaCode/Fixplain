@@ -207,9 +207,9 @@ class LLamaAdapter(nn.Module):
         codellama_labels = codellama_labels.to(device)
 
         debug_info("________________________________________________________")
-        print(repairllama_input_ids.shape)
-        print(codellama_input_ids.shape)
-        print(codellama_labels.shape)
+        print(repairllama_input_ids)
+        print(codellama_input_ids)
+        print(codellama_labels)
 
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) #.half()
