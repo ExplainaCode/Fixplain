@@ -417,10 +417,10 @@ class LLamaAdapter(nn.Module):
 
         codellama_h = self.codellama.norm(codellama_h)
         codellama_output = self.codellama.output(codellama_h[:,-1, :])
-        token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
-        token_ids=[token_ids]
-        decoded_text = self.codellama_tokenizer.decode(token_ids)
-        debug_info(decoded_text)
+        # token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
+        # token_ids=[token_ids]
+        # decoded_text = self.codellama_tokenizer.decode(token_ids)
+        # debug_info(decoded_text)
         return codellama_output.float()
 
     @torch.inference_mode()
@@ -514,7 +514,7 @@ class LLamaAdapter(nn.Module):
                 input_codellama_text_mask[:, cur_pos], codellama_tokens[:, cur_pos], next_codellama_token
             )
             codellama_tokens[:, cur_pos] = next_codellama_token
-            prev_pos = cur_pos
+            # prev_pos = cur_pos                      #----------for deugging
         self.attention_hooks_data ={} # free the memory
         # print("codellama_tokens: ",  codellama_tokens)
         codellama_decoded = []
