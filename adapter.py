@@ -421,6 +421,13 @@ class LLamaAdapter(nn.Module):
 
     @torch.inference_mode()
     def forward_repairllama(self, repairllama_input_ids):
+        
+        import torch.nn.functional as F
+        seq_len = repairllama_input_ids.shape[-1]
+        pad_len = 1024 - seq_len  # Calculate how much padding is needed
+
+        if pad_len > 0:
+            repairllama_input_ids = F.pad(repairllama_input_ids, (pad_len, 0))
         debug_info("____________________________________")
         print(repairllama_input_ids)
         print(repairllama_input_ids.shape)
