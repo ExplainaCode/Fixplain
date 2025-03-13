@@ -302,7 +302,7 @@ def main(args):
     #     dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, 
     # )
     sampler_train = CustomDistributedSampler(
-        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=False # false for testing
     )
     print("Sampler_train = %s" % str(sampler_train))
 
