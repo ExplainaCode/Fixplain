@@ -421,6 +421,9 @@ class LLamaAdapter(nn.Module):
 
     @torch.inference_mode()
     def forward_repairllama(self, repairllama_input_ids):
+        debug_info("____________________________________")
+        print(repairllama_input_ids)
+        print(repairllama_input_ids.shape)
         repairllama_input_ids=repairllama_input_ids.to(device)
         _bsz, repairllama_seqlen = repairllama_input_ids[0].shape
 
