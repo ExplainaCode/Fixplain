@@ -199,8 +199,7 @@ class LLamaAdapter(nn.Module):
             raise ValueError(f"Unknown model phase: {phase}")
 
 
-    def forward(self, repairllama_input_ids, codellama_input_ids, 
-                repairllama_labels, codellama_labels, optimizer=None):
+    def forward(self, repairllama_input_ids, codellama_input_ids, codellama_labels, optimizer=None):
         torch.autograd.set_detect_anomaly(True)
 
         repairllama_input_ids=repairllama_input_ids.to(device)
@@ -335,7 +334,7 @@ class LLamaAdapter(nn.Module):
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
-        repairllama_mask = torch.triu(repairllama_mask, diagonal=repairllama_start_pos + 1).type_as(repairllama_h) #this should change.
+        repairllama_mask = torch.triu(repairllama_mask, diagonal=repairllama_start_pos + 1).type_as(repairllama_h) #might this cause issues?.
 
         if adapter:
             # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
@@ -398,10 +397,11 @@ class LLamaAdapter(nn.Module):
         _bsz, codellama_seqlen = codellama_input_ids.shape
         codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
-        codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
+        codellama_freq_cis = self.codellama.freqs_cis[codellama_start_pos : codellama_start_pos + codellama_seqlen]
         codellama_mask = None
         codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
-        codellama_mask = torch.triu(codellama_mask, diagonal=codellama_start_pos + 1).to(torch.float16)
+        # codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).to(torch.float16)
+        codellama_mask = torch.triu(codellama_mask, diagonal=1).type_as(codellama_h)
 
         n_layers = self.repairllama.config.num_hidden_layers
 

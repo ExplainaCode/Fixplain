@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 # import llama.utils
-from codellama.tokenizer import Tokenizer
+# from codellama.tokenizer import Tokenizer
 import copy
 import pandas as pd
 from dataclasses import dataclass
@@ -29,7 +29,7 @@ class FinetuneDataset(Dataset):
         self.repairllama_max_output_len = args.repairllama_max_output_len
         self.codellama_max_input_len = args.codellama_max_input_len
         self.codellama_pad_id = codellama_tokenizer.pad_id
-        self.repairllama_pad_id = repairllama_tokenizer.pad_token_id
+        # self.repairllama_pad_id = repairllama_tokenizer.pad_token_id
 
         required_columns = ['buggy_code', 'fixed_code', 'gpt_explanation']
         if not all(col in self.data.columns for col in required_columns):
@@ -60,7 +60,7 @@ class FinetuneDataset(Dataset):
         try:
             row = self.data.iloc[index]
             buggy_code = row['buggy_code']
-            fixed_code = row['fixed_code']
+            # fixed_code = row['fixed_code']
             explanation = row['gpt_explanation']
 
             repairllama_encoding = self.repairllama_tokenizer.encode_plus(
@@ -72,20 +72,20 @@ class FinetuneDataset(Dataset):
             )
             repairllama_input_ids = repairllama_encoding['input_ids'].squeeze(0)  # [max_len]
 
-            repairllama_label_encoding = self.repairllama_tokenizer.encode_plus(
-                fixed_code,
-                max_length=self.repairllama_max_output_len,
-                padding='max_length',
-                truncation=True,
-                return_tensors='pt'
-            )
-            repairllama_label_ids = repairllama_label_encoding['input_ids'].squeeze(0)
+            # repairllama_label_encoding = self.repairllama_tokenizer.encode_plus(
+            #     fixed_code,
+            #     max_length=self.repairllama_max_output_len,
+            #     padding='max_length',
+            #     truncation=True,
+            #     return_tensors='pt'
+            # )
+            # repairllama_label_ids = repairllama_label_encoding['input_ids'].squeeze(0)
             # repairllama_input_ids =  torch.flatten(self.repairllama_tokenizer.encode(buggy_code, return_tensors='pt'))
             # repairllama_label_ids = torch.flatten(self.repairllama_tokenizer.encode(fixed_code, return_tensors='pt'))
             codellama_input_ids = torch.tensor(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
 
-            repairllama_input_ids = self.__get_padding__(repairllama_input_ids, self.repairllama_pad_id, self.repairllama_max_input_len)
-            repairllama_label_ids = self.__get_padding__(repairllama_label_ids, self.repairllama_pad_id, self.repairllama_max_output_len)
+            # repairllama_input_ids = self.__get_padding__(repairllama_input_ids, self.repairllama_pad_id, self.repairllama_max_input_len)
+            # repairllama_label_ids = self.__get_padding__(repairllama_label_ids, self.repairllama_pad_id, self.repairllama_max_output_len)
             codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_pad_id, self.codellama_max_input_len)
 
             codellama_label_ids = copy.deepcopy(codellama_input_ids)
@@ -96,16 +96,9 @@ class FinetuneDataset(Dataset):
             # codellama_label_mask = codellama_label_mask.float()
             # codellama_input_ids_mask = codellama_input_ids_mask.float()
 
-            # if (index==0):
-            #     print("repairllama_pad_id: ", self.repairllama_pad_id)
-            #     print("codellama_pad_id: ", self.codellama_pad_id)
-            #     print("repairllama_input_ids: ",repairllama_input_ids, repairllama_input_ids.shape)
-            #     print("codellama_input_ids: ", codellama_input_ids, codellama_input_ids.shape)
-
-            return repairllama_input_ids, repairllama_label_ids, codellama_input_ids, codellama_label_ids, codellama_input_ids_mask
+            return repairllama_input_ids, codellama_input_ids, codellama_label_ids, codellama_input_ids_mask
         
         except Exception as e:
             # Catch and log any exceptions
             print(f"Error processing index {index}: {e}")
-            print(f"fixed code type: {type(fixed_code)}, value: {fixed_code}")
             raise 
