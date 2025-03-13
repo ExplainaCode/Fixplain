@@ -467,9 +467,14 @@ class LLamaAdapter(nn.Module):
         max_codellama_prompt_size = max([len(t[0]) for t in codellama_input_ids])
 
         total_codellama_len = min(params.max_seq_len, max_codellama_gen_len + max_codellama_prompt_size) # instead of generic params.max_seq_len consider using specific to codellama & max_gen_len for codellama text.
-        codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long() # 0 used instead of self.codellama_tokenizer.pad_id for testing
+        codellama_tokens = torch.full((bsz, total_codellama_len), self.codellama_tokenizer.pad_id).cuda().long()
 
-        input_codellama_text_mask = codellama_tokens != self.codellama_tokenizer.pad_id # o used instead of self.codellama_tokenizer.pad_id for testing
+        # Copy prompts into codellama_tokens
+        for i in range(bsz):
+            prompt = codellama_input_ids[i]
+            codellama_tokens[i, :len(prompt)] = prompt
+            
+        input_codellama_text_mask = codellama_tokens != self.codellama_tokenizer.pad_id
         codellama_start_pos = min_codellama_prompt_size
 
         prev_pos = 0
