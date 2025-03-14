@@ -550,7 +550,7 @@ class LLamaAdapter(nn.Module):
             next_codellama_token = torch.where(
                 input_codellama_text_mask[:, cur_pos], codellama_tokens[:, cur_pos], next_codellama_token
             )
-            codellama_tokens[:, cur_pos] = next_codellama_token
+            codellama_tokens[:, cur_pos] = 791 #next_codellama_token
             # prev_pos = cur_pos    
             if i>3:                  #----------for deugging
                 break # for debugging
