@@ -212,6 +212,8 @@ class LLamaAdapter(nn.Module):
         # print(codellama_labels)
 
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
+        debug_info(repairllama_input_ids.shape)
+        debug_info(repairllama_input_ids)
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) #.half()
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
         # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
@@ -222,6 +224,8 @@ class LLamaAdapter(nn.Module):
 
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
         _bsz, codellama_seqlen = codellama_input_ids.shape
+        debug_info(codellama_input_ids.shape)
+        debug_info(codellama_input_ids)
         codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
 
