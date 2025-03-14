@@ -537,7 +537,7 @@ class LLamaAdapter(nn.Module):
         with torch.cuda.amp.autocast():
             # print("repairllama input ids: ", repairllama_input_ids)
             self.forward_repairllama(repairllama_input_ids)
-
+        i = 0
         for cur_pos in range(codellama_start_pos, total_codellama_len):  
             with torch.cuda.amp.autocast():
                 codellama_logits = self.forward_inference_2(codellama_tokens[:, prev_pos:cur_pos], prev_pos)
@@ -551,8 +551,11 @@ class LLamaAdapter(nn.Module):
                 input_codellama_text_mask[:, cur_pos], codellama_tokens[:, cur_pos], next_codellama_token
             )
             codellama_tokens[:, cur_pos] = next_codellama_token
-            prev_pos = cur_pos                      #----------for deugging
-            break # for debugging
+            prev_pos = cur_pos    
+            if i>3:                  #----------for deugging
+                break # for debugging
+            i+=1
+            print("___________________________")
         self.attention_hooks_data ={} # free the memory
         # print("codellama_tokens: ",  codellama_tokens)
         codellama_decoded = []
