@@ -453,6 +453,7 @@ class LLamaAdapter(nn.Module):
         # debug_info(decoded_text)
         next_codellama_token = torch.argmax(codellama_output[:, -1], dim=-1)
         print(next_codellama_token)
+        self.codellama_tokenizer.decode(next_codellama_token)
         return codellama_output
 
     @torch.inference_mode()
