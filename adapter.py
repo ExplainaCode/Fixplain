@@ -279,6 +279,8 @@ class LLamaAdapter(nn.Module):
         # Processing CodeLLama output
 
         codellama_h = self.codellama.norm(codellama_h)
+        debug_info()
+        print(codellama_h)
         codellama_output = self.codellama.output(codellama_h)
         codellama_output = codellama_output[:, :-1, :]
         codellama_labels = codellama_labels[:, 1:]
@@ -437,6 +439,8 @@ class LLamaAdapter(nn.Module):
             print(codellama_h)
 
         codellama_h = self.codellama.norm(codellama_h)
+        debug_info()
+        print(codellama_h)
         codellama_output = self.codellama.output(codellama_h).float()
         # token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
         # token_ids=[token_ids]
