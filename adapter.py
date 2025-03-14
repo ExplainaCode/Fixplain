@@ -405,6 +405,8 @@ class LLamaAdapter(nn.Module):
         codellama_input_ids=codellama_input_ids.to(device)
 
         _bsz, codellama_seqlen = codellama_input_ids.shape
+        debug_info(codellama_input_ids.shape)
+        print(codellama_input_ids)
         codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
         codellama_freq_cis = self.codellama.freqs_cis[codellama_start_pos : codellama_start_pos + codellama_seqlen]
@@ -445,7 +447,9 @@ class LLamaAdapter(nn.Module):
         # print(repairllama_input_ids.shape)
         repairllama_input_ids=repairllama_input_ids.to(device)
         _bsz, repairllama_seqlen = repairllama_input_ids[0].shape
- 
+
+        debug_info(repairllama_input_ids[0].shape)
+        print(repairllama_input_ids)
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids[0]) # apass through embedding layer
 
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
