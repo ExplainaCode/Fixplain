@@ -206,16 +206,16 @@ class LLamaAdapter(nn.Module):
         codellama_input_ids=codellama_input_ids.to(device)
         codellama_labels = codellama_labels.to(device)
 
-        # debug_info("________________________________________________________")
-        # print(repairllama_input_ids)
-        # print(codellama_input_ids)
-        # print(codellama_labels)
+        debug_info("________________________________________________________")
+        print(repairllama_input_ids)
+        print(codellama_input_ids)
+        print(codellama_labels)
 
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) #.half()
-        # print(repairllama_h.shape)
-        # print(repairllama_h)
+        print(repairllama_h.shape)
+        print(repairllama_h)
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
         # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
@@ -223,13 +223,13 @@ class LLamaAdapter(nn.Module):
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
         repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
 
-        # debug_info("repairllama mask")
-        # print(repairllama_mask)
+        debug_info("repairllama mask")
+        print(repairllama_mask)
 
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
         _bsz, codellama_seqlen = codellama_input_ids.shape
-        # debug_info(codellama_input_ids.shape)
-        # print(codellama_input_ids)
+        debug_info(codellama_input_ids.shape)
+        print(codellama_input_ids)
         codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
 
@@ -237,7 +237,7 @@ class LLamaAdapter(nn.Module):
         codellama_mask = None
         codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
         codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
-        # print(codellama_mask)
+        print(codellama_mask)
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
@@ -255,8 +255,8 @@ class LLamaAdapter(nn.Module):
             # del self.attention_hooks_data[i]
             self.attention_hooks_data[i] = None
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
-            # debug_info(f"{i}")
-            # print(codellama_h)
+            debug_info(f"{i}")
+            print(codellama_h)
             if torch.isnan(codellama_h).any() or torch.isinf(codellama_h).any():
                 raise ValueError("codellama_h contains NaN or inf values.___________0", i)
         # self.attention_hooks_data={}

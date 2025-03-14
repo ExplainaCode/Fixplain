@@ -80,6 +80,7 @@ def train_one_epoch(model: LLamaAdapter,
                 codellama_input_ids=codellama_examples,
                 codellama_labels=codellama_labels,
             )
+        break # for testing
 
         loss_value = loss.item()
         # print("Loss is: ",loss)
@@ -257,7 +258,7 @@ def main(args):
                          w_lora=args.w_lora, lora_rank=args.lora_rank)
     # codellama_tokenizer = model.codellama_tokenizer
     # repairllama_tokenizer = model.repairllama_tokenizer
-    # model.load_codellma_tuned(args.codellama_trained_weight_dir)
+    model.load_codellma_tuned(args.codellama_trained_weight_dir)
     model.to(device)
 
     model_without_ddp = model.codellama
