@@ -467,7 +467,7 @@ class LLamaAdapter(nn.Module):
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
         repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h) #this should change.
-
+        print(repairllama_mask)
         n_layers = self.repairllama.config.num_hidden_layers
         for i in range(n_layers):
             repairllama_h, *_ = self.repairllama.model.model.layers[i](
