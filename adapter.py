@@ -231,6 +231,8 @@ class LLamaAdapter(nn.Module):
         debug_info(codellama_input_ids.shape)
         print(codellama_input_ids)
         codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
+        debug_info("codellama h")
+        print(codellama_h)
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
 
         codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
