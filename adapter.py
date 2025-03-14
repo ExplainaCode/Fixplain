@@ -458,6 +458,8 @@ class LLamaAdapter(nn.Module):
         debug_info(repairllama_input_ids[0].shape)
         print(repairllama_input_ids[0])
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids[0]) # apass through embedding layer
+        debug_info(repairllama_h.shape)
+        print(repairllama_h)
 
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
         # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
@@ -534,6 +536,7 @@ class LLamaAdapter(nn.Module):
             )
             codellama_tokens[:, cur_pos] = next_codellama_token
             prev_pos = cur_pos                      #----------for deugging
+            break # for debugging
         self.attention_hooks_data ={} # free the memory
         # print("codellama_tokens: ",  codellama_tokens)
         codellama_decoded = []
