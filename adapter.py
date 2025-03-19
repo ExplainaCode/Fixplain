@@ -214,8 +214,8 @@ class LLamaAdapter(nn.Module):
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) #.half()
-        # print(repairllama_h.shape)
-        # print(repairllama_h)
+        print(repairllama_h.shape)
+        print(repairllama_h)
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
         # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
@@ -228,11 +228,11 @@ class LLamaAdapter(nn.Module):
 
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
         _bsz, codellama_seqlen = codellama_input_ids.shape
-        # debug_info(codellama_input_ids.shape)
-        # print(codellama_input_ids)
+        debug_info(codellama_input_ids.shape)
+        print(codellama_input_ids)
         codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
-        # debug_info("codellama h")
-        # print(codellama_h)
+        debug_info("codellama h")
+        print(codellama_h)
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
 
         codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
@@ -257,9 +257,9 @@ class LLamaAdapter(nn.Module):
             # del self.attention_hooks_data[i]
             self.attention_hooks_data[i] = None
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
-            # if n_layers==31:
-            #     debug_info(f"{i}")
-            #     print(codellama_h)
+            if n_layers==31:
+                debug_info(f"{i}")
+                print(codellama_h)
             if torch.isnan(codellama_h).any() or torch.isinf(codellama_h).any():
                 raise ValueError("codellama_h contains NaN or inf values.___________0", i)
         # self.attention_hooks_data={}
@@ -280,14 +280,14 @@ class LLamaAdapter(nn.Module):
         # Processing CodeLLama output
 
         codellama_h = self.codellama.norm(codellama_h)
-        # debug_info("after normalization")
-        # print(codellama_h)
+        debug_info("after normalization")
+        print(codellama_h)
         codellama_output = self.codellama.output(codellama_h)
-        # debug_info("after output layer")
-        # print(codellama_output.float())
+        debug_info("after output layer")
+        print(codellama_output.float())
     
-        # next_codellama_token = torch.argmax(codellama_output[:, 0:1, :], dim=-1)
-        # print(next_codellama_token)
+        next_codellama_token = torch.argmax(codellama_output[:, 0:1, :], dim=-1)
+        print(next_codellama_token)
         codellama_output = codellama_output[:, :-1, :]
         codellama_labels = codellama_labels[:, 1:]
 
