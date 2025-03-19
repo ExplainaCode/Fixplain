@@ -498,7 +498,7 @@ class LLamaAdapter(nn.Module):
                    max_gen_len: int=256, max_codellama_gen_len: int=125, temperature: float=0.1,
                    top_p:  float=0.75):
         bsz = len(repairllama_input_ids)
-        codellama_input_copy = codellama_input_ids
+        codellama_input_copy = codellama_input_ids[:10]
         codellama_input_ids=None
         if codellama_input_ids==None:
             codellama_input_ids = [
