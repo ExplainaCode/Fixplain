@@ -452,7 +452,7 @@ class LLamaAdapter(nn.Module):
         debug_info("codellama output")
         print(codellama_output)
         token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
-        token_ids=[token_ids]
+        # token_ids=[token_ids]
         decoded_text = self.codellama_tokenizer.decode(token_ids)
         debug_info(decoded_text)
         next_codellama_token = torch.argmax(codellama_output[:, -1], dim=-1)
