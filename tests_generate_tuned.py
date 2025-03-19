@@ -43,7 +43,18 @@ def main(args):
     # repairllama_input_ids = torch.load(f"{args.repairllama_input_pth}",  map_location=torch.device('cpu'))
     df = pd.read_csv(args.repairllama_input_pth)
     repairllama_input = df["buggy_code"].tolist()
-    codellama_input_ids = torch.load(args.codellama_input_pth) if args.codellama_input_pth is not None else None
+
+    # codellama_input_ids = torch.load(args.codellama_input_pth) if args.codellama_input_pth is not None else None # commented for testing
+    codellama_input_ids=[128000,    791,   4113,   2082,  44447,   6880,   1595,   6236,  55358,
+           4619,    315,   1595,   2527,  55358,    389,    279,   4617,     11,
+            902,  52535,    279,   1595,   6236,  55358,   1749,    389,    279,
+           1510,   4617,   4856,   1109,   6041,    264,    502,   4617,     13,
+            578,   8521,   2082,  41800,   1595,   6236,  55358,    449,   1595,
+           2527,    368,   7964,  10923,    279,   1595,  66665,  26512,     63,
+            311,   1629,    304,   1202,   1866,   4617,    439,  10825,     13,
+           1115,   2349,  26420,    430,    279,  23732,    374,  10273,  31978,
+            304,    264,   8821,   4617,     11,  18899,    279, 100039,    323,
+          15293,    315,    279,  31009,  11850,   1887,     13, 128001]
     
 
     # Prepare a file to write the outputs
