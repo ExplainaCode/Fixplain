@@ -121,7 +121,7 @@ class LLamaAdapter(nn.Module):
             #     load_in_8bit=True,
             #     llm_int8_threshold=6.0
             # ),
-            quentization_config=None,
+            quantization_config=None,
             device_map="auto",
         )
 
