@@ -121,7 +121,6 @@ class LLamaAdapter(nn.Module):
                 load_in_8bit=True,
                 llm_int8_threshold=6.0
             ),
-            # quantization_config=None,
             device_map="auto",
         )
 
@@ -247,7 +246,7 @@ class LLamaAdapter(nn.Module):
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.   
             assert(self.attention_hooks_data.get(i)!=None)
             with torch.no_grad():
-                dynamic_adapter = self.attention_hooks_data[i].get('input')
+                dynamic_adapter = self.attention_hooks_data[i].get('input')#.half() # Hooked input to the respective repairllama layer
                 dynamic_adapter = dynamic_adapter.to(dtype=codellama_h.dtype)
                 if torch.isnan(dynamic_adapter).any() or torch.isinf(dynamic_adapter).any():
                     raise ValueError("dynamic adapter contains NaN or inf values.___________0", i)
