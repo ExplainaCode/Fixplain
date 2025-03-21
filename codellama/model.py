@@ -249,11 +249,12 @@ class Attention(nn.Module):
                 # print("adapter_scores NaN:", torch.isnan(adapter_scores).sum())
                 # print("self.gate NaN:", torch.isnan(self.gate).sum())
 
-                adapter_scores = self.gate.tanh() * adapter_scores
+                # adapter_scores = self.gate.tanh() * adapter_scores
 
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
-                output = output + self.gate.tanh() * adapter_v
+                # output = output + self.gate.tanh() * adapter_v
+                output = output + adapter_v
 
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
         return self.wo(output)
