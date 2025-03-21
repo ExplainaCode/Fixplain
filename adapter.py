@@ -188,8 +188,8 @@ class LLamaAdapter(nn.Module):
                     # para.data = para.data.float()
                     para.requires_grad = True
 
-                    debug_info("-"*20 + "Trainable parameters" + "-"*20)
-                    print(f"Parameter: {name}, dtype: {para.dtype}")
+                    # debug_info("-"*20 + "Trainable parameters" + "-"*20)
+                    # print(f"Parameter: {name}, dtype: {para.dtype}")
         
         elif phase == 'inference':
             pass
