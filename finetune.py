@@ -93,18 +93,15 @@ def train_one_epoch(model: LLamaAdapter,
         #     print("Loss contains NaNs or Infs:", loss)
         #     sys.exit(1)
 
-        # loss_scaler(loss, optimizer, parameters=model.parameters(),
-        #             update_grad=(data_iter_step + 1) % accum_iter == 0)
+        loss_scaler(loss, optimizer, parameters=model.parameters(),
+                    update_grad=(data_iter_step + 1) % accum_iter == 0)
 
         loss.backward()
         if (data_iter_step + 1) % accum_iter == 0:
-            # for name, param in model.named_parameters():
-            #     if param.grad is not None and torch.isnan(param.grad).any():
-            #         print(f"NaN detected in gradients for {name}!")
-            #         raise ValueError("NaN in gradients.")
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            optimizer.step()
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            # optimizer.step()
             optimizer.zero_grad() 
+
             # flag=False
             # for name, param in model.named_parameters():
             #     if torch.isnan(param).any():
@@ -139,23 +136,6 @@ def train_one_epoch(model: LLamaAdapter,
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-
-def train_one_epoch2(model: LLamaAdapter,
-                    data_loader: Iterable, optimizer: torch.optim.Optimizer,
-                    device: torch.device, epoch: int):
-    for data_iter_step, (reapirllama_examples, repairllama_labels, codellama_examples, codellama_labels, codellama_mask) in enumerate((data_loader)):
-        # optimizer.zero_grad()
-        # with torch.cuda.amp.autocast():
-        print("_______________________________",data_iter_step, "__________________________________")
-        codellama_loss = model(reapirllama_examples, codellama_examples,
-                                                            repairllama_labels=repairllama_labels,
-                                                            codellama_labels=codellama_labels,optimizer=optimizer)
-        # codellama_loss.backward()
-        # model.attention_hooks_data={}
-        # optimizer.zero_grad()
-        if data_iter_step >=5:
-            break
-    return codellama_loss
    
 def get_args_parser():
     parser = argparse.ArgumentParser('llama_adapter pre-training', add_help=False)
@@ -285,7 +265,7 @@ def main(args):
 
     # following timm: set wd as 0 for bias and norm layers
     param_groups = misc.add_weight_decay(model_without_ddp, args.weight_decay)
-    optimizer = torch.optim.AdamW(param_groups, lr=1e-5, betas=(0.9, 0.95), eps=1e-4)
+    optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95), eps=1e-4)
     print(optimizer)
     loss_scaler = NativeScaler()
 
