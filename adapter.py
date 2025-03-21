@@ -117,11 +117,11 @@ class LLamaAdapter(nn.Module):
             torch_dtype=torch.float16,
             # load_in_8bit=True, # commented initially
             trust_remote_code=True,
-            # quantization_config=BitsAndBytesConfig(
-            #     load_in_8bit=True,
-            #     llm_int8_threshold=6.0
-            # ),
-            quantization_config=None,
+            quantization_config=BitsAndBytesConfig(
+                load_in_8bit=True,
+                llm_int8_threshold=6.0
+            ),
+            # quantization_config=None,
             device_map="auto",
         )
 
