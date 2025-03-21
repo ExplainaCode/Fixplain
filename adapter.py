@@ -245,11 +245,11 @@ class LLamaAdapter(nn.Module):
                                                 repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous()
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.   
             assert(self.attention_hooks_data.get(i)!=None)
-            # with torch.no_grad():
-            dynamic_adapter = self.attention_hooks_data[i].get('input').detach()
-            dynamic_adapter = dynamic_adapter.to(dtype=codellama_h.dtype)
-            if torch.isnan(dynamic_adapter).any() or torch.isinf(dynamic_adapter).any():
-                raise ValueError("dynamic adapter contains NaN or inf values.___________0", i)
+            with torch.no_grad():
+                dynamic_adapter = self.attention_hooks_data[i].get('input')
+                dynamic_adapter = dynamic_adapter.to(dtype=codellama_h.dtype)
+                if torch.isnan(dynamic_adapter).any() or torch.isinf(dynamic_adapter).any():
+                    raise ValueError("dynamic adapter contains NaN or inf values.___________0", i)
             # del self.attention_hooks_data[i]
             self.attention_hooks_data[i] = None
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
