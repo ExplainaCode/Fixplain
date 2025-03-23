@@ -255,6 +255,7 @@ def init_distributed_mode(args):
 
 # Define your custom function
 def custom_unscale_(self, optimizer: torch.optim.Optimizer) -> None:
+    from torch.amp import OptState
     if not self._enabled:
         return
 
