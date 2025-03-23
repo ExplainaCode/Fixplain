@@ -81,12 +81,11 @@ class LLamaAdapter(nn.Module):
         tokenizer.pad_id = tokenizer.eos_id
         model_args.vocab_size = tokenizer.n_words
         
-        if torch.cuda.is_bf16_supported():
-            torch.set_default_tensor_type(torch.cuda.BFloat16Tensor)
-        else:
-            torch.set_default_tensor_type(torch.cuda.HalfTensor)
+        # if torch.cuda.is_bf16_supported():
+            # torch.set_default_tensor_type(torch.cuda.BFloat16Tensor)
+        # else:
+        torch.set_default_tensor_type(torch.cuda.HalfTensor)
         codellama = Transformer(model_args)
-        # torch.set_default_tensor_type(torch.FloatTensor)
 
         # Print data type of model parameters
         # for name, param in codellama.named_parameters():
@@ -121,6 +120,7 @@ class LLamaAdapter(nn.Module):
                 load_in_8bit=True,
                 llm_int8_threshold=6.0
             ),
+            # quantization_config=None,
             device_map="auto",
         )
 
@@ -147,7 +147,7 @@ class LLamaAdapter(nn.Module):
     def load_codellma_tuned(self, codellama_trained_weight_dir):
         ckpts = sorted(Path(codellama_trained_weight_dir).glob("*.pth"))
         ckpt_path = ckpts[-1]
-
+        torch.set_default_tensor_type(torch.cuda.HalfTensor)
         ckpt = torch.load(ckpt_path, map_location="cpu") # This ckeckpoint contains other parameters as well
         ckpt = ckpt["model"] 
         missing_keys, unexpected_keys = self.codellama.load_state_dict(ckpt, strict=False)
@@ -212,7 +212,8 @@ class LLamaAdapter(nn.Module):
 
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
-        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids) #.half()
+        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
+        print("repairllama_h dtype:", repairllama_h.dtype)
         # print(repairllama_h.shape)
         # print(repairllama_h)
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
@@ -221,12 +222,16 @@ class LLamaAdapter(nn.Module):
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
         repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
+        print("repairllama_mask:", repairllama_mask.dtype)
+
 
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
         _bsz, codellama_seqlen = codellama_input_ids.shape
         # debug_info(codellama_input_ids.shape)
         # print(codellama_input_ids)
         codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
+        print("codellama_h dtype:", codellama_h.dtype)
+
         # debug_info("codellama h")
         # print(codellama_h)
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
@@ -235,6 +240,8 @@ class LLamaAdapter(nn.Module):
         codellama_mask = None
         codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
         codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
+        print("codellama_freq_cis dtype:", codellama_freq_cis.dtype)
+        print("codellama_mask dtype:", codellama_mask.dtype)
         # print(codellama_mask)
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
@@ -259,7 +266,7 @@ class LLamaAdapter(nn.Module):
             if torch.isnan(codellama_h).any() or torch.isinf(codellama_h).any():
                 raise ValueError("codellama_h contains NaN or inf values.___________0", i)
         # self.attention_hooks_data={}
-
+        print("second repairllama_h dtype:", repairllama_h.dtype)
 
         # Processing RepairLLama output
         # repairllama_h = self.repairllama.model.model.norm(repairllama_h) # Why do even need this line?
