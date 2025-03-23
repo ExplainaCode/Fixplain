@@ -254,6 +254,7 @@ class Attention(nn.Module):
                 adapter_scores = (gate_factor * adapter_scores).type_as(xq)
 
                 adapter_scores = self.gate.tanh() * adapter_scores
+                assert gate_factor.min() >= -1.0 and gate_factor.max() <= 1.0, "Gate values outside [-1, 1]"
 
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
