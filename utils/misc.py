@@ -253,17 +253,42 @@ def init_distributed_mode(args):
     setup_for_distributed(args.rank == 0)
 
 
+# Define your custom function
+def custom_unscale_(self, optimizer: torch.optim.Optimizer) -> None:
+    if not self._enabled:
+        return
+
+    self._check_scale_growth_tracker("unscale_")
+
+    optimizer_state = self._per_optimizer_states[id(optimizer)]
+
+    if optimizer_state["stage"] is OptState.UNSCALED:
+        raise RuntimeError(
+            "unscale_() has already been called on this optimizer since the last update()."
+        )
+    elif optimizer_state["stage"] is OptState.STEPPED:
+        raise RuntimeError("unscale_() is being called after step().")
+
+    assert self._scale is not None
+    inv_scale = self._scale.double().reciprocal().float()
+    found_inf = torch.full((), 0.0, dtype=torch.float32, device=self._scale.device)
+
+    optimizer_state["found_inf_per_device"] = self._unscale_grads_(
+        optimizer, inv_scale, found_inf, True  # changed from False to True
+    )
+    optimizer_state["stage"] = OptState.UNSCALED
+
 class NativeScalerWithGradNormCount:
     state_dict_key = "amp_scaler"
 
     def __init__(self):
+        torch.amp.GradScaler.unscale_ = custom_unscale_
         self._scaler = torch.amp.GradScaler("cuda", 2.0**10)
 
     def __call__(self, loss, optimizer, clip_grad=None, parameters=None, create_graph=False, update_grad=True):
         self._scaler.scale(loss).backward(create_graph=create_graph)
         if update_grad:
             if clip_grad is not None:
-                print("+++++++++++++++++++++++++clip grad is not none+++++++++++++++++++++++++")
                 assert parameters is not None
                 self._scaler.unscale_(optimizer)  # unscale the gradients of optimizer's assigned params in-place
                 norm = torch.nn.utils.clip_grad_norm_(parameters=parameters, max_norm=clip_grad)
