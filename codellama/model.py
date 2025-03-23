@@ -254,6 +254,9 @@ class Attention(nn.Module):
                 gate_factor = self.gate.tanh().float()  # Compute in FP32
                 adapter_scores = (gate_factor * adapter_scores).type_as(xq)
 
+                assert not torch.isnan(adapter_scores).any(), "NaN in adapter_scores"
+                assert not torch.isinf(adapter_scores).any(), "Inf in adapter_scores"
+
                 # adapter_scores = self.gate.tanh() * adapter_scores
                 assert gate_factor.min() >= -1.0 and gate_factor.max() <= 1.0, "Gate values outside [-1, 1]"
 
