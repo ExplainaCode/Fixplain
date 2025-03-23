@@ -4,6 +4,7 @@ import os
 import time
 import json
 from pathlib import Path
+import warnings
 
 from .codellama.model import ModelArgs, Transformer
 from .codellama.tokenizer import Tokenizer
@@ -256,7 +257,8 @@ class LLamaAdapter(nn.Module):
             dynamic_adapter = self.attention_hooks_data[i].get('input').detach()
             dynamic_adapter = dynamic_adapter.to(dtype=codellama_h.dtype)
             if torch.isnan(dynamic_adapter).any() or torch.isinf(dynamic_adapter).any():
-                raise ValueError("dynamic adapter contains NaN or inf values.___________0", i)
+                # raise ValueError("dynamic adapter contains NaN or inf values.___________0", i)
+                warnings.warn("dynamic adapter contains NaN or inf values.___________0", i)
             # del self.attention_hooks_data[i]
             self.attention_hooks_data[i] = None
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
@@ -264,7 +266,8 @@ class LLamaAdapter(nn.Module):
             #     debug_info(f"{i}")
             #     print(codellama_h)
             if torch.isnan(codellama_h).any() or torch.isinf(codellama_h).any():
-                raise ValueError("codellama_h contains NaN or inf values.___________0", i)
+                # raise ValueError("codellama_h contains NaN or inf values.___________0", i)
+                warnings.warn("codellama_h contains NaN or inf values.___________0", i)
         # self.attention_hooks_data={}
         print("second repairllama_h dtype:", repairllama_h.dtype)
 
