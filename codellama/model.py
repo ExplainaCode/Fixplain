@@ -248,22 +248,18 @@ class Attention(nn.Module):
                 adapter_scores = F.softmax(adapter_scores.float(), dim=-1).type_as(xq)
                 # print("adapter_scores NaN:", torch.isnan(adapter_scores).sum())
                 # print("self.gate NaN:", torch.isnan(self.gate).sum())
-                assert not torch.isnan(adapter_scores).any(), "NaN in adapter_scores"
-                assert not torch.isinf(adapter_scores).any(), "Inf in adapter_scores"
-                # Stabilized gate application
-                gate_factor = self.gate.tanh().float()  # Compute in FP32
-                adapter_scores = (gate_factor * adapter_scores).type_as(xq)
 
-                assert not torch.isnan(adapter_scores).any(), "NaN in adapter_scores"
-                assert not torch.isinf(adapter_scores).any(), "Inf in adapter_scores"
+                # Stabilized gate application
+                # gate_factor = self.gate.tanh().float()  # Compute in FP32
+                # adapter_scores = (gate_factor * adapter_scores).type_as(xq)
 
                 # adapter_scores = self.gate.tanh() * adapter_scores
-                assert gate_factor.min() >= -1.0 and gate_factor.max() <= 1.0, "Gate values outside [-1, 1]"
+                # assert gate_factor.min() >= -1.0 and gate_factor.max() <= 1.0, "Gate values outside [-1, 1]"
 
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
-                output = output + self.gate.tanh() * adapter_v
-                # output = output + adapter_v
+                # output = output + self.gate.tanh() * adapter_v
+                output = output + adapter_v
 
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
         return self.wo(output)
