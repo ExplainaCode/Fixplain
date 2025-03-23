@@ -245,7 +245,7 @@ def main(args):
     print("Model = %s" % str(model_without_ddp))
 
     print("Trainable Params:")
-    print([(key, val.shape) for key, val in model.named_parameters() if val.requires_grad])
+    print([(key, val.shape, val.dtype) for key, val in model.named_parameters() if val.requires_grad])
 
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
