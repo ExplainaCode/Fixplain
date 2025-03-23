@@ -252,10 +252,15 @@ def init_distributed_mode(args):
     torch.distributed.barrier()
     setup_for_distributed(args.rank == 0)
 
+from enum import Enum
+
+class OptState(Enum):
+    READY = 0
+    UNSCALED = 1
+    STEPPED = 2
 
 # Define your custom function
 def custom_unscale_(self, optimizer: torch.optim.Optimizer) -> None:
-    from torch.amp import OptState
     if not self._enabled:
         return
 
