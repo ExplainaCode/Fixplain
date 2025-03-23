@@ -152,6 +152,9 @@ class LLamaAdapter(nn.Module):
         ckpt = torch.load(ckpt_path, map_location="cpu") # This ckeckpoint contains other parameters as well
         ckpt = ckpt["model"] 
         missing_keys, unexpected_keys = self.codellama.load_state_dict(ckpt, strict=False)
+        
+        for name, param in self.codellama.state_dict().items():
+            print(f"Parameter: {name}, dtype: {param.dtype}")
 
         # debug_info("____________________in trained weights loading___________________")
         # print(f"Checkpoint: {ckpt_path}")
