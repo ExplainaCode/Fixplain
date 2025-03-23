@@ -253,13 +253,13 @@ class Attention(nn.Module):
                 # gate_factor = self.gate.tanh().float()  # Compute in FP32
                 # adapter_scores = (gate_factor * adapter_scores).type_as(xq)
 
-                # adapter_scores = self.gate.tanh() * adapter_scores
+                adapter_scores = self.gate.tanh() * adapter_scores
                 # assert gate_factor.min() >= -1.0 and gate_factor.max() <= 1.0, "Gate values outside [-1, 1]"
 
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
-                # output = output + self.gate.tanh() * adapter_v
-                output = output + adapter_v
+                output = output + self.gate.tanh() * adapter_v
+                # output = output + adapter_v
 
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
         return self.wo(output)
