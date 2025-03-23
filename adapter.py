@@ -101,8 +101,8 @@ class LLamaAdapter(nn.Module):
             # print("Unexpected Keys (not in model):", unexpected_keys)
             # debug_info("_"*20)
                 
-        for name, param in codellama.state_dict().items():
-            print(f"Parameter: {name}, dtype: {param.dtype}")
+        # for name, param in codellama.state_dict().items():
+        #     print(f"Parameter: {name}, dtype: {param.dtype}")
         print(f"Loaded in {time.time() - start_time:.2f} seconds")
         return codellama, tokenizer
 
@@ -216,7 +216,7 @@ class LLamaAdapter(nn.Module):
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
-        print("repairllama_h dtype:", repairllama_h.dtype)
+        # print("repairllama_h dtype:", repairllama_h.dtype)
         # print(repairllama_h.shape)
         # print(repairllama_h)
         # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
@@ -225,7 +225,7 @@ class LLamaAdapter(nn.Module):
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
         repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
-        print("repairllama_mask:", repairllama_mask.dtype)
+        # print("repairllama_mask:", repairllama_mask.dtype)
 
 
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
@@ -233,7 +233,7 @@ class LLamaAdapter(nn.Module):
         # debug_info(codellama_input_ids.shape)
         # print(codellama_input_ids)
         codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
-        print("codellama_h dtype:", codellama_h.dtype)
+        # print("codellama_h dtype:", codellama_h.dtype)
 
         # debug_info("codellama h")
         # print(codellama_h)
@@ -243,8 +243,8 @@ class LLamaAdapter(nn.Module):
         codellama_mask = None
         codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
         codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
-        print("codellama_freq_cis dtype:", codellama_freq_cis.dtype)
-        print("codellama_mask dtype:", codellama_mask.dtype)
+        # print("codellama_freq_cis dtype:", codellama_freq_cis.dtype)
+        # print("codellama_mask dtype:", codellama_mask.dtype)
         # print(codellama_mask)
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
@@ -271,7 +271,7 @@ class LLamaAdapter(nn.Module):
                 # raise ValueError("codellama_h contains NaN or inf values.___________0", i)
                 warnings.warn("codellama_h contains NaN or inf values.___________0", i)
         # self.attention_hooks_data={}
-        print("second repairllama_h dtype:", repairllama_h.dtype)
+        # print("second repairllama_h dtype:", repairllama_h.dtype)
 
         # Processing RepairLLama output
         # repairllama_h = self.repairllama.model.model.norm(repairllama_h) # Why do even need this line?
