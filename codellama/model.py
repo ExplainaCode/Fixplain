@@ -148,7 +148,7 @@ class Attention(nn.Module):
             )
         ).cuda()
 
-        self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
+        self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1, dtype=torch.float32))
 
         if args.w_lora:
             # self.lora_wq_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
