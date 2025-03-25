@@ -148,7 +148,10 @@ class Attention(nn.Module):
             )
         ).cuda()
 
-        self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1, dtype=torch.float32))
+        original_tensor_type = torch.tensor(0.).cuda().type()
+        torch.set_default_tensor_type(torch.cuda.FloatTensor)
+
+        self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
 
         if args.w_lora:
             # self.lora_wq_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
@@ -176,6 +179,7 @@ class Attention(nn.Module):
             # self.lora_wk_l2.weight.data = self.lora_wk_l2.weight.data.to(torch.float16)
             # self.lora_wv_l2.weight.data = self.lora_wv_l2.weight.data.to(torch.float16)
             # self.lora_wo_l2.weight.data = self.lora_wo_l2.weight.data.to(torch.float16)
+        torch.set_default_tensor_type(original_tensor_type)
 
     def forward(
         self,

@@ -288,7 +288,7 @@ class NativeScalerWithGradNormCount:
     state_dict_key = "amp_scaler"
 
     def __init__(self):
-        torch.amp.GradScaler.unscale_ = custom_unscale_
+        # torch.amp.GradScaler.unscale_ = custom_unscale_
         self._scaler = torch.amp.GradScaler("cuda", 2.0**10)
 
     def __call__(self, loss, optimizer, clip_grad=None, parameters=None, create_graph=False, update_grad=True):
