@@ -262,17 +262,7 @@ class Attention(nn.Module):
             if adapter_len > 1:
                 adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
                 adapter_scores = F.softmax(adapter_scores.float(), dim=-1).type_as(xq)
-
-                # Stabilized gate application
-                # gate_factor = self.gate.tanh().float()  # Compute in FP32
-                # adapter_scores = (gate_factor * adapter_scores).type_as(xq)
-
-                check_tensor_abnormalities(adapter_scores, "adapter scores")
-                check_tensor_abnormalities(self.gate, "gate")
-                # print("Gate grad:", self.gate.grad)
                 adapter_scores = self.gate.tanh() * adapter_scores
-                check_tensor_abnormalities(adapter_scores, "adapter scores after gate")
-                # assert gate_factor.min() >= -1.0 and gate_factor.max() <= 1.0, "Gate values outside [-1, 1]"
 
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
