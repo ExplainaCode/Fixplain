@@ -257,6 +257,10 @@ class Attention(nn.Module):
                 # gate_factor = self.gate.tanh().float()  # Compute in FP32
                 # adapter_scores = (gate_factor * adapter_scores).type_as(xq)
 
+                if(torch.isnan(adapter_scores).sum()>0):
+                    print("null in adapter scores++++++++++++++++++++++")
+                if (torch.isnan(self.gate).sum()>0):
+                    print("null in gate++++++++++++++++++++++++++++++++")
                 adapter_scores = self.gate.tanh() * adapter_scores
                 # assert gate_factor.min() >= -1.0 and gate_factor.max() <= 1.0, "Gate values outside [-1, 1]"
 
