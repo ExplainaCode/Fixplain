@@ -64,7 +64,7 @@ def train_one_epoch(model: LLamaAdapter,
 
     if log_writer is not None:
         print('log_dir: {}'.format(log_writer.log_dir))
-
+    optimizer.zero_grad()
     for data_iter_step, (
             reapirllama_examples, codellama_examples, codellama_labels, codellama_mask) in enumerate(
                 metric_logger.log_every(data_loader, print_freq, header)
