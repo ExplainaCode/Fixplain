@@ -272,6 +272,7 @@ class Attention(nn.Module):
                 check_tensor_abnormalities(adapter_scores, "adapter scores")
                 check_tensor_abnormalities(self.gate, "gate")
                 adapter_scores = self.gate.tanh() * adapter_scores
+                check_tensor_abnormalities(adapter_scores, "adapter scores after gate")
                 # assert gate_factor.min() >= -1.0 and gate_factor.max() <= 1.0, "Gate values outside [-1, 1]"
 
                 output = output + torch.matmul(adapter_scores, adapter_v)
