@@ -90,6 +90,18 @@ def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
         .reshape(bs, slen, n_kv_heads * n_rep, head_dim)
     )
 
+def check_tensor_abnormalities(tensor, tensor_name):
+    # Create a boolean mask of non-finite values (NaN or Inf)
+    nonfinite_mask = ~torch.isfinite(tensor)
+    
+    if nonfinite_mask.any():
+        # Count total non-finite values
+        total_nonfinite = nonfinite_mask.sum().item()
+        # Count NaNs and Infs separately
+        num_nans = torch.isnan(tensor).sum().item()
+        num_infs = torch.isinf(tensor).sum().item()
+        print("+++++++++++++++++++++++++++++++")
+        print(f"{tensor_name} has {total_nonfinite} non-finite values: {num_nans} NaNs and {num_infs} Infs")
 
 class Attention(nn.Module):
     def __init__(self, args: ModelArgs):
@@ -257,10 +269,8 @@ class Attention(nn.Module):
                 # gate_factor = self.gate.tanh().float()  # Compute in FP32
                 # adapter_scores = (gate_factor * adapter_scores).type_as(xq)
 
-                if(torch.isnan(adapter_scores).sum()>0):
-                    print("null in adapter scores++++++++++++++++++++++")
-                if (torch.isnan(self.gate).sum()>0):
-                    print("null in gate++++++++++++++++++++++++++++++++")
+                check_tensor_abnormalities(adapter_scores, "adapter scores")
+                check_tensor_abnormalities(self.gate, "gate")
                 adapter_scores = self.gate.tanh() * adapter_scores
                 # assert gate_factor.min() >= -1.0 and gate_factor.max() <= 1.0, "Gate values outside [-1, 1]"
 
