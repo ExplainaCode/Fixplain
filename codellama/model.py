@@ -272,13 +272,13 @@ class Attention(nn.Module):
 
                 # Just before the multiplication in adapter branch:
                 gate_tanh = self.gate.tanh()
-                print_tensor_stats(gate_tanh, "tanh(gate)")
-                print_tensor_stats(adapter_scores, "adapter_scores (before multiplication)")
+                # print_tensor_stats(gate_tanh, "tanh(gate)")
+                # print_tensor_stats(adapter_scores, "adapter_scores (before multiplication)")
 
                 # adapter_scores = self.gate.tanh().float() * adapter_scores.float()
                 adapter_scores.mul_(self.gate.tanh())
                 adapter_scores.clamp_(min=1e-8)
-                check_tensor_abnormalities(adapter_scores, "final_adapter_scores")
+                # check_tensor_abnormalities(adapter_scores, "final_adapter_scores")
 
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
