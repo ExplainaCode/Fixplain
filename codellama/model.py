@@ -269,7 +269,7 @@ class Attention(nn.Module):
 
                 check_tensor_abnormalities(adapter_scores, "adapter scores")
                 check_tensor_abnormalities(self.gate, "gate")
-                print("Gate grad:", self.gate.grad)
+                # print("Gate grad:", self.gate.grad)
                 adapter_scores = self.gate.tanh() * adapter_scores
                 check_tensor_abnormalities(adapter_scores, "adapter scores after gate")
                 # assert gate_factor.min() >= -1.0 and gate_factor.max() <= 1.0, "Gate values outside [-1, 1]"

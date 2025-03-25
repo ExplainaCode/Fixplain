@@ -96,10 +96,11 @@ def train_one_epoch(model: LLamaAdapter,
         # loss_scaler(loss, optimizer, clip_grad=1.0, parameters=model.parameters(),
         #             update_grad=(data_iter_step + 1) % accum_iter == 0)
 
-        loss.backward()
+        # loss.backward()
+        print("gate grad: ",model.codellama.layers.attention.gate.grad)
         if (data_iter_step + 1) % accum_iter == 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            optimizer.step()
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            # optimizer.step()
             optimizer.zero_grad() 
 
             # flag=False
