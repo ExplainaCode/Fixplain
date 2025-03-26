@@ -269,7 +269,7 @@ class Attention(nn.Module):
             if adapter_len > 1:
                 adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
                 print(adapter_scores.type(), "adapter scores 1")
-                adapter_scores = F.softmax(adapter_scores, dim=-1)
+                adapter_scores = F.softmax(adapter_scores, dim=-1).type_as(xq)
                 print(adapter_scores.type(), "adapter scores 2")
 
                 # Just before the multiplication in adapter branch:
@@ -283,7 +283,7 @@ class Attention(nn.Module):
                 # adapter_scores.clamp_(min=1e-7)
                 # check_tensor_abnormalities(adapter_scores, "final_adapter_scores")
 
-                output = output + torch.matmul(adapter_scores, adapter_v)
+                output = output + torch.matmul(adapter_scores.type_as(xq), adapter_v)
             else:
                 output = output + self.gate.tanh() * adapter_v
                 # output = output + adapter_v
