@@ -272,7 +272,8 @@ class Attention(nn.Module):
                 # logits = logits - logits.max(dim=-1, keepdim=True)[0]
                 # print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
                 # print(adapter_scores.type(), "adapter scores 1")
-                adapter_scores = F.softmax(logits, dim=-1) #.type_as(xq)
+
+                adapter_scores = F.softmax(logits.float(), dim=-1) #.type_as(xq)
                 # print(adapter_scores.type(), "adapter scores 2")
                 
                 # Just before the multiplication in adapter branch:
