@@ -294,6 +294,7 @@ class Attention(nn.Module):
                 # logits = torch.clamp(logits, min=-100, max=100)
                 # logits = logits - logits.max(dim=-1, keepdim=True)[0]
                 # print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
+                print_tensor_stats(logits, "logits")
                 adapter_scores = self.gate.tanh()*F.softmax(logits.float(), dim=-1).type_as(xq)                
                 # Just before the multiplication in adapter branch:
 
