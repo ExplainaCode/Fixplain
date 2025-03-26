@@ -106,7 +106,9 @@ def check_tensor_abnormalities(tensor, tensor_name):
 def print_tensor_stats(tensor, name):
     finite_tensor = tensor[torch.isfinite(tensor)]
     if finite_tensor.numel() > 0:
-        print(f"{name}: min={finite_tensor.min().item()}, max={finite_tensor.max().item()}, mean={finite_tensor.mean().item()}")
+        # print(f"{name}: min={finite_tensor.min().item()}, max={finite_tensor.max().item()}, mean={finite_tensor.mean().item()}")
+        print(f"{name}: min={finite_tensor.abs().min().item()}, max={finite_tensor.abs().max().item()}, mean={finite_tensor.abs().mean().item()}")
+
     else:
         print(f"{name}: No finite values found.")
 
