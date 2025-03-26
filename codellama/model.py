@@ -268,25 +268,25 @@ class Attention(nn.Module):
         if adapter is not None:
             if adapter_len > 1:
                 logits = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
-                print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
+                # print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
                 # print(adapter_scores.type(), "adapter scores 1")
                 adapter_scores = F.softmax(logits, dim=-1) #.type_as(xq)
                 # print(adapter_scores.type(), "adapter scores 2")
 
                 # Just before the multiplication in adapter branch:
                 gate_tanh = self.gate.tanh()
-                print_tensor_stats(gate_tanh, "tanh(gate)")
-                print_tensor_stats(adapter_scores, "adapter_scores (before multiplication)")
+                # print_tensor_stats(gate_tanh, "tanh(gate)")
+                # print_tensor_stats(adapter_scores, "adapter_scores (before multiplication)")
                 # Add debugging checks before the multiplication
-                assert not torch.isnan(self.gate.tanh()).any(), "NaN in gate values"
-                assert not torch.isnan(adapter_scores).any(), "NaN in adapter_scores"
-                print(f"self.gate shape: {self.gate.shape}")
-                print(f"self.gate min: {self.gate.min().item()}, max: {self.gate.max().item()}, mean: {self.gate.mean().item()}")
-                print(f"self.gate contains NaN: {torch.isnan(self.gate).any().item()}")
+                # assert not torch.isnan(self.gate.tanh()).any(), "NaN in gate values"
+                # assert not torch.isnan(adapter_scores).any(), "NaN in adapter_scores"
+                # print(f"self.gate shape: {self.gate.shape}")
+                # print(f"self.gate min: {self.gate.min().item()}, max: {self.gate.max().item()}, mean: {self.gate.mean().item()}")
+                # print(f"self.gate contains NaN: {torch.isnan(self.gate).any().item()}")
 
-                print(f"adapter_scores shape: {adapter_scores.shape}")
-                print(f"adapter_scores min: {adapter_scores.min().item()}, max: {adapter_scores.max().item()}, mean: {adapter_scores.mean().item()}")
-                print(f"adapter_scores contains NaN: {torch.isnan(adapter_scores).any().item()}")
+                # print(f"adapter_scores shape: {adapter_scores.shape}")
+                # print(f"adapter_scores min: {adapter_scores.min().item()}, max: {adapter_scores.max().item()}, mean: {adapter_scores.mean().item()}")
+                # print(f"adapter_scores contains NaN: {torch.isnan(adapter_scores).any().item()}")
 
                 adapter_scores = self.gate.tanh() * adapter_scores
                 # print(adapter_scores.type(), "adapter scores 3")
