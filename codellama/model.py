@@ -267,9 +267,10 @@ class Attention(nn.Module):
 
         if adapter is not None:
             if adapter_len > 1:
-                adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
+                logits = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
+                print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
                 # print(adapter_scores.type(), "adapter scores 1")
-                adapter_scores = F.softmax(adapter_scores, dim=-1) #.type_as(xq)
+                adapter_scores = F.softmax(logits, dim=-1) #.type_as(xq)
                 # print(adapter_scores.type(), "adapter scores 2")
 
                 # Just before the multiplication in adapter branch:
