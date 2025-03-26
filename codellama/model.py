@@ -273,13 +273,15 @@ class Attention(nn.Module):
                 # print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
                 # print(adapter_scores.type(), "adapter scores 1")
 
-                adapter_scores = F.softmax(logits.float(), dim=-1) #.type_as(xq)
+                adapter_scores = self.gate.tanh()*F.softmax(logits.float(), dim=-1).type_as(xq)
                 # print(adapter_scores.type(), "adapter scores 2")
                 
                 # Just before the multiplication in adapter branch:
-                gate_tanh = self.gate.tanh()
-                print_tensor_stats(gate_tanh, "tanh(gate)")
-                print_tensor_stats(adapter_scores, "adapter_scores (before multiplication)")
+
+                # gate_tanh = self.gate.tanh()
+                # print_tensor_stats(gate_tanh, "tanh(gate)")
+                # print_tensor_stats(adapter_scores, "adapter_scores (before multiplication)")
+
                 # Add debugging checks before the multiplication
                 # assert not torch.isnan(self.gate.tanh()).any(), "NaN in gate values"
                 # assert not torch.isnan(adapter_scores).any(), "NaN in adapter_scores"
@@ -290,9 +292,9 @@ class Attention(nn.Module):
                 # print(f"adapter_scores shape: {adapter_scores.shape}")
                 # print(f"adapter_scores min: {adapter_scores.min().item()}, max: {adapter_scores.max().item()}, mean: {adapter_scores.mean().item()}")
                 # print(f"adapter_scores contains NaN: {torch.isnan(adapter_scores).any().item()}")
-                gate_tanh = torch.clamp(self.gate.tanh(), min=-1e-3, max=1e-3)
-                adapter_scores = torch.clamp(adapter_scores, min=1e-7)
-                adapter_scores = gate_tanh * adapter_scores
+                # gate_tanh = torch.clamp(self.gate.tanh(), min=-1e-3, max=1e-3)
+                # adapter_scores = torch.clamp(adapter_scores, min=1e-7)
+                # adapter_scores = gate_tanh * adapter_scores
 
 
                 # adapter_scores = gate_tanh * adapter_scores
