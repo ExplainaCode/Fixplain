@@ -153,22 +153,8 @@ class Attention(nn.Module):
             init_method=lambda x: x,
         )
 
-        self.cache_k = torch.zeros(
-            (
-                args.max_batch_size,
-                args.max_seq_len,
-                self.n_local_kv_heads,
-                self.head_dim,
-            )
-        ).cuda()
-        self.cache_v = torch.zeros(
-            (
-                args.max_batch_size,
-                args.max_seq_len,
-                self.n_local_kv_heads,
-                self.head_dim,
-            )
-        ).cuda()
+        self.cache_k = None
+        self.cache_v = None
 
         original_tensor_type = torch.tensor(0.).cuda().type()
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
@@ -195,12 +181,7 @@ class Attention(nn.Module):
             self.lora_wo_l1 = RowParallelLinear(args.dim, args.lora_rank, bias=False, input_is_parallel=True,
                                                 init_method=lambda w: nn.init.kaiming_uniform_(w, a=math.sqrt(5)) )
             self.lora_wo_l2 = RowParallelLinear(args.lora_rank, args.dim, bias=False, input_is_parallel=True,init_method=lambda w: nn.init.constant_(w, 0))
-
-
-            # self.lora_wq_l2.weight.data = self.lora_wq_l2.weight.data.to(torch.float16)
-            # self.lora_wk_l2.weight.data = self.lora_wk_l2.weight.data.to(torch.float16)
-            # self.lora_wv_l2.weight.data = self.lora_wv_l2.weight.data.to(torch.float16)
-            # self.lora_wo_l2.weight.data = self.lora_wo_l2.weight.data.to(torch.float16)
+            
         torch.set_default_tensor_type(original_tensor_type)
 
     def train(self, mode: bool = True):
@@ -209,10 +190,10 @@ class Attention(nn.Module):
             self.cache_v = None
         else:
             self.cache_k = torch.zeros(
-                (self.args.max_batch_size, self.args.max_seq_len, self.n_local_heads, self.head_dim)
+                (self.args.max_batch_size, self.args.max_seq_len, self.n_local_kv_heads, self.head_dim)
             ).cuda()
             self.cache_v = torch.zeros(
-                (self.args.max_batch_size, self.args.max_seq_len, self.n_local_heads, self.head_dim)
+                (self.args.max_batch_size, self.args.max_seq_len, self.n_local_kv_heads, self.head_dim)
             ).cuda()
         return super().train(mode)
 
@@ -294,13 +275,13 @@ class Attention(nn.Module):
                 # logits = torch.clamp(logits, min=-100, max=100)
                 # logits = logits - logits.max(dim=-1, keepdim=True)[0]
                 # print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
-                print_tensor_stats(logits, "logits")
+                # print_tensor_stats(logits, "logits")
                 adapter_scores = self.gate.tanh()*F.softmax(logits.float(), dim=-1).type_as(xq)                
                 # Just before the multiplication in adapter branch:
 
                 # gate_tanh = self.gate.tanh()
                 # print_tensor_stats(gate_tanh, "tanh(gate)")
-                print_tensor_stats(adapter_scores, "adapter_scores")
+                # print_tensor_stats(adapter_scores, "adapter_scores")
 
                 # Add debugging checks before the multiplication
                 # assert not torch.isnan(self.gate.tanh()).any(), "NaN in gate values"
