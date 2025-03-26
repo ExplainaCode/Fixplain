@@ -98,9 +98,6 @@ def train_one_epoch(model: LLamaAdapter,
 
         # loss.backward()
         # print("gate grad: ",model.codellama.layers[0].attention.gate.grad)
-        for name, param in model.named_parameters():
-            if param.grad is not None and torch.isnan(param.grad).any():
-                print(f"NaN in gradient for {name}-------------------------------")
         if (data_iter_step + 1) % accum_iter == 0:
             # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             # optimizer.step()

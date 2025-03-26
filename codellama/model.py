@@ -287,8 +287,12 @@ class Attention(nn.Module):
                 # print(f"adapter_scores shape: {adapter_scores.shape}")
                 # print(f"adapter_scores min: {adapter_scores.min().item()}, max: {adapter_scores.max().item()}, mean: {adapter_scores.mean().item()}")
                 # print(f"adapter_scores contains NaN: {torch.isnan(adapter_scores).any().item()}")
+                gate_tanh = torch.clamp(self.gate.tanh(), min=-1e-3, max=1e-3)
+                adapter_scores = torch.clamp(adapter_scores, min=1e-7)
+                adapter_scores = gate_tanh * adapter_scores
 
-                adapter_scores = self.gate.tanh() * adapter_scores
+
+                # adapter_scores = gate_tanh * adapter_scores
                 # print(adapter_scores.type(), "adapter scores 3")
                 # adapter_scores.mul_(self.gate.tanh())
                 # adapter_scores.clamp_(min=1e-7)
