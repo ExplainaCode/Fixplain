@@ -275,8 +275,8 @@ class Attention(nn.Module):
 
                 # Just before the multiplication in adapter branch:
                 gate_tanh = self.gate.tanh()
-                # print_tensor_stats(gate_tanh, "tanh(gate)")
-                # print_tensor_stats(adapter_scores, "adapter_scores (before multiplication)")
+                print_tensor_stats(gate_tanh, "tanh(gate)")
+                print_tensor_stats(adapter_scores, "adapter_scores (before multiplication)")
                 # Add debugging checks before the multiplication
                 # assert not torch.isnan(self.gate.tanh()).any(), "NaN in gate values"
                 # assert not torch.isnan(adapter_scores).any(), "NaN in adapter_scores"
