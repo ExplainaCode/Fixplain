@@ -280,7 +280,7 @@ class Attention(nn.Module):
                 adapter_scores = self.gate.tanh() * adapter_scores
                 # print(adapter_scores.type(), "adapter scores 3")
                 # adapter_scores.mul_(self.gate.tanh())
-                adapter_scores.clamp_(min=1e-7)
+                # adapter_scores.clamp_(min=1e-7)
                 # check_tensor_abnormalities(adapter_scores, "final_adapter_scores")
 
                 output = output + torch.matmul(adapter_scores, adapter_v)
