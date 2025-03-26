@@ -280,6 +280,10 @@ class Attention(nn.Module):
                 # Add debugging checks before the multiplication
                 assert not torch.isnan(self.gate.tanh()).any(), "NaN in gate values"
                 assert not torch.isnan(adapter_scores).any(), "NaN in adapter_scores"
+                print(f"self.gate: {self.gate}")  # Ensure it's not None or NaN
+                print(f"self.gate shape: {self.gate.shape}")
+                print(f"self.gate min: {self.gate.min()}, max: {self.gate.max()}, mean: {self.gate.mean()}")
+
                 adapter_scores = self.gate.tanh() * adapter_scores
                 # print(adapter_scores.type(), "adapter scores 3")
                 # adapter_scores.mul_(self.gate.tanh())
