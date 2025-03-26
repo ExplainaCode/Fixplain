@@ -236,11 +236,20 @@ class Attention(nn.Module):
 
         xq, xk = apply_rotary_emb(xq, xk, freqs_cis=freqs_cis)
 
-        self.cache_k = self.cache_k.to(xq)
-        self.cache_v = self.cache_v.to(xq)
+        if not self.training:
+            self.cache_k = self.cache_k.to(xq)
+            self.cache_v = self.cache_v.to(xq)
 
-        self.cache_k[:bsz, start_pos : start_pos + seqlen] = xk.detach()
-        self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv.detach()
+            self.cache_k[:bsz, start_pos : start_pos + seqlen] = xk.detach()
+            self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv.detach()
+
+            keys = self.cache_k[:bsz, : start_pos + seqlen]
+            values = self.cache_v[:bsz, : start_pos + seqlen]
+
+        else:
+            assert start_pos==0
+            keys = xk
+            values = xv
 
         if adapter is not None:
             adapter_len = adapter.shape[1]
@@ -257,8 +266,6 @@ class Attention(nn.Module):
                 )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
                 adapter_k = adapter_k.transpose(1, 2)
 
-        keys = self.cache_k[:bsz, : start_pos + seqlen]
-        values = self.cache_v[:bsz, : start_pos + seqlen]
 
         # repeat k/v heads if n_kv_heads < n_heads
         keys = repeat_kv(
