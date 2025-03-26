@@ -283,7 +283,7 @@ class Attention(nn.Module):
         scores = torch.matmul(xq, keys.transpose(2, 3)) / math.sqrt(self.head_dim)
         if mask is not None:
             scores = scores + mask  # (bs, n_local_heads, seqlen, cache_len + seqlen)
-            scores = F.softmax(scores.float(), dim=-1).type_as(xq)
+        scores = F.softmax(scores.float(), dim=-1).type_as(xq)
         output = torch.matmul(scores, values)  # (bs, n_local_heads, seqlen, head_dim)
 
         if adapter is not None:
@@ -292,16 +292,12 @@ class Attention(nn.Module):
                 # logits = torch.clamp(logits, min=-100, max=100)
                 # logits = logits - logits.max(dim=-1, keepdim=True)[0]
                 # print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
-                # print(adapter_scores.type(), "adapter scores 1")
-
-                adapter_scores = self.gate.tanh()*F.softmax(logits.float(), dim=-1).type_as(xq)
-                # print(adapter_scores.type(), "adapter scores 2")
-                
+                adapter_scores = self.gate.tanh()*F.softmax(logits.float(), dim=-1).type_as(xq)                
                 # Just before the multiplication in adapter branch:
 
                 # gate_tanh = self.gate.tanh()
                 # print_tensor_stats(gate_tanh, "tanh(gate)")
-                # print_tensor_stats(adapter_scores, "adapter_scores (before multiplication)")
+                print_tensor_stats(adapter_scores, "adapter_scores")
 
                 # Add debugging checks before the multiplication
                 # assert not torch.isnan(self.gate.tanh()).any(), "NaN in gate values"
@@ -327,7 +323,6 @@ class Attention(nn.Module):
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
                 output = output + self.gate.tanh() * adapter_v
-                # output = output + adapter_v
 
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
         return self.wo(output)
