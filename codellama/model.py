@@ -268,6 +268,7 @@ class Attention(nn.Module):
         if adapter is not None:
             if adapter_len > 1:
                 logits = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
+                logits = torch.clamp(logits, min=-100, max=100)
                 logits = logits - logits.max(dim=-1, keepdim=True)[0]
                 # print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
                 # print(adapter_scores.type(), "adapter scores 1")
