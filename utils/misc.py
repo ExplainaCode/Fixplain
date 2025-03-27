@@ -353,6 +353,7 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
     checkpoint = {
         'model': trainable_state_dict,  # Only updated parameters
         'optimizer': optimizer.state_dict(),
+        'loss_scaler': loss_scaler.state_dict(),
         'epoch': epoch,
         'args': args,
     }
