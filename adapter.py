@@ -428,11 +428,11 @@ class LLamaAdapter(nn.Module):
         codellama_input_ids=codellama_input_ids.to(device)
 
         _bsz, codellama_seqlen = codellama_input_ids.shape
-        debug_info(codellama_input_ids.shape)
-        print(codellama_input_ids)
+        # debug_info(codellama_input_ids.shape)
+        # print(codellama_input_ids)
         codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
-        debug_info(codellama_h.shape)
-        print(codellama_h)
+        # debug_info(codellama_h.shape)
+        # print(codellama_h)
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
         codellama_freq_cis = self.codellama.freqs_cis[codellama_start_pos : codellama_start_pos + codellama_seqlen]
 
@@ -449,24 +449,24 @@ class LLamaAdapter(nn.Module):
         for i in range(n_layers):
             dynamic_adapter  = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
             codellama_h = self.codellama.layers[i](codellama_h, codellama_start_pos, codellama_freq_cis, codellama_mask, dynamic_adapter)
-            if n_layers==31:
-                debug_info(f"{i}")
-                print(codellama_h)
+            # if n_layers==31:
+            #     debug_info(f"{i}")
+            #     print(codellama_h)
 
         codellama_h = self.codellama.norm(codellama_h)
-        debug_info("after norm")
-        print(codellama_h)
+        # debug_info("after norm")
+        # print(codellama_h)
         codellama_output = self.codellama.output(codellama_h).float()
-        debug_info("codellama output")
-        print(codellama_output)
+        # debug_info("codellama output")
+        # print(codellama_output)
         token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
         # token_ids=[token_ids]
         decoded_text = self.codellama_tokenizer.decode(token_ids)
-        debug_info(decoded_text)
+        # debug_info(decoded_text)
         next_codellama_token = torch.argmax(codellama_output[:, -1], dim=-1)
-        debug_info("true decoding")
-        print(next_codellama_token)
-        print(self.codellama_tokenizer.decode(next_codellama_token.tolist()))
+        # debug_info("true decoding")
+        # print(next_codellama_token)
+        # print(self.codellama_tokenizer.decode(next_codellama_token.tolist()))
         return codellama_output
 
     @torch.inference_mode()
