@@ -74,7 +74,7 @@ def train_one_epoch(model: LLamaAdapter,
             print("Loss is {}, stopping training".format(loss_value))
             sys.exit(1)
 
-        # loss /= accum_iter
+        loss /= accum_iter
         # if not torch.isfinite(loss).all():
         #     print("Loss contains NaNs or Infs:", loss)
         #     sys.exit(1)
