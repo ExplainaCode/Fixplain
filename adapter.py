@@ -509,7 +509,7 @@ class LLamaAdapter(nn.Module):
         bsz = len(repairllama_input_ids)
         debug_info("codellama actual input decoded")
         print(self.codellama_tokenizer.decode(codellama_input_ids))
-        codellama_input_copy = codellama_input_ids[:1]
+        # codellama_input_copy = codellama_input_ids[:1]
         codellama_input_ids=None
         if codellama_input_ids==None:
             codellama_input_ids = [
@@ -568,10 +568,11 @@ class LLamaAdapter(nn.Module):
                 input_codellama_text_mask[:, cur_pos], codellama_tokens[:, cur_pos], next_codellama_token
             )
 
-            if len(codellama_input_copy)>cur_pos:
-                codellama_tokens[:, cur_pos] = codellama_input_copy[cur_pos]
-            else:
-                codellama_tokens[:, cur_pos] = next_codellama_token
+            # if len(codellama_input_copy)>cur_pos:
+            #     codellama_tokens[:, cur_pos] = codellama_input_copy[cur_pos]
+            # else:
+            codellama_tokens[:, cur_pos] = next_codellama_token
+                
             # prev_pos = cur_pos    
             # if i>3:                  #----------for deugging
             #     break # for debugging
