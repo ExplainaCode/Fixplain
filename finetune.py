@@ -204,7 +204,6 @@ def main(args):
     if not dist.is_initialized():
         dist.init_process_group(
             backend="nccl",
-            init_method=args.dist_url,
             world_size=int(os.getenv('WORLD_SIZE', 1)),
             rank=int(os.getenv('RANK', 0)), 
         )
