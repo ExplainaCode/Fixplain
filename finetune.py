@@ -33,20 +33,6 @@ def find_free_port():
         s.bind(('', 0))            # 0 means select a free port
         return s.getsockname()[1]  # Return the port number
 
-os.environ['MASTER_ADDR'] = 'localhost'   # Use the address of the machine, for single node use 'localhost'
-os.environ['MASTER_PORT'] = str(find_free_port())
-
-# Initialize the process group for distributed training
-if not dist.is_initialized():
-    dist.init_process_group(backend="nccl", 
-                            rank=int(os.getenv('RANK', 0)),   # Get RANK from environment variables
-                            world_size=int(os.getenv('WORLD_SIZE', 1)))  # Get WORLD_SIZE from environment variables
-
-# Initialize FairScale model parallel group
-fs_init.initialize_model_parallel(model_parallel_size_=1)
-
-
-
 def train_one_epoch(model: LLamaAdapter,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler,
@@ -101,18 +87,7 @@ def train_one_epoch(model: LLamaAdapter,
         if (data_iter_step + 1) % accum_iter == 0:
             # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             # optimizer.step()
-            optimizer.zero_grad() 
-
-            # flag=False
-            # for name, param in model.named_parameters():
-            #     if torch.isnan(param).any():
-            #         print(f"NaN detected in weights for {name}!")
-            #         flag = True
-            #         # raise ValueError("NaN in weights.")
-            # if flag:
-            #     raise ValueError("NaN in weights.")
-                
-            # print("__Passed through optimizer__")     
+            optimizer.zero_grad()    
 
         torch.cuda.synchronize()
 
@@ -220,126 +195,147 @@ def get_args_parser():
 
 def main(args):
     misc.init_distributed_mode(args)
+    
+    # Set up MASTER_ADDR/PORT after init_distributed_mode
+    os.environ['MASTER_ADDR'] = 'localhost' if args.dist_url == 'env://' else args.dist_url
+    os.environ['MASTER_PORT'] = str(find_free_port())
 
-    print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
-    print("{}".format(args).replace(', ', ',\n'))
-
-    device = torch.device(args.device)
-
-    # fix the seed for reproducibility
-    seed = args.seed + misc.get_rank()
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    cudnn.benchmark = True
-
-    # define the model
-    model = LLamaAdapter(args.codellama_ckpt_dir, args.codellama_tokenizer_ckpt_dir,
-                         args.repairllama_lora_dir, args.repairllama_ckpt_dir, phase="finetune", 
-                         max_batch_size=args.batch_size,
-                         w_lora=args.w_lora, lora_rank=args.lora_rank)
-    # codellama_tokenizer = model.codellama_tokenizer
-    # repairllama_tokenizer = model.repairllama_tokenizer
-    # model.load_codellma_tuned(args.codellama_trained_weight_dir)
-    model.to(device)
-
-    model_without_ddp = model.codellama
-    print("Model = %s" % str(model_without_ddp))
-
-    print("Trainable Params:")
-    print([(key, val.shape, val.dtype) for key, val in model.named_parameters() if val.requires_grad])
-
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
-        model_without_ddp = model.module
-
-    # training detail
-    eff_batch_size = args.batch_size * args.accum_iter * misc.get_world_size()
-
-    if args.lr is None:  # only base_lr is specified
-        args.lr = args.blr * eff_batch_size / 256
-
-    print("base lrdevice: %.2e" % (args.lr * 256 / eff_batch_size))
-    print("actual lr: %.2e" % args.lr)
-
-    print("accumulate grad iterations: %d" % args.accum_iter)
-    print("effective batch size: %d" % eff_batch_size)
-
-    # following timm: set wd as 0 for bias and norm layers
-    param_groups = misc.add_weight_decay(model_without_ddp, args.weight_decay)
-    optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95), eps=1e-4)
-    print(optimizer)
-    loss_scaler = NativeScaler()
-
-    # misc.load_model(model_without_ddp, args.pretrained_path)
-
-    dataset_args = DatasetArgs(dataframe_path = args.data_path, 
-                               codellama_max_input_len = args.codellama_max_input_len,
-                               repairllama_max_input_len = args.repairllama_max_input_len)
-
-    dataset_train = FinetuneDataset(model.codellama_tokenizer, model.repairllama_tokenizer, dataset_args)
-    print(dataset_train)
-    num_tasks = misc.get_world_size()
-    global_rank = misc.get_rank()
-    # sampler_train = torch.utils.data.DistributedSampler(
-    #     dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, 
-    # )
-    sampler_train = CustomDistributedSampler(
-        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True # false for testing
-    )
-    print("Sampler_train = %s" % str(sampler_train))
-
-    data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=sampler_train,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=True,
-        multiprocessing_context='spawn' 
-    )
-
-    # SummaryWrite
-    if global_rank == 0 and args.log_dir is not None:
-        os.makedirs(args.log_dir, exist_ok=True)
-        log_writer = SummaryWriter(log_dir=args.log_dir)
-    else:
-        log_writer = None
-
-
-    print(f"Start training for {args.epochs} epochs")
-    start_time = time.time()
-    for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            data_loader_train.sampler.set_epoch(epoch)
-
-        if (epoch==args.epochs-1 or epoch%1==0):
-            model.test_var=0
-        else:
-            model.test_var=1000
-        train_stats = train_one_epoch(
-            model, data_loader_train,
-            optimizer, device, epoch, loss_scaler,
-            log_writer=log_writer,
-            args=args
+    # Initialize process group
+    if not dist.is_initialized():
+        dist.init_process_group(
+            backend="nccl",
+            init_method=args.dist_url,
+            world_size=args.world_size,
+            rank=args.rank
         )
 
-        if args.output_dir and (epoch + 1 == args.epochs or epoch%1==0): #epoch % 10 == 0 or epoch + 1 == args.epochs
-            misc.save_model(
-                args=args, model=model.codellama, model_without_ddp=model_without_ddp, optimizer=optimizer,
-                loss_scaler=loss_scaler, epoch=epoch)
+    # Initialize FairScale AFTER process group
+    fs_init.initialize_model_parallel(model_parallel_size_=1)
 
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     'epoch': epoch,
-                     **{f'val_{k}': v for k, v in train_stats.items()}}
+    try:
+        print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
+        print("{}".format(args).replace(', ', ',\n'))
 
-        if args.output_dir and misc.is_main_process():
-            if log_writer is not None:
-                log_writer.flush()
-            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-                f.write(json.dumps(log_stats) + "\n")
+        device = torch.device(args.device)
 
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print('Training time {}'.format(total_time_str))
+        # fix the seed for reproducibility
+        seed = args.seed + misc.get_rank()
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        cudnn.benchmark = True
+
+        # define the model
+        model = LLamaAdapter(args.codellama_ckpt_dir, args.codellama_tokenizer_ckpt_dir,
+                            args.repairllama_lora_dir, args.repairllama_ckpt_dir, phase="finetune", 
+                            max_batch_size=args.batch_size,
+                            w_lora=args.w_lora, lora_rank=args.lora_rank)
+        # codellama_tokenizer = model.codellama_tokenizer
+        # repairllama_tokenizer = model.repairllama_tokenizer
+        # model.load_codellma_tuned(args.codellama_trained_weight_dir)
+        model.to(device)
+
+        model_without_ddp = model.codellama
+        print("Model = %s" % str(model_without_ddp))
+
+        print("Trainable Params:")
+        print([(key, val.shape, val.dtype) for key, val in model.named_parameters() if val.requires_grad])
+
+        if args.distributed:
+            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
+            model_without_ddp = model.module
+
+        # training detail
+        eff_batch_size = args.batch_size * args.accum_iter * misc.get_world_size()
+
+        if args.lr is None:  # only base_lr is specified
+            args.lr = args.blr * eff_batch_size / 256
+
+        print("base lrdevice: %.2e" % (args.lr * 256 / eff_batch_size))
+        print("actual lr: %.2e" % args.lr)
+
+        print("accumulate grad iterations: %d" % args.accum_iter)
+        print("effective batch size: %d" % eff_batch_size)
+
+        # following timm: set wd as 0 for bias and norm layers
+        param_groups = misc.add_weight_decay(model_without_ddp, args.weight_decay)
+        optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95), eps=1e-4)
+        print(optimizer)
+        loss_scaler = NativeScaler()
+
+        # misc.load_model(model_without_ddp, args.pretrained_path)
+
+        dataset_args = DatasetArgs(dataframe_path = args.data_path, 
+                                codellama_max_input_len = args.codellama_max_input_len,
+                                repairllama_max_input_len = args.repairllama_max_input_len)
+
+        dataset_train = FinetuneDataset(model.codellama_tokenizer, model.repairllama_tokenizer, dataset_args)
+        print(dataset_train)
+        num_tasks = misc.get_world_size()
+        global_rank = misc.get_rank()
+        # sampler_train = torch.utils.data.DistributedSampler(
+        #     dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, 
+        # )
+        sampler_train = CustomDistributedSampler(
+            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True # false for testing
+        )
+        print("Sampler_train = %s" % str(sampler_train))
+
+        data_loader_train = torch.utils.data.DataLoader(
+            dataset_train, sampler=sampler_train,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            pin_memory=args.pin_mem,
+            drop_last=True,
+            multiprocessing_context='spawn' 
+        )
+
+        # SummaryWrite
+        if global_rank == 0 and args.log_dir is not None:
+            os.makedirs(args.log_dir, exist_ok=True)
+            log_writer = SummaryWriter(log_dir=args.log_dir)
+        else:
+            log_writer = None
+
+
+        print(f"Start training for {args.epochs} epochs")
+        start_time = time.time()
+        for epoch in range(args.start_epoch, args.epochs):
+            if args.distributed:
+                data_loader_train.sampler.set_epoch(epoch)
+
+            if (epoch==args.epochs-1 or epoch%1==0):
+                model.test_var=0
+            else:
+                model.test_var=1000
+            train_stats = train_one_epoch(
+                model, data_loader_train,
+                optimizer, device, epoch, loss_scaler,
+                log_writer=log_writer,
+                args=args
+            )
+
+            if args.output_dir and (epoch + 1 == args.epochs or epoch%1==0): #epoch % 10 == 0 or epoch + 1 == args.epochs
+                misc.save_model(
+                    args=args, model=model.codellama, model_without_ddp=model_without_ddp, optimizer=optimizer,
+                    loss_scaler=loss_scaler, epoch=epoch)
+
+            log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                        'epoch': epoch,
+                        **{f'val_{k}': v for k, v in train_stats.items()}}
+
+            if args.output_dir and misc.is_main_process():
+                if log_writer is not None:
+                    log_writer.flush()
+                with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+                    f.write(json.dumps(log_stats) + "\n")
+
+        total_time = time.time() - start_time
+        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+        print('Training time {}'.format(total_time_str))
+
+    finally:
+        if dist.is_initialized():
+            dist.destroy_process_group()
 
 
 if __name__ == '__main__':
