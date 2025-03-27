@@ -205,8 +205,8 @@ def main(args):
         dist.init_process_group(
             backend="nccl",
             init_method=args.dist_url,
-            world_size=args.world_size,
-            rank=args.rank
+            world_size=int(os.getenv('WORLD_SIZE', 1)),
+            rank=int(os.getenv('RANK', 0)), 
         )
 
     # Initialize FairScale AFTER process group
