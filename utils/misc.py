@@ -289,7 +289,7 @@ class NativeScalerWithGradNormCount:
 
     def __init__(self):
         # torch.amp.GradScaler.unscale_ = custom_unscale_
-        self._scaler = torch.amp.GradScaler("cuda", 2.0**10)
+        self._scaler = torch.amp.GradScaler("cuda")
 
     def __call__(self, loss, optimizer, clip_grad=None, parameters=None, create_graph=False, update_grad=True):
         self._scaler.scale(loss).backward(create_graph=create_graph)
