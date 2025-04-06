@@ -161,6 +161,22 @@ class Attention(nn.Module):
 
         self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
 
+        if args.adapter:
+            self.adapter_wk = ColumnParallelLinear(
+                args.dim,
+                self.n_kv_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=lambda x: x,
+            )
+            self.adapter_wv = ColumnParallelLinear(
+                args.dim,
+                self.n_kv_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=lambda x: x, 
+            )
+
         if args.w_lora:
             # self.lora_wq_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
             self.lora_wq_l1 = ColumnParallelLinear(
@@ -236,18 +252,18 @@ class Attention(nn.Module):
 
         if adapter is not None:
             adapter_len = adapter.shape[1]
-            adapter_v = self.wv(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)            
+            adapter_v = self.adapter_wv(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)          
             adapter_v = repeat_kv(
                     adapter_v, self.n_rep
             )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
-            adapter_v = adapter_v.transpose(1, 2)
+            adapter_v = adapter_v.transpose(1, 2).type_as(xq)
 
             if adapter_len > 1:
-                adapter_k = self.wk(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)
+                adapter_k = self.adapter_wk(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)
                 adapter_k = repeat_kv(
                     adapter_k, self.n_rep
                 )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
-                adapter_k = adapter_k.transpose(1, 2)
+                adapter_k = adapter_k.transpose(1, 2).type_as(xq)
 
 
         # repeat k/v heads if n_kv_heads < n_heads
@@ -276,34 +292,7 @@ class Attention(nn.Module):
                 # logits = logits - logits.max(dim=-1, keepdim=True)[0]
                 # print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
                 # print_tensor_stats(logits, "logits")
-                adapter_scores = self.gate.tanh()*F.softmax(logits.float(), dim=-1).type_as(xq)                
-                # Just before the multiplication in adapter branch:
-
-                # gate_tanh = self.gate.tanh()
-                # print_tensor_stats(gate_tanh, "tanh(gate)")
-                # print_tensor_stats(adapter_scores, "adapter_scores")
-
-                # Add debugging checks before the multiplication
-                # assert not torch.isnan(self.gate.tanh()).any(), "NaN in gate values"
-                # assert not torch.isnan(adapter_scores).any(), "NaN in adapter_scores"
-                # print(f"self.gate shape: {self.gate.shape}")
-                # print(f"self.gate min: {self.gate.min().item()}, max: {self.gate.max().item()}, mean: {self.gate.mean().item()}")
-                # print(f"self.gate contains NaN: {torch.isnan(self.gate).any().item()}")
-
-                # print(f"adapter_scores shape: {adapter_scores.shape}")
-                # print(f"adapter_scores min: {adapter_scores.min().item()}, max: {adapter_scores.max().item()}, mean: {adapter_scores.mean().item()}")
-                # print(f"adapter_scores contains NaN: {torch.isnan(adapter_scores).any().item()}")
-                # gate_tanh = torch.clamp(self.gate.tanh(), min=-1e-3, max=1e-3)
-                # adapter_scores = torch.clamp(adapter_scores, min=1e-7)
-                # adapter_scores = gate_tanh * adapter_scores
-
-
-                # adapter_scores = gate_tanh * adapter_scores
-                # print(adapter_scores.type(), "adapter scores 3")
-                # adapter_scores.mul_(self.gate.tanh())
-                # adapter_scores.clamp_(min=1e-7)
-                # check_tensor_abnormalities(adapter_scores, "final_adapter_scores")
-
+                adapter_scores = self.gate.tanh()*F.softmax(logits.float(), dim=-1).type_as(xq)               
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
                 output = output + self.gate.tanh() * adapter_v
