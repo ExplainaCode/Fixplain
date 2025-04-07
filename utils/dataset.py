@@ -123,12 +123,12 @@ class FinetuneDataset(Dataset):
             loss_weight_mask = compute_weight_mask(explanation, offsets, 
                                                    default_weight=self.default_weight, 
                                                    code_weight=self.code_weight)
+            loss_weight_mask = torch.tensor(loss_weight_mask, dtype=torch.float)
 
             codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_pad_id, self.codellama_max_input_len)
             loss_weight_mask = self.__get_padding__(loss_weight_mask, 0.0, self.codellama_max_input_len)
 
             codellama_label_ids = copy.deepcopy(codellama_input_ids)
-            codellama_input_ids_mask  = codellama_input_ids.ge(0) # just for keep functions work for now - no need !
 
             return repairllama_input_ids, codellama_input_ids, codellama_label_ids, loss_weight_mask
         
