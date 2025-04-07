@@ -52,7 +52,7 @@ def train_one_epoch(model: LLamaAdapter,
         print('log_dir: {}'.format(log_writer.log_dir))
     # optimizer.zero_grad()
     for data_iter_step, (
-            reapirllama_examples, codellama_examples, codellama_labels, codellama_mask) in enumerate(
+            reapirllama_examples, codellama_examples, codellama_labels, loss_weight_mask) in enumerate(
                 metric_logger.log_every(data_loader, print_freq, header)
             ):
 
@@ -65,6 +65,7 @@ def train_one_epoch(model: LLamaAdapter,
                 repairllama_input_ids=reapirllama_examples, 
                 codellama_input_ids=codellama_examples,
                 codellama_labels=codellama_labels,
+                loss_weight_mask = loss_weight_mask
             )
         # break # for testing
 
@@ -189,6 +190,11 @@ def get_args_parser():
                         help='model checkpont saving frequency (after how many epocs the model should be saved)')
     parser.add_argument('--codellama_trained_weight_dir' ,default="", type=str,
                         help='this is for testing')
+    
+    parser.add_argument('--default_loss_weight' ,default=1, type=int,
+                        help='loss scaling for normal tokens')
+    parser.add_argument('--code_loss_weight' ,default=2, type=int,
+                        help='loss weight for impotant tokens')
 
     return parser
 

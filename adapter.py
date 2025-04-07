@@ -5,6 +5,7 @@ import time
 import json
 from pathlib import Path
 import warnings
+import torch.nn.functional as F
 
 from .codellama.model import ModelArgs, Transformer
 from .codellama.tokenizer import Tokenizer
@@ -185,7 +186,7 @@ class LLamaAdapter(nn.Module):
             para.requires_grad = False
 
         if phase == 'finetune':
-            target_keywords = ["lora", "gate"]
+            target_keywords = ["lora", "gate", "adapter_wk", "adapter_wv"]
             for name, para in self.codellama.named_parameters():
                 if any(keyword in name for keyword in target_keywords):
                     # para.data = para.data.float()
@@ -201,51 +202,31 @@ class LLamaAdapter(nn.Module):
             raise ValueError(f"Unknown model phase: {phase}")
 
 
-    def forward(self, repairllama_input_ids, codellama_input_ids, codellama_labels, optimizer=None):
+    def forward(self, repairllama_input_ids, codellama_input_ids, codellama_labels, loss_weight_mask, optimizer=None):
         # torch.autograd.set_detect_anomaly(True)
 
         repairllama_input_ids=repairllama_input_ids.to(device)
         codellama_input_ids=codellama_input_ids.to(device)
         codellama_labels = codellama_labels.to(device)
 
-        # debug_info("________________________________________________________")
-        # print(repairllama_input_ids)
-        # print(codellama_input_ids)
-        # print(codellama_labels)
-
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
-        # print("repairllama_h dtype:", repairllama_h.dtype)
-        # print(repairllama_h.shape)
-        # print(repairllama_h)
-        # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
-        # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
         repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
-        # print("repairllama_mask:", repairllama_mask.dtype)
-
 
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
         _bsz, codellama_seqlen = codellama_input_ids.shape
-        # debug_info(codellama_input_ids.shape)
-        # print(codellama_input_ids)
-        codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
-        # print("codellama_h dtype:", codellama_h.dtype)
 
-        # debug_info("codellama h")
-        # print(codellama_h)
+        codellama_h = self.codellama.tok_embeddings(codellama_input_ids)
         codellama_freq_cis = self.codellama.freqs_cis.to(codellama_h.device)
 
         codellama_freq_cis = codellama_freq_cis[:codellama_seqlen]
         codellama_mask = None
         codellama_mask = torch.full((1, 1, codellama_seqlen, codellama_seqlen), float("-inf"), device=codellama_h.device)
         codellama_mask = torch.triu(codellama_mask, diagonal=0 + 1).type_as(repairllama_h)
-        # print("codellama_freq_cis dtype:", codellama_freq_cis.dtype)
-        # print("codellama_mask dtype:", codellama_mask.dtype)
-        # print(codellama_mask)
 
         assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
@@ -264,71 +245,57 @@ class LLamaAdapter(nn.Module):
             # del self.attention_hooks_data[i]
             self.attention_hooks_data[i] = None
             codellama_h = self.codellama.layers[i](codellama_h, 0, codellama_freq_cis, codellama_mask, dynamic_adapter)
-            # if n_layers==31:
-            #     debug_info(f"{i}")
-            #     print(codellama_h)
+
             if torch.isnan(codellama_h).any() or torch.isinf(codellama_h).any():
                 # raise ValueError("codellama_h contains NaN or inf values.___________0", i)
                 warnings.warn("codellama_h contains NaN or inf values.___________0", i)
         # self.attention_hooks_data={}
         # print("second repairllama_h dtype:", repairllama_h.dtype)
-
-        # Processing RepairLLama output
-        # repairllama_h = self.repairllama.model.model.norm(repairllama_h) # Why do even need this line?
-        # repairllama_output = self.repairllama.model.lm_head(repairllama_h[:, -1, :]) # Why do even need this line?
-        # repairllama_output = repairllama_output[:, :-1, :]
-        # repairllama_labels = repairllama_labels[:, 1:]
-
-        # if repairllama_labels.sum() == 0:
-        #     reapirllama_c_loss = repairllama_output.mean() * 0
-        # else:
-        #     assert self.repairllama.vocab_size == 32000
-        #     reapirllama_c_loss = self.criterion(repairllama_output.reshape(-1, self.repairllama.vocab_size), repairllama_labels.flatten())
-
         # Processing CodeLLama output
 
         codellama_h = self.codellama.norm(codellama_h)
-        # debug_info("after normalization")
-        # print(codellama_h)
         codellama_output = self.codellama.output(codellama_h)
-        # debug_info("after output layer")
-        # print(codellama_output.float())
-    
-        # next_codellama_token = torch.argmax(codellama_output[:, 0:1, :], dim=-1)
-        # print(next_codellama_token)
         codellama_output = codellama_output[:, :-1, :]
         codellama_labels = codellama_labels[:, 1:]
 
         if codellama_labels.sum()==0 :
             print("Codellama labels sum is 0")
             codellama_c_loss = codellama_output.mean() * 0
-        else:
-            assert self.codellama.vocab_size == self.codellama_tokenizer.n_words #Do we need this line?, in load codellama this is set
-            codellama_c_loss = self.criterion(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
-        # print("codellama_output shape:", codellama_output.shape)
-        # print("codellama_labels shape:", codellama_labels.shape)
+        # else:
+        #     assert self.codellama.vocab_size == self.codellama_tokenizer.n_words #Do we need this line?, in load codellama this is set
+        #     codellama_c_loss = self.criterion(codellama_output.reshape(-1, self.codellama.vocab_size), codellama_labels.flatten())
 
+        else:
+            # Flatten logits and labels for computing token-wise loss.
+            # logits: [batch_size*seq_len, vocab_size]
+            # labels: [batch_size*seq_len]
+            logits = codellama_output.reshape(-1, self.codellama.vocab_size)
+            labels = codellama_labels.flatten()
+
+            # Compute per-token cross-entropy loss without reduction.
+            # This gives a tensor of shape [batch_size*seq_len].
+            token_loss = F.nll_loss(
+                torch.log_softmax(logits, dim=-1),
+                labels,
+                reduction='none'
+            )
+            
+            # Reshape token_loss back to [batch_size, seq_len] to match the mask.
+            token_loss = token_loss.view(codellama_labels.shape)
+            
+            # Make sure loss_weight_mask is on the same device and type.
+            loss_weight_mask = loss_weight_mask.to(token_loss.device).to(token_loss.dtype)
+            
+            # Apply the weight mask element-wise.
+            weighted_token_loss = token_loss * loss_weight_mask
+            
+            # Normalize: sum of weighted losses divided by sum of weights.
+            codellama_c_loss = weighted_token_loss.sum() / loss_weight_mask.sum()
         # ______________________________Testing____________________________
         if self.test_var <= 1:
-            # print("codellama output shape: ", codellama_output.shape)
-            # print("codellama labels shape: ", codellama_labels.shape)
-            # print("codellama input ids: ", codellama_input_ids)
             codellama_input = self.codellama_tokenizer.decode(codellama_input_ids[0].tolist())
-            # print("codellama input ids (for 0 th example in the atch): ", self.codellama_tokenizer.decode(codellama_input_ids[0].tolist()))
-            # print("codellama_output (for 0 th output): ",  codellama_output[0])
             token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
             decoded_text = self.codellama_tokenizer.decode(token_ids) 
-            # codellama_decoded = []
-            # for i, t in enumerate(codellama_output[0].tolist()):
-            #     # cut to max gen len
-            #     # t = t[len(codellama_input_ids[i]): len(codellama_input_ids[i]) + max_gen_len]
-            #     # cut to eos tok if any
-            #     try:
-            #         t = t[: t.index(self.codellama_tokenizer.eos_id)]
-            #     except ValueError:
-            #         pass
-            #     codellama_decoded.append(self.codellama_tokenizer.decode(t))
-
             # print("codellama_decoded: " , codellama_decoded)
             print ("codellama decoded: ", decoded_text)
             csv_file = "codellama_results.csv"
@@ -348,7 +315,6 @@ class LLamaAdapter(nn.Module):
                 print(f"Wrote record: {self.test_var}")
             self.test_var+=1
         # _____________________________Testing____________________________
-
         return codellama_c_loss
     
     @torch.inference_mode()
