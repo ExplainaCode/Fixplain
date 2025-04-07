@@ -287,6 +287,9 @@ class LLamaAdapter(nn.Module):
             loss_weight_mask = loss_weight_mask.to(token_loss.device).to(token_loss.dtype)
             
             # Apply the weight mask element-wise.
+            print(f"token_loss shape: {token_loss.shape}")
+            print(f"loss_weight_mask shape: {loss_weight_mask.shape}")
+
             weighted_token_loss = token_loss * loss_weight_mask
             
             # Normalize: sum of weighted losses divided by sum of weights.
