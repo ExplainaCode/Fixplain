@@ -195,7 +195,6 @@ def get_args_parser():
                         help='loss scaling for normal tokens')
     parser.add_argument('--code_loss_weight' ,default=2.0, type=float,
                         help='loss weight for impotant tokens')
-    parser.add_argument('--adapter', default=True, type=bool)
 
     return parser
 

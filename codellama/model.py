@@ -161,21 +161,20 @@ class Attention(nn.Module):
 
         self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
 
-        if args.adapter:
-            self.adapter_wk = ColumnParallelLinear(
-                args.dim,
-                self.n_kv_heads * self.head_dim,
-                bias=False,
-                gather_output=False,
-                init_method=lambda x: x,
-            )
-            self.adapter_wv = ColumnParallelLinear(
-                args.dim,
-                self.n_kv_heads * self.head_dim,
-                bias=False,
-                gather_output=False,
-                init_method=lambda x: x, 
-            )
+        self.adapter_wk = ColumnParallelLinear(
+            args.dim,
+            self.n_kv_heads * self.head_dim,
+            bias=False,
+            gather_output=False,
+            init_method=lambda x: x,
+        )
+        self.adapter_wv = ColumnParallelLinear(
+            args.dim,
+            self.n_kv_heads * self.head_dim,
+            bias=False,
+            gather_output=False,
+            init_method=lambda x: x, 
+        )
 
         if args.w_lora:
             # self.lora_wq_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
