@@ -191,9 +191,9 @@ def get_args_parser():
     parser.add_argument('--codellama_trained_weight_dir' ,default="", type=str,
                         help='this is for testing')
     
-    parser.add_argument('--default_loss_weight' ,default=1, type=int,
+    parser.add_argument('--default_loss_weight' ,default=1.0, type=float,
                         help='loss scaling for normal tokens')
-    parser.add_argument('--code_loss_weight' ,default=2, type=int,
+    parser.add_argument('--code_loss_weight' ,default=2.0, type=float,
                         help='loss weight for impotant tokens')
 
     return parser
