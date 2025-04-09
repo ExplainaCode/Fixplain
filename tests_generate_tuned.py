@@ -5,7 +5,7 @@ import pandas as pd
 import os
 import torch.distributed as dist
 from fairscale.nn.model_parallel import initialize as fs_init
-
+import csv
 import socket
 
 def find_free_port():
@@ -43,6 +43,7 @@ def main(args):
     # repairllama_input_ids = torch.load(f"{args.repairllama_input_pth}",  map_location=torch.device('cpu'))
     df = pd.read_csv(args.repairllama_input_pth)
     repairllama_input = df["buggy_code"].tolist()
+    expected_codellama_output = df["gpt_explanation"].tolist()
 
     codellama_input_ids = torch.load(args.codellama_input_pth) if args.codellama_input_pth is not None else None # commented for testing
     # codellama_input_ids=[128000,    791,   4113,   2082,  44447,   6880,   1595,   6236,  55358,
@@ -64,11 +65,12 @@ def main(args):
     with torch.no_grad():
         print("Running generate...")
         
-        all_repairllama_outputs = []
         all_codellama_outputs = []
         # Process each input ID in repairllama_input_ids
-        for i, repair_input in enumerate(repairllama_input[:100]):
-            print(f"Processing record {i + 1}/{len(repairllama_input[:100])}...")
+        limit=100
+        expected_codellama_output= expected_codellama_output[:limit]
+        for i, repair_input in enumerate(repairllama_input[:limit]):
+            print(f"Processing record {i + 1}/{len(repairllama_input[:limit])}...")
             # print("repairllama_input", repair_input)
             # print("codellama_input_ids", codellama_input_ids)
             
@@ -79,18 +81,15 @@ def main(args):
             )
 
             # Collect outputs
-            all_repairllama_outputs.append(repairllama_outputs)
             all_codellama_outputs.append(codellama_outputs)
 
         # Write all outputs to a file
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.write("Repairllama Outputs:\n")
-            for i, output in enumerate(all_repairllama_outputs):
-                f.write(f"Record {i + 1}:\n{output}\n\n")
+        with open(output_file, "w", encoding="utf-8", newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["Expected Output", "llama Output"])  # Header
 
-            f.write("\nCodellama Outputs:\n")
-            for i, output in enumerate(all_codellama_outputs):
-                f.write(f"Record {i + 1}:\n{output}\n\n")
+            for expected, actual in zip(expected_codellama_output, all_codellama_outputs):
+                writer.writerow([expected, actual])
 
     print(f"All outputs saved to {output_file}")
 
