@@ -118,7 +118,7 @@ class FinetuneDataset(Dataset):
             repairllama_input_ids = repairllama_encoding['input_ids'].squeeze(0)  # [max_len]
             codellama_input_ids = torch.tensor(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
 
-            offsets = compute_token_offsets(explanation, self.codellama_tokenizer, codellama_input_ids[:, 1:])
+            offsets = compute_token_offsets(explanation, self.codellama_tokenizer, codellama_input_ids[1:])
             # Compute a weight mask: tokens overlapping code spans get higher weight.
             loss_weight_mask = compute_weight_mask(explanation, offsets, 
                                                    default_weight=self.default_weight, 
