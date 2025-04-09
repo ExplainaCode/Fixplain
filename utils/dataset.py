@@ -44,7 +44,7 @@ def compute_weight_mask(text, offsets, default_weight=1.0, code_weight=2.0):
         weight = default_weight
         # Check if the token span overlaps any code span.
         for cs, ce in code_spans:
-            if not (end < cs or start > ce):
+            if not (end <= cs+1 or start >= ce-1):
                 weight = code_weight
                 break
         weights.append(weight)
