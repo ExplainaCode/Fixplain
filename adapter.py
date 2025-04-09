@@ -257,7 +257,7 @@ class LLamaAdapter(nn.Module):
         codellama_output = self.codellama.output(codellama_h)
         codellama_output = codellama_output[:, :-1, :]
         codellama_labels = codellama_labels[:, 1:]
-        loss_weight_mask = loss_weight_mask[:, 1:]
+        # loss_weight_mask = loss_weight_mask[:, 1:]
 
         if codellama_labels.sum()==0 :
             print("Codellama labels sum is 0")
@@ -288,8 +288,8 @@ class LLamaAdapter(nn.Module):
             loss_weight_mask = loss_weight_mask.to(token_loss.device).to(token_loss.dtype)
             
             # Apply the weight mask element-wise.
-            print(f"token_loss shape: {token_loss.shape}")
-            print(f"loss_weight_mask shape: {loss_weight_mask.shape}")
+            # print(f"token_loss shape: {token_loss.shape}")
+            # print(f"loss_weight_mask shape: {loss_weight_mask.shape}")
 
             weighted_token_loss = token_loss * loss_weight_mask
             
