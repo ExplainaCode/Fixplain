@@ -257,6 +257,7 @@ class LLamaAdapter(nn.Module):
         codellama_output = self.codellama.output(codellama_h)
         codellama_output = codellama_output[:, :-1, :]
         codellama_labels = codellama_labels[:, 1:]
+        loss_weight_mask = loss_weight_mask[:, 1:]
 
         if codellama_labels.sum()==0 :
             print("Codellama labels sum is 0")
