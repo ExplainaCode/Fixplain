@@ -300,9 +300,8 @@ class LLamaAdapter(nn.Module):
             codellama_input = self.codellama_tokenizer.decode(codellama_input_ids[0].tolist())
             token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
             decoded_text = self.codellama_tokenizer.decode(token_ids) 
-            # print("codellama_decoded: " , codellama_decoded)
-            print("codellama labels: ", codellama_labels)
-            print("loss_weight_mask: ", loss_weight_mask)
+            # print("codellama labels: ", codellama_labels)
+            # print("loss_weight_mask: ", loss_weight_mask)
             print ("codellama decoded: ", decoded_text)
             csv_file = "codellama_results.csv"
             write_header = not os.path.exists(csv_file)
