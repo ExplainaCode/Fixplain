@@ -54,8 +54,8 @@ def compute_weight_mask(text, offsets, default_weight=1.0, code_weight=2.0):
 class DatasetArgs:
     repairllama_max_input_len: int = 1024
     repairllama_max_output_len: int = 512 # no need for training 
-    codellama_max_input_len: int = 256
-    codellama_max_output_len: int = 256 # no need for training
+    codellama_max_input_len: int = 124
+    codellama_max_output_len: int = 124 # no need for training
     default_loss_weight = 0.2
     code_loss_weight = 1.0
 
