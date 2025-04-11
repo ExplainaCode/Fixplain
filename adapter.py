@@ -294,7 +294,7 @@ class LLamaAdapter(nn.Module):
             weighted_token_loss = token_loss * loss_weight_mask
             
             # Normalize: sum of weighted losses divided by sum of weights.
-            codellama_c_loss = weighted_token_loss.sum() / loss_weight_mask.sum()
+            codellama_c_loss = weighted_token_loss.sum() / (loss_weight_mask.sum()+1e-9)
         # ______________________________Testing____________________________
         if self.test_var <= 1:
             codellama_input = self.codellama_tokenizer.decode(codellama_input_ids[0].tolist())
