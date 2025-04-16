@@ -1,27 +1,20 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
-# This software may be used and distributed according to the terms of the Llama 2 Community License Agreement.
+# This software may be used and distributed in accordance with the terms of the Llama 3 Community License Agreement.
 
 import math
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 
-# import fairscale.nn.model_parallel.initialize as fs_init
+import fairscale.nn.model_parallel.initialize as fs_init
 import torch
 import torch.nn.functional as F
-# from fairscale.nn.model_parallel.layers import (
-#     ColumnParallelLinear,
-#     ParallelEmbedding,
-#     RowParallelLinear,
-# )
-from torch.nn import Linear, Embedding
+from fairscale.nn.model_parallel.layers import (
+    ColumnParallelLinear,
+    RowParallelLinear,
+    VocabParallelEmbedding,
+)
 from torch import nn
 
-if torch.cuda.is_available():
-    device = "cuda"
-elif torch.backends.mps.is_available():
-    device = "mps"
-else:
-    device = "cpu"
 
 @dataclass
 class ModelArgs:
@@ -29,19 +22,18 @@ class ModelArgs:
     n_layers: int = 32
     n_heads: int = 32
     n_kv_heads: Optional[int] = None
-    vocab_size: int = -1  # defined later by tokenizer
+    vocab_size: int = -1
     multiple_of: int = 256  # make SwiGLU hidden layer size multiple of large power of 2
     ffn_dim_multiplier: Optional[float] = None
     norm_eps: float = 1e-5
-    rope_theta: float = 10000
+    rope_theta: float = 500000
 
     max_batch_size: int = 32
     max_seq_len: int = 2048
 
-    W_bias=False
-    adapter=True
-
     w_new_gate: bool = False
+    w_lora: bool = True
+    lora_rank: int = 16
 
 
 class RMSNorm(torch.nn.Module):
@@ -60,9 +52,8 @@ class RMSNorm(torch.nn.Module):
 
 def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0):
     freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
-
-    t = torch.arange(end, device=freqs.device, dtype=torch.float32)  # type: ignore
-    freqs = torch.outer(t, freqs)  # type: ignore
+    t = torch.arange(end, device=freqs.device, dtype=torch.float32)
+    freqs = torch.outer(t, freqs)
     freqs_cis = torch.polar(torch.ones_like(freqs), freqs)  # complex64
     return freqs_cis
 
@@ -80,15 +71,12 @@ def apply_rotary_emb(
     xk: torch.Tensor,
     freqs_cis: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    if not torch.cuda.is_available():
-        xq = xq.to('cpu')
-        xk = xk.to('cpu')
     xq_ = torch.view_as_complex(xq.float().reshape(*xq.shape[:-1], -1, 2))
     xk_ = torch.view_as_complex(xk.float().reshape(*xk.shape[:-1], -1, 2))
     freqs_cis = reshape_for_broadcast(freqs_cis, xq_)
     xq_out = torch.view_as_real(xq_ * freqs_cis).flatten(3)
     xk_out = torch.view_as_real(xk_ * freqs_cis).flatten(3)
-    return xq_out.type_as(xq).to(device), xk_out.type_as(xk).to(device)
+    return xq_out.type_as(xq), xk_out.type_as(xk)
 
 
 def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
@@ -102,123 +90,112 @@ def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
         .reshape(bs, slen, n_kv_heads * n_rep, head_dim)
     )
 
+def check_tensor_abnormalities(tensor, tensor_name):
+    # Create a boolean mask of non-finite values (NaN or Inf)
+    nonfinite_mask = ~torch.isfinite(tensor)
+    
+    if nonfinite_mask.any():
+        # Count total non-finite values
+        total_nonfinite = nonfinite_mask.sum().item()
+        # Count NaNs and Infs separately
+        num_nans = torch.isnan(tensor).sum().item()
+        num_infs = torch.isinf(tensor).sum().item()
+        print("+++++++++++++++++++++++++++++++")
+        print(f"{tensor_name} has {total_nonfinite} non-finite values: {num_nans} NaNs and {num_infs} Infs")
+
+def print_tensor_stats(tensor, name):
+    finite_tensor = tensor[torch.isfinite(tensor)]
+    if finite_tensor.numel() > 0:
+        # print(f"{name}: min={finite_tensor.min().item()}, max={finite_tensor.max().item()}, mean={finite_tensor.mean().item()}")
+        print(f"{name}: min={finite_tensor.abs().min().item()}, max={finite_tensor.abs().max().item()}, mean={finite_tensor.abs().mean().item()}")
+
+    else:
+        print(f"{name}: No finite values found.")
 
 class Attention(nn.Module):
     def __init__(self, args: ModelArgs):
         super().__init__()
-        # self.n_kv_heads = args.n_heads if args.n_kv_heads is None else args.n_kv_heads
-        # model_parallel_size = fs_init.get_model_parallel_world_size()
-        # self.n_local_heads = args.n_heads // model_parallel_size
-        # self.n_local_kv_heads = self.n_kv_heads // model_parallel_size
-        # self.n_rep = self.n_local_heads // self.n_local_kv_heads
-        # self.head_dim = args.dim // args.n_heads
-        self.args=args
-        self.n_local_heads = args.n_heads
+        self.n_kv_heads = args.n_heads if args.n_kv_heads is None else args.n_kv_heads
+        model_parallel_size = fs_init.get_model_parallel_world_size()
+        self.n_local_heads = args.n_heads // model_parallel_size
+        self.n_local_kv_heads = self.n_kv_heads // model_parallel_size
+        self.n_rep = self.n_local_heads // self.n_local_kv_heads
         self.head_dim = args.dim // args.n_heads
+        self.w_lora = args.w_lora
+        self.args=args
 
-
-        # self.wq = ColumnParallelLinear(
-        #     args.dim,
-        #     args.n_heads * self.head_dim,
-        #     bias=False,
-        #     gather_output=False,
-        #     init_method=lambda x: x,
-        # )
-        # self.wk = ColumnParallelLinear(
-        #     args.dim,
-        #     self.n_kv_heads * self.head_dim,
-        #     bias=False,
-        #     gather_output=False,
-        #     init_method=lambda x: x,
-        # )
-        # self.wv = ColumnParallelLinear(
-        #     args.dim,
-        #     self.n_kv_heads * self.head_dim,
-        #     bias=False,
-        #     gather_output=False,
-        #     init_method=lambda x: x,
-        # )
-        # self.wo = RowParallelLinear(
-        #     args.n_heads * self.head_dim,
-        #     args.dim,
-        #     bias=False,
-        #     input_is_parallel=True,
-        #     init_method=lambda x: x,
-        # )
-        self.wq = Linear(
+        self.wq = ColumnParallelLinear(
             args.dim,
             args.n_heads * self.head_dim,
-            bias=False
+            bias=False,
+            gather_output=False,
+            init_method=lambda x: x,
         )
-        self.wk = Linear(
+        self.wk = ColumnParallelLinear(
             args.dim,
-            args.n_heads * self.head_dim,
-            bias=False
+            self.n_kv_heads * self.head_dim,
+            bias=False,
+            gather_output=False,
+            init_method=lambda x: x,
         )
-        self.wv = Linear(
+        self.wv = ColumnParallelLinear(
             args.dim,
-            args.n_heads * self.head_dim,
-            bias=False
+            self.n_kv_heads * self.head_dim,
+            bias=False,
+            gather_output=False,
+            init_method=lambda x: x,
         )
-        self.wo = Linear(
+        self.wo = RowParallelLinear(
             args.n_heads * self.head_dim,
             args.dim,
-            bias=False
+            bias=False,
+            input_is_parallel=True,
+            init_method=lambda x: x,
         )
 
-        # self.cache_k = torch.zeros(
-        #     (
-        #         args.max_batch_size,
-        #         args.max_seq_len,
-        #         self.n_local_kv_heads,
-        #         self.head_dim,
-        #     )
-        # ).to(device)
-        # self.cache_v = torch.zeros(
-        #     (
-        #         args.max_batch_size,
-        #         args.max_seq_len,
-        #         self.n_local_kv_heads,
-        #         self.head_dim,
-        #     )
-        # ).to(device)
-        self.cache_k = torch.zeros(
-            (self.args.max_batch_size, self.args.max_seq_len, self.n_local_heads, self.head_dim)
-        ).to(device)
-        self.cache_v = torch.zeros(
-            (self.args.max_batch_size, self.args.max_seq_len, self.n_local_heads, self.head_dim)
-        ).to(device)
+        self.cache_k = None
+        self.cache_v = None
 
-        if args.adapter:
-            # self.adapter_wk = ColumnParallelLinear(
-            #     args.dim,
-            #     self.n_kv_heads * self.head_dim,
-            #     bias=False,
-            #     gather_output=False,
-            #     init_method=lambda x: x,
-            # )
-            # self.adapter_wv = ColumnParallelLinear(
-            #     args.dim,
-            #     self.n_kv_heads * self.head_dim,
-            #     bias=False,
-            #     gather_output=False,
-            #     init_method=lambda x: x,
-            # )
-            self.adapter_wk = Linear(
-                args.dim,
-                args.n_heads * self.head_dim,
-                bias=False
-            )
-            self.adapter_wv = Linear(
-                args.dim,
-                args.n_heads * self.head_dim,
-                bias=False   
-            )
+        original_tensor_type = torch.tensor(0.).cuda().type()
+        torch.set_default_tensor_type(torch.cuda.FloatTensor)
+
         self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
-        
-        self.w_new_gate = args.w_new_gate
-        if args.w_new_gate:
-            self.new_gate = torch.nn.Parameter(torch.ones(1, 1, 1, 1))
+
+        if args.w_lora:
+            # self.lora_wq_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
+            self.lora_wq_l1 = ColumnParallelLinear(
+                args.dim, args.lora_rank, bias=False, gather_output=False,
+                init_method=lambda w: nn.init.kaiming_uniform_(w, a=math.sqrt(5))  # He initialization
+            )
+            self.lora_wq_l2 = ColumnParallelLinear(args.lora_rank, args.dim, bias=False, gather_output=False,init_method=lambda w: nn.init.constant_(w, 0))
+
+
+            self.lora_wk_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,
+                                                   init_method=lambda w: nn.init.kaiming_uniform_(w, a=math.sqrt(5)) )
+            self.lora_wk_l2 = ColumnParallelLinear(args.lora_rank, self.n_kv_heads*self.head_dim, bias=False, gather_output=False,init_method=lambda w: nn.init.constant_(w, 0))
+
+            self.lora_wv_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,
+                                                   init_method=lambda w: nn.init.kaiming_uniform_(w, a=math.sqrt(5)) )
+            self.lora_wv_l2 = ColumnParallelLinear(args.lora_rank, self.n_kv_heads*self.head_dim, bias=False, gather_output=False,init_method=lambda w: nn.init.constant_(w, 0))
+
+            self.lora_wo_l1 = RowParallelLinear(args.dim, args.lora_rank, bias=False, input_is_parallel=True,
+                                                init_method=lambda w: nn.init.kaiming_uniform_(w, a=math.sqrt(5)) )
+            self.lora_wo_l2 = RowParallelLinear(args.lora_rank, args.dim, bias=False, input_is_parallel=True,init_method=lambda w: nn.init.constant_(w, 0))
+            
+        torch.set_default_tensor_type(original_tensor_type)
+
+    def train(self, mode: bool = True):
+        if mode:
+            self.cache_k = None
+            self.cache_v = None
+        else:
+            self.cache_k = torch.zeros(
+                (self.args.max_batch_size, self.args.max_seq_len, self.n_local_kv_heads, self.head_dim)
+            ).cuda()
+            self.cache_v = torch.zeros(
+                (self.args.max_batch_size, self.args.max_seq_len, self.n_local_kv_heads, self.head_dim)
+            ).cuda()
+        return super().train(mode)
 
     def forward(
         self,
@@ -226,46 +203,66 @@ class Attention(nn.Module):
         start_pos: int,
         freqs_cis: torch.Tensor,
         mask: Optional[torch.Tensor],
-        adapter: None,
+        adapter: torch.Tensor=None,
     ):
-        bsz, seqlen, *_ = x.shape
+        bsz, seqlen, _ = x.shape
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
 
-        # xq = xq.view(bsz, seqlen, self.n_local_heads, self.head_dim)
-        # xk = xk.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
-        # xv = xv.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
-        
+        if self.w_lora:
+            xq = xq + self.lora_wq_l2(self.lora_wq_l1(x))
+            xk = xk + self.lora_wk_l2(self.lora_wk_l1(x))
+            xv = xv + self.lora_wv_l2(self.lora_wv_l1(x))
+
         xq = xq.view(bsz, seqlen, self.n_local_heads, self.head_dim)
-        xk = xk.view(bsz, seqlen, self.n_local_heads, self.head_dim)
-        xv = xv.view(bsz, seqlen, self.n_local_heads, self.head_dim)
+        xk = xk.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
+        xv = xv.view(bsz, seqlen, self.n_local_kv_heads, self.head_dim)
 
         xq, xk = apply_rotary_emb(xq, xk, freqs_cis=freqs_cis)
 
-        self.cache_k = self.cache_k.to(xq)
-        self.cache_v = self.cache_v.to(xq)
+        if not self.training:
+            self.cache_k = self.cache_k.to(xq)
+            self.cache_v = self.cache_v.to(xq)
 
-        self.cache_k[:bsz, start_pos : start_pos + seqlen] = xk
-        self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
+            self.cache_k[:bsz, start_pos : start_pos + seqlen] = xk.detach()
+            self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv.detach()
+
+            keys = self.cache_k[:bsz, : start_pos + seqlen]
+            values = self.cache_v[:bsz, : start_pos + seqlen]
+
+        else:
+            assert start_pos==0
+            keys = xk
+            values = xv
 
         if adapter is not None:
             adapter_len = adapter.shape[1]
-            adapter_v = self.adapter_wv(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
+            adapter_v = self.wv(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)            
+            adapter_v = repeat_kv(
+                    adapter_v, self.n_rep
+            )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
             adapter_v = adapter_v.transpose(1, 2)
 
             if adapter_len > 1:
-                adapter_k = self.adapter_wk(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
+                adapter_k = self.wk(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)
+                adapter_k = repeat_kv(
+                    adapter_k, self.n_rep
+                )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
                 adapter_k = adapter_k.transpose(1, 2)
 
-        keys = self.cache_k[:bsz, : start_pos + seqlen]
-        values = self.cache_v[:bsz, : start_pos + seqlen]
 
         # repeat k/v heads if n_kv_heads < n_heads
-        # keys = repeat_kv(keys, self.n_rep)  # (bs, seqlen, n_local_heads, head_dim) # chnage, originally not commented , now commwntwd for testig check this.
-        # values = repeat_kv(values, self.n_rep)  # (bs, seqlen, n_local_heads, head_dim)
+        keys = repeat_kv(
+            keys, self.n_rep
+        )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
+        values = repeat_kv(
+            values, self.n_rep
+        )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
 
         xq = xq.transpose(1, 2)  # (bs, n_local_heads, seqlen, head_dim)
-        keys = keys.transpose(1, 2)
-        values = values.transpose(1, 2)
+        keys = keys.transpose(1, 2)  # (bs, n_local_heads, cache_len + seqlen, head_dim)
+        values = values.transpose(
+            1, 2
+        )  # (bs, n_local_heads, cache_len + seqlen, head_dim)
         scores = torch.matmul(xq, keys.transpose(2, 3)) / math.sqrt(self.head_dim)
         if mask is not None:
             scores = scores + mask  # (bs, n_local_heads, seqlen, cache_len + seqlen)
@@ -274,14 +271,43 @@ class Attention(nn.Module):
 
         if adapter is not None:
             if adapter_len > 1:
-                adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
-                adapter_scores = self.gate.tanh() * F.softmax(adapter_scores.float(), dim=-1).type_as(xq)
-                if self.w_new_gate:
-                    adapter_scores = self.new_gate * adapter_scores
+                logits = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
+                # logits = torch.clamp(logits, min=-100, max=100)
+                # logits = logits - logits.max(dim=-1, keepdim=True)[0]
+                # print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
+                # print_tensor_stats(logits, "logits")
+                adapter_scores = self.gate.tanh()*F.softmax(logits.float(), dim=-1).type_as(xq)                
+                # Just before the multiplication in adapter branch:
+
+                # gate_tanh = self.gate.tanh()
+                # print_tensor_stats(gate_tanh, "tanh(gate)")
+                # print_tensor_stats(adapter_scores, "adapter_scores")
+
+                # Add debugging checks before the multiplication
+                # assert not torch.isnan(self.gate.tanh()).any(), "NaN in gate values"
+                # assert not torch.isnan(adapter_scores).any(), "NaN in adapter_scores"
+                # print(f"self.gate shape: {self.gate.shape}")
+                # print(f"self.gate min: {self.gate.min().item()}, max: {self.gate.max().item()}, mean: {self.gate.mean().item()}")
+                # print(f"self.gate contains NaN: {torch.isnan(self.gate).any().item()}")
+
+                # print(f"adapter_scores shape: {adapter_scores.shape}")
+                # print(f"adapter_scores min: {adapter_scores.min().item()}, max: {adapter_scores.max().item()}, mean: {adapter_scores.mean().item()}")
+                # print(f"adapter_scores contains NaN: {torch.isnan(adapter_scores).any().item()}")
+                # gate_tanh = torch.clamp(self.gate.tanh(), min=-1e-3, max=1e-3)
+                # adapter_scores = torch.clamp(adapter_scores, min=1e-7)
+                # adapter_scores = gate_tanh * adapter_scores
+
+
+                # adapter_scores = gate_tanh * adapter_scores
+                # print(adapter_scores.type(), "adapter scores 3")
+                # adapter_scores.mul_(self.gate.tanh())
+                # adapter_scores.clamp_(min=1e-7)
+                # check_tensor_abnormalities(adapter_scores, "final_adapter_scores")
+
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
                 output = output + self.gate.tanh() * adapter_v
-                
+
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
         return self.wo(output)
 
@@ -301,23 +327,14 @@ class FeedForward(nn.Module):
             hidden_dim = int(ffn_dim_multiplier * hidden_dim)
         hidden_dim = multiple_of * ((hidden_dim + multiple_of - 1) // multiple_of)
 
-        # self.w1 = ColumnParallelLinear(
-        #     dim, hidden_dim, bias=False, gather_output=False, init_method=lambda x: x
-        # )
-        # self.w2 = RowParallelLinear(
-        #     hidden_dim, dim, bias=False, input_is_parallel=True, init_method=lambda x: x
-        # )
-        # self.w3 = ColumnParallelLinear(
-        #     dim, hidden_dim, bias=False, gather_output=False, init_method=lambda x: x
-        # )
-        self.w1 = Linear(
-            dim, hidden_dim, bias=False
+        self.w1 = ColumnParallelLinear(
+            dim, hidden_dim, bias=False, gather_output=False, init_method=lambda x: x
         )
-        self.w2 = Linear(
-            hidden_dim, dim, bias=False
+        self.w2 = RowParallelLinear(
+            hidden_dim, dim, bias=False, input_is_parallel=True, init_method=lambda x: x
         )
-        self.w3 = Linear(
-            dim, hidden_dim, bias=False
+        self.w3 = ColumnParallelLinear(
+            dim, hidden_dim, bias=False, gather_output=False, init_method=lambda x: x
         )
 
     def forward(self, x):
@@ -347,12 +364,10 @@ class TransformerBlock(nn.Module):
         start_pos: int,
         freqs_cis: torch.Tensor,
         mask: Optional[torch.Tensor],
-        adapter=None, # prompt parameter in the referenced repository 
+        adapter: torch.Tensor=None
     ):
-        h = x + self.attention.forward(
-            self.attention_norm(x), start_pos, freqs_cis, mask, adapter
-        )
-        out = h + self.feed_forward.forward(self.ffn_norm(h))
+        h = x + self.attention(self.attention_norm(x), start_pos, freqs_cis, mask, adapter)
+        out = h + self.feed_forward(self.ffn_norm(h))
         return out
 
 
@@ -366,28 +381,22 @@ class Transformer(nn.Module):
             "num_hidden_layers": 32,
         }
 
-        # self.tok_embeddings = ParallelEmbedding(
-        #     params.vocab_size, params.dim, init_method=lambda x: x,
-        # )
-
-        self.tok_embeddings = Embedding(
-            params.vocab_size, params.dim
+        self.tok_embeddings = VocabParallelEmbedding(
+            params.vocab_size, params.dim, init_method=lambda x: x
         )
+
         self.layers = torch.nn.ModuleList()
         for layer_id in range(params.n_layers):
             self.layers.append(TransformerBlock(layer_id, params))
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
-        # self.output = ColumnParallelLinear(
-        #     params.dim, params.vocab_size, bias=False, init_method=lambda x: x
-        # )
-        self.output = Linear(
-            params.dim, params.vocab_size, bias=False
+        self.output = ColumnParallelLinear(
+            params.dim, params.vocab_size, bias=False, init_method=lambda x: x
         )
 
         self.freqs_cis = precompute_freqs_cis(
-            self.params.dim // self.params.n_heads,
-            self.params.max_seq_len * 2,
+            params.dim // params.n_heads,
+            params.max_seq_len * 2,
             params.rope_theta,
         )
 
@@ -395,18 +404,25 @@ class Transformer(nn.Module):
     def forward(self, tokens: torch.Tensor, start_pos: int, adapter: torch.Tensor=None):
         _bsz, seqlen = tokens.shape
         h = self.tok_embeddings(tokens)
-        self.freqs_cis = self.freqs_cis.to("cuda" if device == "cuda" else "cpu")
+        self.freqs_cis = self.freqs_cis.to(h.device)
         freqs_cis = self.freqs_cis[start_pos : start_pos + seqlen]
 
         mask = None
         if seqlen > 1:
-            mask = torch.full(
-                (1, 1, seqlen, seqlen), float("-inf"), device=torch.device('cpu')
-            )
-            mask = mask.to(torch.float32).triu(diagonal=start_pos+1).type_as(h)
+            mask = torch.full((seqlen, seqlen), float("-inf"), device=tokens.device)
+
+            mask = torch.triu(mask, diagonal=1)
+
+            # When performing key-value caching, we compute the attention scores
+            # only for the new sequence. Thus, the matrix of scores is of size
+            # (seqlen, cache_len + seqlen), and the only masked entries are (i, j) for
+            # j > cache_len + i, since row i corresponds to token cache_len + i.
+            mask = torch.hstack(
+                [torch.zeros((seqlen, start_pos), device=tokens.device), mask]
+            ).type_as(h)
 
         for layer in self.layers:
-            h = layer(h, start_pos, freqs_cis, (mask.to(device) if mask is not None else mask), adapter)
+            h = layer(h, start_pos, freqs_cis, mask, adapter)
         h = self.norm(h)
         output = self.output(h).float()
         return output

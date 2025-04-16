@@ -1,0 +1,345 @@
+import torch
+import torch.backends.cudnn as cudnn
+from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import Dataset
+import random
+import utils.misc as misc
+import utils.lr_sched as lr_sched
+from utils.misc import NativeScalerWithGradNormCount as NativeScaler
+from utils.misc import CustomDistributedSampler
+from .adapter import LLamaAdapter
+from utils.dataset import FinetuneDataset, DatasetArgs
+
+import argparse
+import datetime
+import json
+import numpy as np
+import os
+import time
+from pathlib import Path
+import math
+import sys
+from typing import Iterable
+
+import torch
+import torch.distributed as dist
+from fairscale.nn.model_parallel import initialize as fs_init
+
+import socket
+
+def find_free_port():
+    """Find a free port on the machine"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))            # 0 means select a free port
+        return s.getsockname()[1]  # Return the port number
+
+def train_one_epoch(model: LLamaAdapter,
+                    data_loader: Iterable, optimizer: torch.optim.Optimizer,
+                    device: torch.device, epoch: int, loss_scaler,
+                    log_writer=None,
+                    args=None):
+    model.train(True)
+    ## model.module.set_default_trainability()
+
+    metric_logger = misc.MetricLogger(delimiter="  ")
+    metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
+    header = 'Epoch: [{}]'.format(epoch)
+    print_freq = 10
+
+    accum_iter = args.accum_iter
+
+    if log_writer is not None:
+        print('log_dir: {}'.format(log_writer.log_dir))
+    # optimizer.zero_grad()
+    for data_iter_step, (
+            reapirllama_examples, codellama_examples, codellama_labels, codellama_mask) in enumerate(
+                metric_logger.log_every(data_loader, print_freq, header)
+            ):
+
+        # we use a per iteration (instead of per epoch) lr scheduler
+        if data_iter_step % accum_iter == 0:
+            lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
+
+        with torch.amp.autocast("cuda"):
+            loss = model(
+                repairllama_input_ids=reapirllama_examples, 
+                codellama_input_ids=codellama_examples,
+                codellama_labels=codellama_labels,
+            )
+        # break # for testing
+
+        loss_value = loss.item()
+        # print("Loss is: ",loss)
+        if not math.isfinite(loss_value):
+            print("Loss is {}, stopping training".format(loss_value))
+            sys.exit(1)
+
+        loss /= accum_iter
+        # if not torch.isfinite(loss).all():
+        #     print("Loss contains NaNs or Infs:", loss)
+        #     sys.exit(1)
+
+        loss_scaler(loss, optimizer, clip_grad=1.0, parameters=model.parameters(),
+                    update_grad=(data_iter_step + 1) % accum_iter == 0)
+
+        # loss.backward()
+        # print("gate grad: ",model.codellama.layers[0].attention.gate.grad)
+        if (data_iter_step + 1) % accum_iter == 0:
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            # optimizer.step()
+            optimizer.zero_grad()    
+
+        torch.cuda.synchronize()
+
+        metric_logger.update(closs=loss_value)
+        # metric_logger.update(mloss=m_loss_value)
+
+        lr = optimizer.param_groups[0]["lr"]
+        metric_logger.update(lr=lr)
+
+        loss_value_reduce = misc.all_reduce_mean(loss_value)
+
+        if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
+            """ We use epoch_1000x as the x-axis in tensorboard.
+            This calibrates different curves when batch size changes.
+            """
+            epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
+            log_writer.add_scalar('codellama_train_loss', loss_value_reduce, epoch_1000x)
+            log_writer.add_scalar('lr', lr, epoch_1000x)
+
+
+    # gather the stats from all processes
+    metric_logger.synchronize_between_processes()
+    print("Averaged stats:", metric_logger)
+    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+   
+def get_args_parser():
+    parser = argparse.ArgumentParser('llama_adapter pre-training', add_help=False)
+    parser.add_argument('--batch_size', default=64, type=int,
+                        help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
+    parser.add_argument('--epochs', default=400, type=int)
+    parser.add_argument('--accum_iter', default=1, type=int,
+                        help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
+    parser.add_argument('--w_lora', default=False, type=bool)
+    parser.add_argument('--lora_rank', default=16, type=int,
+                        help='This only apply if the w_lora parameter is "True"')
+
+    # Model parameters
+    parser.add_argument('--codellama_ckpt_dir', default='/path/to/codellama', type=str,
+                        help='path to CodeLLaMA pretrained checkpoint')
+    parser.add_argument('--codellama_tokenizer_ckpt_dir', default='/path/to/codellama_tokenizer', type=str,
+                        help='path to CodeLLaMA Tokenizer pretrained checkpoint')
+    parser.add_argument('--repairllama_lora_dir', default='/path/to/repairllama_lora', type=str,
+                        help='path to RepairLLaMA-Lora pretrained checkpoint')
+    parser.add_argument('--repairllama_ckpt_dir', default='/path/to/repairllama', type=str,
+                        help='path to RepairLLaMA pretrained checkpoint')
+    parser.add_argument('--pretrained_path', default='/path/to/pretrained', type=str,
+                        help='path to checkpoint from pretrain stage')
+    parser.add_argument('--repairllama_max_input_len', default=1024, type=int,
+                        help='max number of input words(embeddings) in repairllama')
+    parser.add_argument('--codellama_max_input_len', default=256, type=int,
+                        help='max number of input words(embeddings) in codellama')
+    parser.add_argument('--data_path', default='/path/to/dataset', type=str,
+                        help='path to dataset')
+
+    # Optimizer parameters
+    parser.add_argument('--weight_decay', type=float, default=0.05,
+                        help='weight decay (default: 0.05)')
+
+    parser.add_argument('--lr', type=float, default=None, metavar='LR',
+                        help='learning rate (absolute lr)')
+    parser.add_argument('--blr', type=float, default=1e-3, metavar='LR',
+                        help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
+    parser.add_argument('--min_lr', type=float, default=0., metavar='LR',
+                        help='lower lr bound for cyclic schedulers that hit 0')
+
+    parser.add_argument('--warmup_epochs', type=int, default=40, metavar='N',
+                        help='epochs to warmup LR')
+
+    # Dataset parameters
+    parser.add_argument('--data_config', default='configs/data/finetune/EN.yaml', type=str,
+                        help='dataset config path')
+    parser.add_argument('--num_workers', default=10, type=int)
+    parser.add_argument('--pin_mem', action='store_true',
+                        help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
+    parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
+    parser.set_defaults(pin_mem=True)
+
+
+    parser.add_argument('--output_dir', default='./output',
+                        help='path where to save, empty for no saving')
+    parser.add_argument('--log_dir', default='./output',
+                        help='path where to tensorboard log')
+    parser.add_argument('--device', default='cuda',
+                        help='device to use for training / testing')
+    parser.add_argument('--seed', default=0, type=int)
+
+
+    parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
+                        help='start epoch')
+
+    # distributed training parameters
+    parser.add_argument('--world_size', default=1, type=int,
+                        help='number of distributed processes')
+    parser.add_argument('--local_rank', default=-1, type=int)
+    parser.add_argument('--dist_on_itp', action='store_true')
+    parser.add_argument('--dist_url', default='env://',
+                        help='url used to set up distributed training')
+    parser.add_argument('--saving_frequency', default=10, type=int,
+                        help='model checkpont saving frequency (after how many epocs the model should be saved)')
+    parser.add_argument('--codellama_trained_weight_dir' ,default="", type=str,
+                        help='this is for testing')
+
+    return parser
+
+
+def main(args):
+    misc.init_distributed_mode(args)
+    
+    # Set up MASTER_ADDR/PORT after init_distributed_mode
+    os.environ['MASTER_ADDR'] = 'localhost' if args.dist_url == 'env://' else args.dist_url
+    os.environ['MASTER_PORT'] = str(find_free_port())
+
+    # Initialize process group
+    if not dist.is_initialized():
+        dist.init_process_group(
+            backend="nccl",
+            world_size=int(os.getenv('WORLD_SIZE', 1)),
+            rank=int(os.getenv('RANK', 0)), 
+        )
+
+    # Initialize FairScale AFTER process group
+    fs_init.initialize_model_parallel(model_parallel_size_=1)
+
+    try:
+        print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
+        print("{}".format(args).replace(', ', ',\n'))
+
+        device = torch.device(args.device)
+
+        # fix the seed for reproducibility
+        seed = args.seed + misc.get_rank()
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        cudnn.benchmark = True
+
+        # define the model
+        model = LLamaAdapter(args.codellama_ckpt_dir, args.codellama_tokenizer_ckpt_dir,
+                            args.repairllama_lora_dir, args.repairllama_ckpt_dir, phase="finetune", 
+                            max_batch_size=args.batch_size,
+                            w_lora=args.w_lora, lora_rank=args.lora_rank)
+        # codellama_tokenizer = model.codellama_tokenizer
+        # repairllama_tokenizer = model.repairllama_tokenizer
+        # model.load_codellma_tuned(args.codellama_trained_weight_dir)
+        model.to(device)
+
+        model_without_ddp = model.codellama
+        print("Model = %s" % str(model_without_ddp))
+
+        # print("Trainable Params:")
+        # print([(key, val.shape, val.dtype) for key, val in model.named_parameters() if val.requires_grad])
+
+        if args.distributed:
+            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
+            model_without_ddp = model.module
+
+        # training detail
+        eff_batch_size = args.batch_size * args.accum_iter * misc.get_world_size()
+
+        if args.lr is None:  # only base_lr is specified
+            args.lr = args.blr * eff_batch_size / 256
+
+        print("base lrdevice: %.2e" % (args.lr * 256 / eff_batch_size))
+        print("actual lr: %.2e" % args.lr)
+
+        print("accumulate grad iterations: %d" % args.accum_iter)
+        print("effective batch size: %d" % eff_batch_size)
+
+        # following timm: set wd as 0 for bias and norm layers
+        param_groups = misc.add_weight_decay(model_without_ddp, args.weight_decay)
+        optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95), eps=1e-4)
+        print(optimizer)
+        loss_scaler = NativeScaler()
+
+        # misc.load_model(model_without_ddp, args.pretrained_path)
+
+        dataset_args = DatasetArgs(dataframe_path = args.data_path, 
+                                codellama_max_input_len = args.codellama_max_input_len,
+                                repairllama_max_input_len = args.repairllama_max_input_len)
+
+        dataset_train = FinetuneDataset(model.codellama_tokenizer, model.repairllama_tokenizer, dataset_args)
+        print(dataset_train)
+        num_tasks = misc.get_world_size()
+        global_rank = misc.get_rank()
+        # sampler_train = torch.utils.data.DistributedSampler(
+        #     dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, 
+        # )
+        sampler_train = CustomDistributedSampler(
+            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True # false for testing
+        )
+        print("Sampler_train = %s" % str(sampler_train))
+
+        data_loader_train = torch.utils.data.DataLoader(
+            dataset_train, sampler=sampler_train,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            pin_memory=args.pin_mem,
+            drop_last=True,
+            multiprocessing_context='spawn' 
+        )
+
+        # SummaryWrite
+        if global_rank == 0 and args.log_dir is not None:
+            os.makedirs(args.log_dir, exist_ok=True)
+            log_writer = SummaryWriter(log_dir=args.log_dir)
+        else:
+            log_writer = None
+
+
+        print(f"Start training for {args.epochs} epochs")
+        start_time = time.time()
+        for epoch in range(args.start_epoch, args.epochs):
+            if args.distributed:
+                data_loader_train.sampler.set_epoch(epoch)
+
+            if (epoch==args.epochs-1 or epoch%1==0):
+                model.test_var=0
+            else:
+                model.test_var=1000
+            train_stats = train_one_epoch(
+                model, data_loader_train,
+                optimizer, device, epoch, loss_scaler,
+                log_writer=log_writer,
+                args=args
+            )
+
+            if args.output_dir and (epoch + 1 == args.epochs or epoch%1==0): #epoch % 10 == 0 or epoch + 1 == args.epochs
+                misc.save_model(
+                    args=args, model=model.codellama, model_without_ddp=model_without_ddp, optimizer=optimizer,
+                    loss_scaler=loss_scaler, epoch=epoch)
+
+            log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                        'epoch': epoch,
+                        **{f'val_{k}': v for k, v in train_stats.items()}}
+
+            if args.output_dir and misc.is_main_process():
+                if log_writer is not None:
+                    log_writer.flush()
+                with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+                    f.write(json.dumps(log_stats) + "\n")
+
+        total_time = time.time() - start_time
+        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+        print('Training time {}'.format(total_time_str))
+
+    finally:
+        if dist.is_initialized():
+            dist.destroy_process_group()
+
+
+if __name__ == '__main__':
+    args = get_args_parser()
+    args = args.parse_args()
+    if args.output_dir:
+        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+    main(args)
