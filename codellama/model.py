@@ -160,6 +160,12 @@ class Attention(nn.Module):
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
         self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
+        self.adapter_wk = ColumnParallelLinear(
+        args.dim, args.dim, bias=False, gather_output=False, init_method=lambda x: x
+        )
+        self.adapter_wv = ColumnParallelLinear(
+            args.dim, args.dim, bias=False, gather_output=False, init_method=lambda x: x
+        )
 
         if args.w_lora:
             # self.lora_wq_l1 = ColumnParallelLinear(args.dim, args.lora_rank, bias=False, gather_output=False,init_method=lambda x: x)
@@ -236,18 +242,18 @@ class Attention(nn.Module):
 
         if adapter is not None:
             adapter_len = adapter.shape[1]
-            adapter_v = self.wv(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)            
-            adapter_v = repeat_kv(
-                    adapter_v, self.n_rep
-            )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
+            adapter_v = self.adapter_wv(adapter).view(
+                bsz, adapter_len, self.n_kv_heads, self.head_dim
+            )
+            adapter_v = repeat_kv(adapter_v, self.n_rep)
             adapter_v = adapter_v.transpose(1, 2)
 
-            if adapter_len > 1:
-                adapter_k = self.wk(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)
-                adapter_k = repeat_kv(
-                    adapter_k, self.n_rep
-                )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
-                adapter_k = adapter_k.transpose(1, 2)
+        if adapter_len > 1:
+            adapter_k = self.adapter_wk(adapter).view(
+                bsz, adapter_len, self.n_kv_heads, self.head_dim
+            )
+            adapter_k = repeat_kv(adapter_k, self.n_rep)
+            adapter_k = adapter_k.transpose(1, 2)
 
 
         # repeat k/v heads if n_kv_heads < n_heads

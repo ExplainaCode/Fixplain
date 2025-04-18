@@ -96,6 +96,13 @@ class LLamaAdapter(nn.Module):
             ckpt = torch.load(ckpt_path, map_location="cpu")
             missing_keys, unexpected_keys = codellama.load_state_dict(ckpt, strict=False)
 
+            for layer in codellama.layers:
+                if layer == "0":
+                    print(layer.attn.weight)
+                attn = layer.attention
+                if hasattr(attn, 'adapter_wk') and hasattr(attn, 'adapter_wv'):
+                    attn.adapter_wk.weight.data.copy_(attn.wk.weight.data)
+                    attn.adapter_wv.weight.data.copy_(attn.wv.weight.data)
             # debug_info("_"*20)
             # print("Missing Keys (not updated):", missing_keys)
             # print("Unexpected Keys (not in model):", unexpected_keys)
@@ -103,6 +110,7 @@ class LLamaAdapter(nn.Module):
                 
         # for name, param in codellama.state_dict().items():
         #     print(f"Parameter: {name}, dtype: {param.dtype}")
+        # print(codellama.layers.attn.adapter_wk.weight.data)
         print(f"Loaded in {time.time() - start_time:.2f} seconds")
         return codellama, tokenizer
 
@@ -181,7 +189,7 @@ class LLamaAdapter(nn.Module):
             para.requires_grad = False
 
         if phase == 'finetune':
-            target_keywords = ["lora", "gate"]
+            target_keywords = ["lora", "gate", "adapter"]
             for name, para in self.codellama.named_parameters():
                 if any(keyword in name for keyword in target_keywords):
                     # para.data = para.data.float()
