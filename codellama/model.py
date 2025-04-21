@@ -297,7 +297,10 @@ class Attention(nn.Module):
                 output = output + self.gate.tanh() * adapter_v
 
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
-        return self.wo(output)
+        if self.w_lora:
+            return self.wo(output) + self.lora_wo_l2(self.lora_wo_l1(output))
+        else:
+            return self.wo(output)
 
 
 class FeedForward(nn.Module):
