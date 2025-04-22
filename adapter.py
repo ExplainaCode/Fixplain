@@ -295,10 +295,10 @@ class LLamaAdapter(nn.Module):
             codellama_c_loss = weighted_token_loss.sum() / (loss_weight_mask.sum()+1e-9)
         # ______________________________Testing____________________________
         if self.test_var % 100==0:
-            # codellama_input = self.codellama_tokenizer.decode(codellama_input_ids[0].tolist())
+            codellama_input = self.codellama_tokenizer.decode(codellama_input_ids[0].tolist())
             token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
             decoded_text = self.codellama_tokenizer.decode(token_ids) 
-            print("codellama labels: ", self.codellama_tokenizer.decode(codellama_labels[0]))
+            print("codellama labels: ", codellama_input)
             # # print("loss_weight_mask: ", loss_weight_mask)
             print ("codellama decoded: ", decoded_text)
             print(f"""Gate max: {self.codellama.layers[0].attention.gate.max().item():.6f}, 
