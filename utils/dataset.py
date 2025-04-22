@@ -82,7 +82,7 @@ class FinetuneDataset(Dataset):
         
         # this is for testing since fixed code does  not matter in finetuning.
         # self.data['fixed_code'] = self.data['fixed_code'].fillna(" ") # remoe this if want
-
+        self.data = self.data.dropna()
         if (self.data[['buggy_code', 'gpt_explanation']].isnull().any().any()):
             raise ValueError(f"Dataframe contains 'null' values")
         
