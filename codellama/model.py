@@ -159,7 +159,8 @@ class Attention(nn.Module):
         original_tensor_type = torch.tensor(0.).cuda().type()
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
-        self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
+        # self.gate = torch.nn.Parameter(torch.zeros(1, self.n_local_heads, 1, 1))
+        self.gate = torch.nn.Parameter(torch.full((1, self.n_local_heads, 1, 1), 1e-2))
         self.adapter_wk = ColumnParallelLinear(
         args.dim, args.dim, bias=False, gather_output=False, init_method=lambda x: x
         )
