@@ -310,8 +310,8 @@ def main(args):
 
             if (epoch==args.epochs-1 or epoch%1==0):
                 model.test_var=0
-            else:
-                model.test_var=1000
+            # else:
+            #     model.test_var=1000
             train_stats = train_one_epoch(
                 model, data_loader_train,
                 optimizer, device, epoch, loss_scaler,

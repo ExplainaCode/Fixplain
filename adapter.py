@@ -288,37 +288,38 @@ class LLamaAdapter(nn.Module):
             loss_weight_mask = loss_weight_mask.to(token_loss.device).to(token_loss.dtype)
             
             # Apply the weight mask element-wise.
-            # print(f"token_loss shape: {token_loss.shape}")
-            # print(f"loss_weight_mask shape: {loss_weight_mask.shape}")
 
             weighted_token_loss = token_loss * loss_weight_mask
             
             # Normalize: sum of weighted losses divided by sum of weights.
             codellama_c_loss = weighted_token_loss.sum() / (loss_weight_mask.sum()+1e-9)
         # ______________________________Testing____________________________
-        if self.test_var <= 1:
-            codellama_input = self.codellama_tokenizer.decode(codellama_input_ids[0].tolist())
+        if self.test_var % 100==0:
+            # codellama_input = self.codellama_tokenizer.decode(codellama_input_ids[0].tolist())
             token_ids = codellama_output[0].argmax(dim=-1).tolist()  # Get token IDs
             decoded_text = self.codellama_tokenizer.decode(token_ids) 
-            # print("codellama labels: ", codellama_labels)
-            # print("loss_weight_mask: ", loss_weight_mask)
+            print("codellama labels: ", codellama_labels)
+            # # print("loss_weight_mask: ", loss_weight_mask)
             print ("codellama decoded: ", decoded_text)
-            csv_file = "codellama_results.csv"
-            write_header = not os.path.exists(csv_file)
-            
-            with open(csv_file, mode="a", newline="", encoding="utf-8") as file:
-                import csv
-                writer = csv.writer(file)
-                
-                # Write the header only on the first iteration
-                if write_header:
-                    writer.writerow(["Input Text", "Generated Text"])
-                    write_header = False  # Ensure header is not written again
+            print(f"""Gate max: {self.codellama.layers[0].attention.gate.max().item():.6f}, 
+                  min: {self.codellama.layers[0].attention.gate.min().item():.6f}""")
 
-                # Write the data for this iteration
-                writer.writerow([codellama_input, decoded_text])
-                print(f"Wrote record: {self.test_var}")
-            self.test_var+=1
+            # csv_file = "codellama_results.csv"
+            # write_header = not os.path.exists(csv_file)
+            
+            # with open(csv_file, mode="a", newline="", encoding="utf-8") as file:
+            #     import csv
+            #     writer = csv.writer(file)
+                
+            #     # Write the header only on the first iteration
+            #     if write_header:
+            #         writer.writerow(["Input Text", "Generated Text"])
+            #         write_header = False  # Ensure header is not written again
+
+            #     # Write the data for this iteration
+            #     writer.writerow([codellama_input, decoded_text])
+            #     print(f"Wrote record: {self.test_var}")
+        self.test_var+=1
         # _____________________________Testing____________________________
         return codellama_c_loss
     
