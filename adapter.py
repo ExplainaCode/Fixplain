@@ -150,19 +150,19 @@ class LLamaAdapter(nn.Module):
     
     def load_codellma_tuned(self, codellama_trained_weight_dir):
         ckpts = sorted(Path(codellama_trained_weight_dir).glob("*.pth"))
-        ckpt_path = ckpts[-1]
+        ckpt_path = ckpts[-2]
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         ckpt = torch.load(ckpt_path, map_location="cpu") # This ckeckpoint contains other parameters as well
         ckpt = ckpt["model"] 
         missing_keys, unexpected_keys = self.codellama.load_state_dict(ckpt, strict=False)
 
-        # debug_info("____________________in trained weights loading___________________")
+        debug_info("____________________in trained weights loading___________________")
         # print(f"Checkpoint: {ckpt_path}")
-        # print("Expected Keys (Model Parameters):", set(self.codellama.state_dict().keys()))
+        print("Expected Keys (Model Parameters):", set(self.codellama.state_dict().keys()))
         # debug_info("_______________________________________")
-        # print("Missing Keys (not updated):", missing_keys)
+        print("Missing Keys (not updated):", missing_keys)
         # debug_info("_______________________________________")
-        # print("Unexpected Keys (not in model):", unexpected_keys)
+        print("Unexpected Keys (not in model):", unexpected_keys)
         # debug_info("-" * 20)
 
 
