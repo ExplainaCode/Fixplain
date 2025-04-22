@@ -150,7 +150,7 @@ class LLamaAdapter(nn.Module):
     
     def load_codellma_tuned(self, codellama_trained_weight_dir):
         ckpts = sorted(Path(codellama_trained_weight_dir).glob("*.pth"))
-        ckpt_path = ckpts[-2]
+        ckpt_path = ckpts[-1]
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         ckpt = torch.load(ckpt_path, map_location="cpu") # This ckeckpoint contains other parameters as well
         ckpt = ckpt["model"] 
