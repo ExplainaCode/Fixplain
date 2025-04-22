@@ -45,7 +45,7 @@ class LLamaAdapter(nn.Module):
         self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
             repairllama_model_dir, repairllama_lora_dir,
             register_Attention_hooks=True)
-        # print("repairllama is loaded... codellama is about to load....")
+        print("repairllama is loaded... codellama is about to load....")
 
         self.codellama, self.codellama_tokenizer = self._load_codellama(
             codellama_ckpt_dir, max_seq_len,
