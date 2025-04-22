@@ -36,9 +36,9 @@ class FinetuneDataset(Dataset):
             raise ValueError(f"DataFrame must contain the following columns: {', '.join(required_columns)}")
         
         # this is for testing since fixed code does  not matter in finetuning.
-        self.data['fixed_code'] = self.data['fixed_code'].fillna(" ") # remoe this if want
+        #self.data['fixed_code'] = self.data['fixed_code'].fillna(" ") # remoe this if want
 
-        if (self.data[['buggy_code', 'fixed_code', 'gpt_explanation']].isnull().any().any()):
+        if (self.data[['buggy_code', 'gpt_explanation']].isnull().any().any()):
             raise ValueError(f"Dataframe contains 'null' values")
         
         # df_cleaned = self.data.dropna(subset=['buggy_code', 'fixed_code', 'gpt_explanation'])
