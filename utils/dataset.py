@@ -31,7 +31,7 @@ class FinetuneDataset(Dataset):
         self.codellama_pad_id = codellama_tokenizer.pad_id
         # self.repairllama_pad_id = repairllama_tokenizer.pad_token_id
 
-        required_columns = ['buggy_code', 'fixed_code', 'gpt_explanation']
+        required_columns = ['buggy_code', 'gpt_explanation']
         if not all(col in self.data.columns for col in required_columns):
             raise ValueError(f"DataFrame must contain the following columns: {', '.join(required_columns)}")
         
