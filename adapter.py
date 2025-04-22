@@ -258,6 +258,8 @@ class LLamaAdapter(nn.Module):
             repairllama_h, *_ = self.repairllama.model.model.layers[i](
                                                 repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous()
                                             )  # Do not pass as keyword arguments since hooks don't capture inputs.   
+            print("////////////////////")
+            print(self.attention_hooks_data.get(i))
             assert(self.attention_hooks_data.get(i)!=None)
             # with torch.no_grad():
             dynamic_adapter = self.attention_hooks_data[i].get('input').detach()
