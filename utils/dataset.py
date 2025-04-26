@@ -59,6 +59,36 @@ class FinetuneDataset(Dataset):
     def __getitem__(self, index):
         try:
             row = self.data.iloc[index]
+            messages = row['messages']
+            formatted_chat = self.codellama_tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+                # Tokenize entire sequence
+            tokenized = self.codellama_tokenizer(
+                formatted_chat,
+                max_length=self.max_seq_len,
+                padding="max_length",
+                truncation=True,
+                return_tensors="pt"
+            )
+
+            # Create labels mask
+            labels = tokenized["input_ids"].clone()
+            # Find where assistant response starts using special token
+            response_start = torch.where(
+                tokenized["input_ids"] == self.tokenizer.encode("<|start_header_id|>assistant<|end_header_id|>")[0]
+            )[1][0]
+
+            labels[:, :response_start+1] = -100  # +1 to mask the header token itself
+            labels[labels == self.tokenizer.pad_token_id] = -100
+            return {
+                "input_ids": tokenized["input_ids"].squeeze(0),
+                "attention_mask": tokenized["attention_mask"].squeeze(0),
+                "labels": labels.squeeze(0)
+            }
+        
             buggy_code = row['buggy_code']
             # fixed_code = row['fixed_code']
             explanation = row['gpt_explanation']

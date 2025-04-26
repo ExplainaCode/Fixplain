@@ -77,7 +77,7 @@ class LLamaAdapter(nn.Module):
             **params
         )
         start_time = time.time()
-        tokenizer = Tokenizer(model_path=codellama_tokenizer)
+        tokenizer = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct")
         assert model_args.vocab_size == tokenizer.n_words
         tokenizer.pad_id = tokenizer.eos_id
         model_args.vocab_size = tokenizer.n_words
