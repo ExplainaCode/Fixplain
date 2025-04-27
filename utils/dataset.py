@@ -59,36 +59,6 @@ class FinetuneDataset(Dataset):
     def __getitem__(self, index):
         try:
             row = self.data.iloc[index]
-            messages = row['messages']
-            formatted_chat = self.llama_tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True
-            )
-                # Tokenize entire sequence
-            tokenized = self.llama_tokenizer(
-                formatted_chat,
-                max_length=self.max_seq_len,
-                padding="max_length",
-                truncation=True,
-                return_tensors="pt"
-            )
-
-            # Create labels mask
-            labels = tokenized["input_ids"].clone()
-            # Find where assistant response starts using special token
-            response_start = torch.where(
-                tokenized["input_ids"] == self.tokenizer.encode("<|start_header_id|>assistant<|end_header_id|>")[0]
-            )[1][0]
-
-            labels[:, :response_start+1] = -100  # +1 to mask the header token itself
-            labels[labels == self.tokenizer.pad_token_id] = -100
-            return {
-                "input_ids": tokenized["input_ids"].squeeze(0),
-                "attention_mask": tokenized["attention_mask"].squeeze(0),
-                "labels": labels.squeeze(0)
-            }
-        
             buggy_code = row['buggy_code']
             # fixed_code = row['fixed_code']
             explanation = row['gpt_explanation']
@@ -112,21 +82,21 @@ class FinetuneDataset(Dataset):
             # repairllama_label_ids = repairllama_label_encoding['input_ids'].squeeze(0)
             # repairllama_input_ids =  torch.flatten(self.repairllama_tokenizer.encode(buggy_code, return_tensors='pt'))
             # repairllama_label_ids = torch.flatten(self.repairllama_tokenizer.encode(fixed_code, return_tensors='pt'))
-            llama_input_ids = torch.tensor(self.llama_tokenizer.encode(explanation, bos=True, eos=False))
+            codellama_input_ids = torch.tensor(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
 
             # repairllama_input_ids = self.__get_padding__(repairllama_input_ids, self.repairllama_pad_id, self.repairllama_max_input_len)
             # repairllama_label_ids = self.__get_padding__(repairllama_label_ids, self.repairllama_pad_id, self.repairllama_max_output_len)
-            llama_input_ids = self.__get_padding__(llama_input_ids, self.llama_pad_id, self.llama_max_input_len)
+            codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_pad_id, self.codellama_max_input_len)
 
-            llama_label_ids = copy.deepcopy(llama_input_ids)
-            llama_input_ids_mask  = llama_input_ids.ge(0) # just for keep functions work for now - no need !
-            # codellama_label_mask = llama_label_ids.ge(0)
-            # llama_input_ids[~llama_input_ids_mask] = 0
-            # llama_label_ids[~codellama_label_mask] = 0
+            codellama_label_ids = copy.deepcopy(codellama_input_ids)
+            codellama_input_ids_mask  = codellama_input_ids.ge(0) # just for keep functions work for now - no need !
+            # codellama_label_mask = codellama_label_ids.ge(0)
+            # codellama_input_ids[~codellama_input_ids_mask] = 0
+            # codellama_label_ids[~codellama_label_mask] = 0
             # codellama_label_mask = codellama_label_mask.float()
-            # llama_input_ids_mask = llama_input_ids_mask.float()
+            # codellama_input_ids_mask = codellama_input_ids_mask.float()
 
-            return repairllama_input_ids, llama_input_ids, llama_label_ids, llama_input_ids_mask
+            return repairllama_input_ids, codellama_input_ids, codellama_label_ids, codellama_input_ids_mask
         
         except Exception as e:
             # Catch and log any exceptions

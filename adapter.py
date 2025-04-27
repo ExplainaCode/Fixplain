@@ -204,7 +204,7 @@ class LLamaAdapter(nn.Module):
 
         repairllama_input_ids=repairllama_input_ids.to(device)
         llama_input_ids=llama_input_ids.to(device)
-        lama_labels = llama_labels.to(device)
+        llama_labels = llama_labels.to(device)
 
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 

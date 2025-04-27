@@ -2,14 +2,8 @@ import torch
 import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import Dataset
-import random
-import utils.misc as misc
-import utils.lr_sched as lr_sched
-from utils.misc import NativeScalerWithGradNormCount as NativeScaler
-from utils.misc import CustomDistributedSampler
-from .adapter import LLamaAdapter
-from utils.dataset import FinetuneDataset, DatasetArgs
-
+import torch.distributed as dist
+from fairscale.nn.model_parallel import initialize as fs_init
 import argparse
 import datetime
 import json
@@ -20,12 +14,14 @@ from pathlib import Path
 import math
 import sys
 from typing import Iterable
-
-import torch
-import torch.distributed as dist
-from fairscale.nn.model_parallel import initialize as fs_init
-
 import socket
+
+import utils.misc as misc
+import utils.lr_sched as lr_sched
+from utils.misc import NativeScalerWithGradNormCount as NativeScaler
+from utils.misc import CustomDistributedSampler
+from .adapter import LLamaAdapter
+from utils.dataset import FinetuneDataset, DatasetArgs
 
 def find_free_port():
     """Find a free port on the machine"""
@@ -52,7 +48,7 @@ def train_one_epoch(model: LLamaAdapter,
         print('log_dir: {}'.format(log_writer.log_dir))
     # optimizer.zero_grad()
     for data_iter_step, (
-            reapirllama_examples, llama_examples, llama_labels, llama_mask) in enumerate(
+            repairllama_examples, llama_examples, llama_labels, llama_mask) in enumerate(
                 metric_logger.log_every(data_loader, print_freq, header)
             ):
 
@@ -62,41 +58,28 @@ def train_one_epoch(model: LLamaAdapter,
 
         with torch.amp.autocast("cuda"):
             loss = model(
-                repairllama_input_ids=reapirllama_examples, 
+                repairllama_input_ids=repairllama_examples, 
                 llama_input_ids=llama_examples,
                 llama_labels=llama_labels,
             )
-        # break # for testing
 
         loss_value = loss.item()
-        # print("Loss is: ",loss)
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
             sys.exit(1)
 
         loss /= accum_iter
-        # if not torch.isfinite(loss).all():
-        #     print("Loss contains NaNs or Infs:", loss)
-        #     sys.exit(1)
-
         loss_scaler(loss, optimizer, clip_grad=1.0, parameters=model.parameters(),
                     update_grad=(data_iter_step + 1) % accum_iter == 0)
 
-        # loss.backward()
-        # print("gate grad: ",model.llama.layers[0].attention.gate.grad)
         if (data_iter_step + 1) % accum_iter == 0:
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            # optimizer.step()
             optimizer.zero_grad()    
 
         torch.cuda.synchronize()
 
         metric_logger.update(closs=loss_value)
-        # metric_logger.update(mloss=m_loss_value)
-
         lr = optimizer.param_groups[0]["lr"]
         metric_logger.update(lr=lr)
-
         loss_value_reduce = misc.all_reduce_mean(loss_value)
 
         if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
@@ -106,7 +89,6 @@ def train_one_epoch(model: LLamaAdapter,
             epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
             log_writer.add_scalar('llama_train_loss', loss_value_reduce, epoch_1000x)
             log_writer.add_scalar('lr', lr, epoch_1000x)
-
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
@@ -228,9 +210,6 @@ def main(args):
                             args.repairllama_lora_dir, args.repairllama_ckpt_dir, phase="finetune", 
                             max_batch_size=args.batch_size,
                             w_lora=args.w_lora, lora_rank=args.lora_rank)
-        # llama_tokenizer = model.llama_tokenizer
-        # repairllama_tokenizer = model.repairllama_tokenizer
-        # model.load_codellma_tuned(args.llama_trained_weight_dir)
         model.to(device)
 
         model_without_ddp = model.llama
@@ -271,9 +250,7 @@ def main(args):
         print(dataset_train)
         num_tasks = misc.get_world_size()
         global_rank = misc.get_rank()
-        # sampler_train = torch.utils.data.DistributedSampler(
-        #     dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, 
-        # )
+        
         sampler_train = CustomDistributedSampler(
             dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True # false for testing
         )
