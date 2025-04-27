@@ -272,38 +272,7 @@ class Attention(nn.Module):
         if adapter is not None:
             if adapter_len > 1:
                 logits = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
-                # logits = torch.clamp(logits, min=-100, max=100)
-                # logits = logits - logits.max(dim=-1, keepdim=True)[0]
-                # print(f"Logits - min: {logits.min().item()}, max: {logits.max().item()}, mean: {logits.mean().item()}")
-                # print_tensor_stats(logits, "logits")
-                adapter_scores = self.gate.tanh()*F.softmax(logits.float(), dim=-1).type_as(xq)                
-                # Just before the multiplication in adapter branch:
-
-                # gate_tanh = self.gate.tanh()
-                # print_tensor_stats(gate_tanh, "tanh(gate)")
-                # print_tensor_stats(adapter_scores, "adapter_scores")
-
-                # Add debugging checks before the multiplication
-                # assert not torch.isnan(self.gate.tanh()).any(), "NaN in gate values"
-                # assert not torch.isnan(adapter_scores).any(), "NaN in adapter_scores"
-                # print(f"self.gate shape: {self.gate.shape}")
-                # print(f"self.gate min: {self.gate.min().item()}, max: {self.gate.max().item()}, mean: {self.gate.mean().item()}")
-                # print(f"self.gate contains NaN: {torch.isnan(self.gate).any().item()}")
-
-                # print(f"adapter_scores shape: {adapter_scores.shape}")
-                # print(f"adapter_scores min: {adapter_scores.min().item()}, max: {adapter_scores.max().item()}, mean: {adapter_scores.mean().item()}")
-                # print(f"adapter_scores contains NaN: {torch.isnan(adapter_scores).any().item()}")
-                # gate_tanh = torch.clamp(self.gate.tanh(), min=-1e-3, max=1e-3)
-                # adapter_scores = torch.clamp(adapter_scores, min=1e-7)
-                # adapter_scores = gate_tanh * adapter_scores
-
-
-                # adapter_scores = gate_tanh * adapter_scores
-                # print(adapter_scores.type(), "adapter scores 3")
-                # adapter_scores.mul_(self.gate.tanh())
-                # adapter_scores.clamp_(min=1e-7)
-                # check_tensor_abnormalities(adapter_scores, "final_adapter_scores")
-
+                adapter_scores = self.gate.tanh()*F.softmax(logits.float(), dim=-1).type_as(xq)
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
                 output = output + self.gate.tanh() * adapter_v

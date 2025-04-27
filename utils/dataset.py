@@ -13,22 +13,22 @@ AutoTokenizer,
 class DatasetArgs:
     repairllama_max_input_len: int = 1024
     repairllama_max_output_len: int = 512 # no need for training 
-    codellama_max_input_len: int = 256
-    codellama_max_output_len: int = 256 # no need for training
+    llama_max_input_len: int = 256
+    llama_max_output_len: int = 256 # no need for training
 
     dataframe_path :str = ""
 
 
 class FinetuneDataset(Dataset):
-    def __init__(self, codellama_tokenizer, repairllama_tokenizer, args:DatasetArgs):
+    def __init__(self, llama_tokenizer, repairllama_tokenizer, args:DatasetArgs):
         print(f"read dataset  from {args.dataframe_path}")
         self.data = pd.read_csv(args.dataframe_path)  # Load DataFrame from CSV file
-        self.codellama_tokenizer = codellama_tokenizer
+        self.llama_tokenizer = llama_tokenizer
         self.repairllama_tokenizer = repairllama_tokenizer
         self.repairllama_max_input_len = args.repairllama_max_input_len
         self.repairllama_max_output_len = args.repairllama_max_output_len
-        self.codellama_max_input_len = args.codellama_max_input_len
-        self.codellama_pad_id = codellama_tokenizer.pad_id
+        self.llama_max_input_len = args.llama_max_input_len
+        self.llama_pad_id = llama_tokenizer.pad_id
         # self.repairllama_pad_id = repairllama_tokenizer.pad_token_id
 
         required_columns = ['buggy_code', 'fixed_code', 'gpt_explanation']
@@ -60,13 +60,13 @@ class FinetuneDataset(Dataset):
         try:
             row = self.data.iloc[index]
             messages = row['messages']
-            formatted_chat = self.codellama_tokenizer.apply_chat_template(
+            formatted_chat = self.llama_tokenizer.apply_chat_template(
                 messages,
                 tokenize=False,
                 add_generation_prompt=True
             )
                 # Tokenize entire sequence
-            tokenized = self.codellama_tokenizer(
+            tokenized = self.llama_tokenizer(
                 formatted_chat,
                 max_length=self.max_seq_len,
                 padding="max_length",
@@ -112,21 +112,21 @@ class FinetuneDataset(Dataset):
             # repairllama_label_ids = repairllama_label_encoding['input_ids'].squeeze(0)
             # repairllama_input_ids =  torch.flatten(self.repairllama_tokenizer.encode(buggy_code, return_tensors='pt'))
             # repairllama_label_ids = torch.flatten(self.repairllama_tokenizer.encode(fixed_code, return_tensors='pt'))
-            codellama_input_ids = torch.tensor(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
+            llama_input_ids = torch.tensor(self.llama_tokenizer.encode(explanation, bos=True, eos=False))
 
             # repairllama_input_ids = self.__get_padding__(repairllama_input_ids, self.repairllama_pad_id, self.repairllama_max_input_len)
             # repairllama_label_ids = self.__get_padding__(repairllama_label_ids, self.repairllama_pad_id, self.repairllama_max_output_len)
-            codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_pad_id, self.codellama_max_input_len)
+            llama_input_ids = self.__get_padding__(llama_input_ids, self.llama_pad_id, self.llama_max_input_len)
 
-            codellama_label_ids = copy.deepcopy(codellama_input_ids)
-            codellama_input_ids_mask  = codellama_input_ids.ge(0) # just for keep functions work for now - no need !
-            # codellama_label_mask = codellama_label_ids.ge(0)
-            # codellama_input_ids[~codellama_input_ids_mask] = 0
-            # codellama_label_ids[~codellama_label_mask] = 0
+            llama_label_ids = copy.deepcopy(llama_input_ids)
+            llama_input_ids_mask  = llama_input_ids.ge(0) # just for keep functions work for now - no need !
+            # codellama_label_mask = llama_label_ids.ge(0)
+            # llama_input_ids[~llama_input_ids_mask] = 0
+            # llama_label_ids[~codellama_label_mask] = 0
             # codellama_label_mask = codellama_label_mask.float()
-            # codellama_input_ids_mask = codellama_input_ids_mask.float()
+            # llama_input_ids_mask = llama_input_ids_mask.float()
 
-            return repairllama_input_ids, codellama_input_ids, codellama_label_ids, codellama_input_ids_mask
+            return repairllama_input_ids, llama_input_ids, llama_label_ids, llama_input_ids_mask
         
         except Exception as e:
             # Catch and log any exceptions

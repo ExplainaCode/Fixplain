@@ -52,7 +52,7 @@ def train_one_epoch(model: LLamaAdapter,
         print('log_dir: {}'.format(log_writer.log_dir))
     # optimizer.zero_grad()
     for data_iter_step, (
-            reapirllama_examples, codellama_examples, codellama_labels, codellama_mask) in enumerate(
+            reapirllama_examples, llama_examples, llama_labels, llama_mask) in enumerate(
                 metric_logger.log_every(data_loader, print_freq, header)
             ):
 
@@ -63,8 +63,8 @@ def train_one_epoch(model: LLamaAdapter,
         with torch.amp.autocast("cuda"):
             loss = model(
                 repairllama_input_ids=reapirllama_examples, 
-                codellama_input_ids=codellama_examples,
-                codellama_labels=codellama_labels,
+                llama_input_ids=llama_examples,
+                llama_labels=llama_labels,
             )
         # break # for testing
 
@@ -83,7 +83,7 @@ def train_one_epoch(model: LLamaAdapter,
                     update_grad=(data_iter_step + 1) % accum_iter == 0)
 
         # loss.backward()
-        # print("gate grad: ",model.codellama.layers[0].attention.gate.grad)
+        # print("gate grad: ",model.llama.layers[0].attention.gate.grad)
         if (data_iter_step + 1) % accum_iter == 0:
             # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             # optimizer.step()
@@ -104,7 +104,7 @@ def train_one_epoch(model: LLamaAdapter,
             This calibrates different curves when batch size changes.
             """
             epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
-            log_writer.add_scalar('codellama_train_loss', loss_value_reduce, epoch_1000x)
+            log_writer.add_scalar('llama_train_loss', loss_value_reduce, epoch_1000x)
             log_writer.add_scalar('lr', lr, epoch_1000x)
 
 
@@ -125,10 +125,10 @@ def get_args_parser():
                         help='This only apply if the w_lora parameter is "True"')
 
     # Model parameters
-    parser.add_argument('--codellama_ckpt_dir', default='/path/to/codellama', type=str,
-                        help='path to CodeLLaMA pretrained checkpoint')
-    parser.add_argument('--codellama_tokenizer_ckpt_dir', default='/path/to/codellama_tokenizer', type=str,
-                        help='path to CodeLLaMA Tokenizer pretrained checkpoint')
+    parser.add_argument('--llama_ckpt_dir', default='/path/to/llama', type=str,
+                        help='path to LLaMA pretrained checkpoint')
+    parser.add_argument('--llama_tokenizer_ckpt_dir', default='/path/to/llama_tokenizer', type=str,
+                        help='path to LLaMA Tokenizer pretrained checkpoint')
     parser.add_argument('--repairllama_lora_dir', default='/path/to/repairllama_lora', type=str,
                         help='path to RepairLLaMA-Lora pretrained checkpoint')
     parser.add_argument('--repairllama_ckpt_dir', default='/path/to/repairllama', type=str,
@@ -137,8 +137,8 @@ def get_args_parser():
                         help='path to checkpoint from pretrain stage')
     parser.add_argument('--repairllama_max_input_len', default=1024, type=int,
                         help='max number of input words(embeddings) in repairllama')
-    parser.add_argument('--codellama_max_input_len', default=256, type=int,
-                        help='max number of input words(embeddings) in codellama')
+    parser.add_argument('--llama_max_input_len', default=256, type=int,
+                        help='max number of input words(embeddings) in llama')
     parser.add_argument('--data_path', default='/path/to/dataset', type=str,
                         help='path to dataset')
 
@@ -187,7 +187,7 @@ def get_args_parser():
                         help='url used to set up distributed training')
     parser.add_argument('--saving_frequency', default=10, type=int,
                         help='model checkpont saving frequency (after how many epocs the model should be saved)')
-    parser.add_argument('--codellama_trained_weight_dir' ,default="", type=str,
+    parser.add_argument('--llama_trained_weight_dir' ,default="", type=str,
                         help='this is for testing')
 
     return parser
@@ -224,16 +224,16 @@ def main(args):
         cudnn.benchmark = True
 
         # define the model
-        model = LLamaAdapter(args.codellama_ckpt_dir, args.codellama_tokenizer_ckpt_dir,
+        model = LLamaAdapter(args.llama_ckpt_dir, args.llama_tokenizer_ckpt_dir,
                             args.repairllama_lora_dir, args.repairllama_ckpt_dir, phase="finetune", 
                             max_batch_size=args.batch_size,
                             w_lora=args.w_lora, lora_rank=args.lora_rank)
-        # codellama_tokenizer = model.codellama_tokenizer
+        # llama_tokenizer = model.llama_tokenizer
         # repairllama_tokenizer = model.repairllama_tokenizer
-        # model.load_codellma_tuned(args.codellama_trained_weight_dir)
+        # model.load_codellma_tuned(args.llama_trained_weight_dir)
         model.to(device)
 
-        model_without_ddp = model.codellama
+        model_without_ddp = model.llama
         print("Model = %s" % str(model_without_ddp))
 
         # print("Trainable Params:")
@@ -264,10 +264,10 @@ def main(args):
         # misc.load_model(model_without_ddp, args.pretrained_path)
 
         dataset_args = DatasetArgs(dataframe_path = args.data_path, 
-                                codellama_max_input_len = args.codellama_max_input_len,
+                                llama_max_input_len = args.llama_max_input_len,
                                 repairllama_max_input_len = args.repairllama_max_input_len)
 
-        dataset_train = FinetuneDataset(model.codellama_tokenizer, model.repairllama_tokenizer, dataset_args)
+        dataset_train = FinetuneDataset(model.llama_tokenizer, model.repairllama_tokenizer, dataset_args)
         print(dataset_train)
         num_tasks = misc.get_world_size()
         global_rank = misc.get_rank()
@@ -315,7 +315,7 @@ def main(args):
 
             if args.output_dir and (epoch + 1 == args.epochs or epoch%1==0): #epoch % 10 == 0 or epoch + 1 == args.epochs
                 misc.save_model(
-                    args=args, model=model.codellama, model_without_ddp=model_without_ddp, optimizer=optimizer,
+                    args=args, model=model.llama, model_without_ddp=model_without_ddp, optimizer=optimizer,
                     loss_scaler=loss_scaler, epoch=epoch)
 
             log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
