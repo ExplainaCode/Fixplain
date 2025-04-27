@@ -73,7 +73,7 @@ def main(args):
             # print("llama_input_ids", llama_input_ids)
             
             # Generate outputs for the current input
-            repairllama_outputs, llama_outputs = llama_adapter.generate_2(
+            repairllama_outputs, llama_outputs = llama_adapter.generate(
                 repairllama_input_ids=[repair_input],  # Process single input at a time
                 llama_input_ids=llama_input_ids
             )

@@ -4,23 +4,20 @@ import os
 import time
 import json
 from pathlib import Path
+from peft import PeftModel
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+    BitsAndBytesConfig,
+)
+import inspect
 import warnings
 
 from .llama.model import ModelArgs, Transformer
 from .llama.tokenizer import Tokenizer
 from .adapter_utils import sample_top_p
-from peft import PeftModel
-from transformers import (
-AutoTokenizer,
-AutoModelForCausalLM,
-GenerationConfig,
-HfArgumentParser,
-BitsAndBytesConfig,
-)
-import inspect
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-import inspect
 
 def debug_info(message:str = None):
     frame = inspect.currentframe().f_back
@@ -75,14 +72,11 @@ class LLamaAdapter(nn.Module):
             **params
         )
         start_time = time.time()
-        tokenizer = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct")
+        tokenizer = Tokenizer(model_path=llama_tokenizer)
         assert model_args.vocab_size == tokenizer.n_words
         tokenizer.pad_id = tokenizer.eos_id
         model_args.vocab_size = tokenizer.n_words
         
-        # if torch.cuda.is_bf16_supported():
-            # torch.set_default_tensor_type(torch.cuda.BFloat16Tensor)
-        # else:
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         llama = Transformer(model_args)
 
@@ -153,16 +147,6 @@ class LLamaAdapter(nn.Module):
         ckpt = ckpt["model"] 
         missing_keys, unexpected_keys = self.llama.load_state_dict(ckpt, strict=False)
 
-        # debug_info("____________________in trained weights loading___________________")
-        # print(f"Checkpoint: {ckpt_path}")
-        # print("Expected Keys (Model Parameters):", set(self.llama.state_dict().keys()))
-        # debug_info("_______________________________________")
-        # print("Missing Keys (not updated):", missing_keys)
-        # debug_info("_______________________________________")
-        # print("Unexpected Keys (not in model):", unexpected_keys)
-        # debug_info("-" * 20)
-
-
     def _hook_fn(self, module, input, output):
         """
         Hook function to capture inputs of attention layers.
@@ -171,12 +155,6 @@ class LLamaAdapter(nn.Module):
         self.attention_hooks_data[layer_id] = { # {0:{"input": (x, )}}
             "input": input[0].detach(),
         }
-        # if (layer_id==0):
-        #     print("__________")
-        #     print(self.attention_hooks_data[0])
-        #     print(self.attention_hooks_data[0].get('input').shape)
-        #     exit(0)
-        
 
     def set_trainale_params(self, phase='inference'):
         for name, para in self.named_parameters():
@@ -188,8 +166,6 @@ class LLamaAdapter(nn.Module):
                 if any(keyword in name for keyword in target_keywords):
                     # para.data = para.data.float()
                     para.requires_grad = True
-
-                    # debug_info("-"*20 + "Trainable parameters" + "-"*20)
                     # print(f"Parameter: {name}, dtype: {para.dtype}")
         
         elif phase == 'inference':
@@ -209,36 +185,21 @@ class LLamaAdapter(nn.Module):
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
-        # print("repairllama_h dtype:", repairllama_h.dtype)
-        # print(repairllama_h.shape)
-        # print(repairllama_h)
-        # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
-        # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
         repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
         # print("repairllama_mask:", repairllama_mask.dtype)
 
-
         # llama configuration before forward pass # This is redundent if works movw to a function or something...
         _bsz, llama_seqlen = llama_input_ids.shape
-        # debug_info(llama_input_ids.shape)
-        # print(llama_input_ids)
         llama_h = self.llama.tok_embeddings(llama_input_ids)
-        # print("llama_h dtype:", llama_h.dtype)
-
-        # debug_info("llama h")
-        # print(llama_h)
         llama_freq_cis = self.llama.freqs_cis.to(llama_h.device)
 
         llama_freq_cis = llama_freq_cis[:llama_seqlen]
         llama_mask = None
         llama_mask = torch.full((1, 1, llama_seqlen, llama_seqlen), float("-inf"), device=llama_h.device)
         llama_mask = torch.triu(llama_mask, diagonal=0 + 1).type_as(repairllama_h)
-        # print("llama_freq_cis dtype:", llama_freq_cis.dtype)
-        # print("llama_mask dtype:", llama_mask.dtype)
-        # print(llama_mask)
 
         assert self.repairllama.config.num_hidden_layers==self.llama.config['num_hidden_layers']
         n_layers = self.repairllama.config.num_hidden_layers
@@ -253,37 +214,15 @@ class LLamaAdapter(nn.Module):
             dynamic_adapter = dynamic_adapter.to(dtype=llama_h.dtype)
             if torch.isnan(dynamic_adapter).any() or torch.isinf(dynamic_adapter).any():
                 warnings.warn("dynamic adapter contains NaN or inf values.___________0", i)
-            # del self.attention_hooks_data[i]
+
             self.attention_hooks_data[i] = None
             llama_h = self.llama.layers[i](llama_h, 0, llama_freq_cis, llama_mask, dynamic_adapter)
             if torch.isnan(llama_h).any() or torch.isinf(llama_h).any():
                 warnings.warn("llama_h contains NaN or inf values.___________0", i)
-        # self.attention_hooks_data={}
-        # print("second repairllama_h dtype:", repairllama_h.dtype)
-
-        # Processing RepairLLama output
-        # repairllama_h = self.repairllama.model.model.norm(repairllama_h) # Why do even need this line?
-        # repairllama_output = self.repairllama.model.lm_head(repairllama_h[:, -1, :]) # Why do even need this line?
-        # repairllama_output = repairllama_output[:, :-1, :]
-        # repairllama_labels = repairllama_labels[:, 1:]
-
-        # if repairllama_labels.sum() == 0:
-        #     reapirllama_c_loss = repairllama_output.mean() * 0
-        # else:
-        #     assert self.repairllama.vocab_size == 32000
-        #     reapirllama_c_loss = self.criterion(repairllama_output.reshape(-1, self.repairllama.vocab_size), repairllama_labels.flatten())
 
         # Processing LLama output
-
         llama_h = self.llama.norm(llama_h)
-        # debug_info("after normalization")
-        # print(llama_h)
         llama_output = self.llama.output(llama_h)
-        # debug_info("after output layer")
-        # print(llama_output.float())
-    
-        # next_llama_token = torch.argmax(llama_output[:, 0:1, :], dim=-1)
-        # print(next_llama_token)
         llama_output = llama_output[:, :-1, :]
         llama_labels = llama_labels[:, 1:]
 
@@ -293,8 +232,6 @@ class LLamaAdapter(nn.Module):
         else:
             assert self.llama.vocab_size == self.llama_tokenizer.n_words #Do we need this line?, in load llama this is set
             llama_c_loss = self.criterion(llama_output.reshape(-1, self.llama.vocab_size), llama_labels.flatten())
-        # print("llama_output shape:", llama_output.shape)
-        # print("llama_labels shape:", llama_labels.shape)
 
         # ______________________________Testing____________________________
         if self.test_var <= 1:
@@ -344,11 +281,7 @@ class LLamaAdapter(nn.Module):
         llama_input_ids=llama_input_ids.to(device)
 
         _bsz, llama_seqlen = llama_input_ids.shape
-        # debug_info(llama_input_ids.shape)
-        # print(llama_input_ids)
         llama_h = self.llama.tok_embeddings(llama_input_ids)
-        # debug_info(llama_h.shape)
-        # print(llama_h)
         llama_freq_cis = self.llama.freqs_cis.to(llama_h.device)
         llama_freq_cis = self.llama.freqs_cis[llama_start_pos : llama_start_pos + llama_seqlen]
 
@@ -365,24 +298,12 @@ class LLamaAdapter(nn.Module):
         for i in range(n_layers):
             dynamic_adapter  = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
             llama_h = self.llama.layers[i](llama_h, llama_start_pos, llama_freq_cis, llama_mask, dynamic_adapter)
-            # if n_layers==31:
-            #     debug_info(f"{i}")
-            #     print(llama_h)
 
         llama_h = self.llama.norm(llama_h)
-        # debug_info("after norm")
-        # print(llama_h)
         llama_output = self.llama.output(llama_h).float()
-        # debug_info("llama output")
-        # print(llama_output)
         token_ids = llama_output[0].argmax(dim=-1).tolist()  # Get token IDs
-        # token_ids=[token_ids]
         decoded_text = self.llama_tokenizer.decode(token_ids)
-        # debug_info(decoded_text)
         next_llama_token = torch.argmax(llama_output[:, -1], dim=-1)
-        # debug_info("true decoding")
-        # print(next_llama_token)
-        # print(self.llama_tokenizer.decode(next_llama_token.tolist()))
         return llama_output
 
     @torch.inference_mode()
@@ -394,20 +315,11 @@ class LLamaAdapter(nn.Module):
 
         if pad_len > 0:
             repairllama_input_ids = F.pad(repairllama_input_ids, (pad_len, 0))
-        # debug_info("____________________________________")
-        # print(repairllama_input_ids)
-        # print(repairllama_input_ids.shape)
+
         repairllama_input_ids=repairllama_input_ids.to(device)
         _bsz, repairllama_seqlen = repairllama_input_ids[0].shape
 
-        # debug_info(repairllama_input_ids[0].shape)
-        # print(repairllama_input_ids[0])
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids[0]) # apass through embedding layer
-        # debug_info(repairllama_h.shape)
-        # print(repairllama_h)
-
-        # repairllama_freqs_cis = self.repairllama.freqs_cis.to(repairllama_h.device) 
-        # repairllama_freqs_cis = repairllama_freqs_cis[:repairllama_seqlen]
         repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
         repairllama_mask = None
         repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
@@ -423,10 +335,6 @@ class LLamaAdapter(nn.Module):
                    max_gen_len: int=256, max_llama_gen_len: int=125, temperature: float=0.1,
                    top_p:  float=0.75):
         bsz = len(repairllama_input_ids)
-        # debug_info("llama actual input decoded")
-        # print(self.llama_tokenizer.decode(llama_input_ids))
-        # llama_input_copy = llama_input_ids[:1]
-        # llama_input_ids=None
         if llama_input_ids==None:
             llama_input_ids = [
                 torch.full((1, 1), fill_value=self.llama_tokenizer.bos_id, dtype=torch.long)
@@ -484,18 +392,9 @@ class LLamaAdapter(nn.Module):
                 input_llama_text_mask[:, cur_pos], llama_tokens[:, cur_pos], next_llama_token
             )
 
-            # if len(llama_input_copy)>cur_pos:
-            #     llama_tokens[:, cur_pos] = llama_input_copy[cur_pos]
-            # else:
             llama_tokens[:, cur_pos] = next_llama_token
                 
-            # prev_pos = cur_pos    
-            # if i>3:                  #----------for deugging
-            #     break # for debugging
-            # i+=1
-            # print("___________________________")
         self.attention_hooks_data ={} # free the memory
-        # print("llama_tokens: ",  llama_tokens)
         llama_decoded = []
         for i, t in enumerate(llama_tokens.tolist()):
 
