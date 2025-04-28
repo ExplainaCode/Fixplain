@@ -339,15 +339,6 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
     # Extract only updated (trainable and changed) parameters
     trainable_state_dict = {name: param for name, param in model_without_ddp.named_parameters() 
                             if param.requires_grad } #and param.grad is not None
-
-    # print("_______________trainable_state_dict_______________")
-    # print(trainable_state_dict.keys())
-
-    # print("Inside Save Keys in trainable_state_dict:")
-    # for name, param in model_without_ddp.named_parameters():
-    #     if param.requires_grad:
-    #         print(name, param.grad, param)
-    #         break
         
     # Prepare the checkpoint dictionary
     checkpoint = {

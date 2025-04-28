@@ -80,21 +80,11 @@ class LLamaAdapter(nn.Module):
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         llama = Transformer(model_args)
 
-        # Print data type of model parameters
-        # for name, param in llama.named_parameters():
-        #     print(f"Parameter: {name}, dtype: {param.dtype}")
         ckpts = sorted(Path(llama_ckpt_dir).glob("*.pth"))
         for ckpt_path in ckpts:
             ckpt = torch.load(ckpt_path, map_location="cpu")
             missing_keys, unexpected_keys = llama.load_state_dict(ckpt, strict=False)
 
-            # debug_info("_"*20)
-            # print("Missing Keys (not updated):", missing_keys)
-            # print("Unexpected Keys (not in model):", unexpected_keys)
-            # debug_info("_"*20)
-                
-        # for name, param in llama.state_dict().items():
-        #     print(f"Parameter: {name}, dtype: {param.dtype}")
         print(f"Loaded in {time.time() - start_time:.2f} seconds")
         return llama, tokenizer
 
