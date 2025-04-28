@@ -234,31 +234,17 @@ class LLamaAdapter(nn.Module):
             llama_c_loss = self.criterion(llama_output.reshape(-1, self.llama.vocab_size), llama_labels.flatten())
 
         # ______________________________Testing____________________________
-        if self.test_var <= 1:
-            # print("llama output shape: ", llama_output.shape)
-            # print("llama labels shape: ", llama_labels.shape)
-            # print("llama input ids: ", llama_input_ids)
+        if self.test_var%100 == 0:
             llama_input = self.llama_tokenizer.decode(llama_input_ids[0].tolist())
-            # print("llama input ids (for 0 th example in the atch): ", self.llama_tokenizer.decode(llama_input_ids[0].tolist()))
-            # print("llama_output (for 0 th output): ",  llama_output[0])
             token_ids = llama_output[0].argmax(dim=-1).tolist()  # Get token IDs
             decoded_text = self.llama_tokenizer.decode(token_ids) 
-            # llama_decoded = []
-            # for i, t in enumerate(llama_output[0].tolist()):
-            #     # cut to max gen len
-            #     # t = t[len(llama_input_ids[i]): len(llama_input_ids[i]) + max_gen_len]
-            #     # cut to eos tok if any
-            #     try:
-            #         t = t[: t.index(self.llama_tokenizer.eos_id)]
-            #     except ValueError:
-            #         pass
-            #     llama_decoded.append(self.llama_tokenizer.decode(t))
-
-            # print("llama_decoded: " , llama_decoded)
-            print ("llama decoded: ", decoded_text)
-            csv_file = "llama_results.csv"
-            write_header = not os.path.exists(csv_file)
+            print("codellama labels: ", llama_input)
+            # # print("loss_weight_mask: ", loss_weight_mask)
+            print ("codellama decoded: ", decoded_text)
+            print(f"""Gate max: {self.llama.layers[0].attention.gate.max().item():.6f}, 
+                  min: {self.llama.layers[0].attention.gate.min().item():.6f}""")
             
+            csv_file = "llama_results.csv"
             with open(csv_file, mode="a", newline="", encoding="utf-8") as file:
                 import csv
                 writer = csv.writer(file)
