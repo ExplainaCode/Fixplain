@@ -206,10 +206,18 @@ def main(args):
         cudnn.benchmark = True
 
         # define the model
-        model = LLamaAdapter(args.llama_ckpt_dir, args.llama_tokenizer_ckpt_dir,
-                            args.repairllama_lora_dir, args.repairllama_ckpt_dir, phase="finetune", 
-                            max_batch_size=args.batch_size,
-                            w_lora=args.w_lora, lora_rank=args.lora_rank)
+        model = LLamaAdapter(
+            llama_ckpt_dir=args.llama_ckpt_dir, 
+            llama_tokenizer=args.llama_tokenizer_ckpt_dir,
+            repairllama_lora_dir=args.repairllama_lora_dir, 
+            repairllama_model_dir=args.repairllama_ckpt_dir, 
+            w_lora=args.w_lora, 
+            lora_rank=args.lora_rank,
+            phase="finetune", 
+            max_batch_size=args.batch_size,
+            repairllama_max_seq_len=args.repairllama_max_input_len,
+            llama_max_seq_len=args.llama_max_input_len
+        )
         model.to(device)
 
         model_without_ddp = model.llama
@@ -242,11 +250,7 @@ def main(args):
 
         # misc.load_model(model_without_ddp, args.pretrained_path)
 
-        dataset_args = DatasetArgs(dataframe_path = args.data_path, 
-                                llama_max_input_len = args.llama_max_input_len,
-                                repairllama_max_input_len = args.repairllama_max_input_len)
-
-        dataset_train = FinetuneDataset(model.llama_tokenizer, model.repairllama_tokenizer, dataset_args)
+        dataset_train = FinetuneDataset(model=model, dataframe_path=args.data_path)
         print(dataset_train)
         num_tasks = misc.get_world_size()
         global_rank = misc.get_rank()
@@ -279,10 +283,6 @@ def main(args):
             if args.distributed:
                 data_loader_train.sampler.set_epoch(epoch)
 
-            if (epoch==args.epochs-1 or epoch%1==0):
-                model.test_var=0
-            else:
-                model.test_var=1000
             train_stats = train_one_epoch(
                 model, data_loader_train,
                 optimizer, device, epoch, loss_scaler,

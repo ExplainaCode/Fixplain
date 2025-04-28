@@ -5,30 +5,17 @@ from torch.utils.data import Dataset
 import copy
 import pandas as pd
 from dataclasses import dataclass
-from transformers import (
-AutoTokenizer,
-)
-
-@dataclass
-class DatasetArgs:
-    repairllama_max_input_len: int = 1024
-    repairllama_max_output_len: int = 512 # no need for training 
-    llama_max_input_len: int = 256
-    llama_max_output_len: int = 256 # no need for training
-
-    dataframe_path :str = ""
-
+from ..adapter import LLamaAdapter
 
 class FinetuneDataset(Dataset):
-    def __init__(self, llama_tokenizer, repairllama_tokenizer, args:DatasetArgs):
-        print(f"read dataset  from {args.dataframe_path}")
-        self.data = pd.read_csv(args.dataframe_path)  # Load DataFrame from CSV file
-        self.llama_tokenizer = llama_tokenizer
-        self.repairllama_tokenizer = repairllama_tokenizer
-        self.repairllama_max_input_len = args.repairllama_max_input_len
-        self.repairllama_max_output_len = args.repairllama_max_output_len
-        self.llama_max_input_len = args.llama_max_input_len
-        self.llama_pad_id = llama_tokenizer.pad_id
+    def __init__(self, model:LLamaAdapter, dataframe_path:str):
+        print(f"read dataset  from {dataframe_path}")
+        self.data = pd.read_csv(dataframe_path)  # Load DataFrame from CSV file
+        self.llama_tokenizer = model.llama_tokenizer
+        self.repairllama_tokenizer = model.repairllama_tokenizer
+        self.repairllama_max_input_len = model.llama_max_seq_len
+        self.llama_max_input_len = model.llama_max_seq_len
+        self.llama_pad_id = model.llama_tokenizer.pad_id
         # self.repairllama_pad_id = repairllama_tokenizer.pad_token_id
 
         required_columns = ['buggy_code', 'fixed_code', 'gpt_explanation']

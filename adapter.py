@@ -27,12 +27,15 @@ def debug_info(message:str = None):
 
 class LLamaAdapter(nn.Module):
     def __init__(self,
-                 llama_ckpt_dir, llama_tokenizer,
-                 repairllama_lora_dir='./repairllama-lora', repairllama_model_dir="codellama/CodeLlama-7b-hf",
-                 max_seq_len=512, max_batch_size=2,
-                 w_bias=False,
-                 w_lora=False, lora_rank=16, 
-                 phase="inference",):
+        llama_ckpt_dir, llama_tokenizer,
+        repairllama_lora_dir='./repairllama-lora', repairllama_model_dir="codellama/CodeLlama-7b-hf",
+        max_batch_size=2,
+        w_bias=False,
+        w_lora=False, lora_rank=16, 
+        phase="inference",
+        repairllama_max_seq_len=1024,
+        llama_max_seq_len=256,
+    ):
         super().__init__()
         self.attention_hooks_data = {}
 
@@ -42,7 +45,7 @@ class LLamaAdapter(nn.Module):
         # print("repairllama is loaded... llama is about to load....")
 
         self.llama, self.llama_tokenizer = self._load_llama(
-            llama_ckpt_dir, max_seq_len,
+            llama_ckpt_dir, llama_max_seq_len,
             max_batch_size, llama_tokenizer,
             w_lora, lora_rank)
         
@@ -51,6 +54,8 @@ class LLamaAdapter(nn.Module):
         self.set_trainale_params(self.phase)
 
         self.test_var = 0
+        self.repairllama_max_seq_len = repairllama_max_seq_len
+        self.llama_max_seq_len = llama_max_seq_len
 
     def _load_llama(
             self, llama_ckpt_dir, 
