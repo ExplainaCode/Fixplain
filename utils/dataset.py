@@ -18,14 +18,16 @@ class FinetuneDataset(Dataset):
         self.llama_pad_id = model.llama_tokenizer.pad_id
         # self.repairllama_pad_id = repairllama_tokenizer.pad_token_id
 
-        required_columns = ['buggy_code', 'fixed_code', 'gpt_explanation']
+        if 'fixed_code' in self.data.columns:
+            self.data = self.data.drop(columns=['fixed_code'])
+
+        required_columns = ['buggy_code', 'gpt_explanation']
         if not all(col in self.data.columns for col in required_columns):
             raise ValueError(f"DataFrame must contain the following columns: {', '.join(required_columns)}")
         
-        # this is for testing since fixed code does  not matter in finetuning.
-        self.data['fixed_code'] = self.data['fixed_code'].fillna(" ") # remoe this if want
+        self.data = self.data.dropna()
 
-        if (self.data[['buggy_code', 'fixed_code', 'gpt_explanation']].isnull().any().any()):
+        if (self.data[['buggy_code', 'gpt_explanation']].isnull().any().any()):
             raise ValueError(f"Dataframe contains 'null' values")
 
     def __len__(self):

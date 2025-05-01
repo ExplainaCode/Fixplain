@@ -38,6 +38,7 @@ def train_one_epoch(model: LLamaAdapter,
     ## model.module.set_default_trainability()
 
     metric_logger = misc.MetricLogger(delimiter="  ")
+    metric_logger.add_meter('ss_rate', misc.SmoothedValue(window_size=10, fmt='{value:.3f}'))
     metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
     print_freq = 10
@@ -47,10 +48,24 @@ def train_one_epoch(model: LLamaAdapter,
     if log_writer is not None:
         print('log_dir: {}'.format(log_writer.log_dir))
     # optimizer.zero_grad()
+
+    steps_per_epoch = len(data_loader)
+    total_training_steps = args.epochs * steps_per_epoch
+
     for data_iter_step, (
             repairllama_examples, llama_examples, llama_labels, llama_mask) in enumerate(
                 metric_logger.log_every(data_loader, print_freq, header)
             ):
+
+        current_step = epoch * steps_per_epoch + data_iter_step
+        progress = current_step / total_training_steps
+
+        # Calculate sampling rate for this batch
+        if args.sched_sampling_type == 'linear':
+            current_rate = args.max_sampling_rate * progress
+        elif args.sched_sampling_type == 'cosine':
+            current_rate = args.max_sampling_rate * (1 - math.cos(math.pi * progress / 2))
+        current_rate = min(current_rate, args.max_sampling_rate)
 
         # we use a per iteration (instead of per epoch) lr scheduler
         if data_iter_step % accum_iter == 0:
@@ -61,6 +76,8 @@ def train_one_epoch(model: LLamaAdapter,
                 repairllama_input_ids=repairllama_examples, 
                 llama_input_ids=llama_examples,
                 llama_labels=llama_labels,
+                scheduled_sampling = args.scheduled_sampling,
+                sampling_rate=current_rate,
             )
 
         loss_value = loss.item()
@@ -77,6 +94,7 @@ def train_one_epoch(model: LLamaAdapter,
 
         torch.cuda.synchronize()
 
+        metric_logger.update(ss_rate=current_rate)
         metric_logger.update(closs=loss_value)
         lr = optimizer.param_groups[0]["lr"]
         metric_logger.update(lr=lr)
@@ -171,6 +189,13 @@ def get_args_parser():
                         help='model checkpont saving frequency (after how many epocs the model should be saved)')
     parser.add_argument('--llama_trained_weight_dir' ,default="", type=str,
                         help='this is for testing')
+    
+    parser.add_argument('--max_sampling_rate', type=float, default=0.5,
+                    help='Peak scheduled sampling probability')
+    parser.add_argument('--sched_sampling_type', type=str, default='cosine',
+                    choices=['linear', 'cosine'],
+                    help='Rate progression schedule')
+    parser.add_argument('--scheduled_sampling', type=bool, default=True)
 
     return parser
 
