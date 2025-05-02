@@ -58,13 +58,13 @@ class FinetuneDataset(Dataset):
             )
             repairllama_input_ids = repairllama_encoding['input_ids'].squeeze(0)  # [max_len]
 
-            codellama_input_ids = torch.tensor(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
-            codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_pad_id, self.codellama_max_input_len)
+            llama_input_ids = torch.tensor(self.llama_tokenizer.encode(explanation, bos=True, eos=False))
+            llama_input_ids = self.__get_padding__(llama_input_ids, self.llama_pad_id, self.llama_max_input_len)
 
-            codellama_label_ids = copy.deepcopy(codellama_input_ids)
-            codellama_input_ids_mask  = codellama_input_ids.ge(0) # just for keep functions work for now - no need !
+            llama_label_ids = copy.deepcopy(llama_input_ids)
+            llama_input_ids_mask  = llama_input_ids.ge(0) # just for keep functions work for now - no need !
 
-            return repairllama_input_ids, codellama_input_ids, codellama_label_ids, codellama_input_ids_mask
+            return repairllama_input_ids, llama_input_ids, llama_label_ids, llama_input_ids_mask
         
         except Exception as e:
             # Catch and log any exceptions
