@@ -215,7 +215,7 @@ class LLamaAdapter(nn.Module):
             repairllama_h.shape[:2], repairllama_h.dtype, repairllama_h.device
         )
 
-        for i in range(self.llama.config.num_hidden_layers):
+        for i in range(self.llama.config['num_hidden_layers']):
             # RepairLlama layer
             repairllama_h = self.repairllama.model.model.layers[i](
                 repairllama_h, repairllama_mask, repairllama_position_ids
