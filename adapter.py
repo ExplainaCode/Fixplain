@@ -173,7 +173,7 @@ class LLamaAdapter(nn.Module):
     def fwd_llama(self, llama_input_ids):
         # Ensure inputs are on the correct device (assuming model is already on device)
         # repairllama_input_ids = repairllama_input_ids.to(self.device)
-        llama_input_ids = llama_input_ids.to(self.device)
+        # llama_input_ids = llama_input_ids.to(self.device)
 
         # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
         _bsz, llama_seqlen = llama_input_ids.shape
@@ -211,7 +211,7 @@ class LLamaAdapter(nn.Module):
         return llama_output
     
     def fwd_repairllama(self, repairllama_input_ids):
-        repairllama_input_ids=repairllama_input_ids.to(device)
+        # repairllama_input_ids=repairllama_input_ids.to(device)
         _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
@@ -234,6 +234,9 @@ class LLamaAdapter(nn.Module):
     def forward(self, repairllama_input_ids, llama_input_ids, llama_labels, 
                 scheduled_sampling=False, sampling_rate=0.5):
         
+        llama_input_ids = llama_input_ids.to(self.device)
+        repairllama_input_ids  =repairllama_input_ids.to(self.device)
+        llama_labels = llama_labels.to(self.device)
         with torch.no_grad():
             self.fwd_repairllama(repairllama_input_ids=repairllama_input_ids)
         # Scheduled sampling decision
