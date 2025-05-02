@@ -185,7 +185,7 @@ class LLamaAdapter(nn.Module):
             llama_h.shape[:2], llama_h.dtype, llama_h.device
         )
 
-        for i in range(self.llama.config.num_hidden_layers):
+        for i in range(self.llama.config['num_hidden_layers']):
             # Dynamic adapter from hooks
             dynamic_adapter = self.attention_hooks_data[i].get('input').detach()
             dynamic_adapter = dynamic_adapter.to(llama_h.dtype)
