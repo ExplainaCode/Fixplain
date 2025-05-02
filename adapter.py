@@ -232,7 +232,7 @@ class LLamaAdapter(nn.Module):
             )
 
     def forward(self, repairllama_input_ids, llama_input_ids, llama_labels, 
-                scheduled_sampling=False, sampling_rate=0.5):
+                scheduled_sampling=True, sampling_rate=0.5):
         
         llama_input_ids = llama_input_ids.to(self.device)
         repairllama_input_ids  =repairllama_input_ids.to(self.device)
