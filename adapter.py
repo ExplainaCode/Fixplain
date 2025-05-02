@@ -39,7 +39,7 @@ class LLamaAdapter(nn.Module):
     ):
         super().__init__()
         self.attention_hooks_data = {}
-
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
             repairllama_model_dir, repairllama_lora_dir,
             register_Attention_hooks=True)

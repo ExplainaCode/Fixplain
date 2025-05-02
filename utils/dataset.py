@@ -70,4 +70,3 @@ class FinetuneDataset(Dataset):
             # Catch and log any exceptions
             print(f"Error processing index {index}: {e}")
             raise 
-
