@@ -43,6 +43,7 @@ def main(args):
     # repairllama_input_ids = torch.load(f"{args.repairllama_input_pth}",  map_location=torch.device('cpu'))
     df = pd.read_csv(args.repairllama_input_pth)
     repairllama_input = df["buggy_code"].tolist()
+    expected_llama_output = df["gpt_explanation"].tolist()
 
     llama_input_ids = torch.load(args.llama_input_pth) if args.llama_input_pth is not None else None # commente for testing
 
