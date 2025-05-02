@@ -65,6 +65,7 @@ def train_one_epoch(model: LLamaAdapter,
             current_rate = args.max_sampling_rate * progress
         elif args.sched_sampling_type == 'cosine':
             current_rate = args.max_sampling_rate * (1 - math.cos(math.pi * progress / 2))
+        current_rate = max(current_rate, args.min_sampling_rate)
         current_rate = min(current_rate, args.max_sampling_rate)
 
         # we use a per iteration (instead of per epoch) lr scheduler
@@ -192,6 +193,8 @@ def get_args_parser():
     
     parser.add_argument('--max_sampling_rate', type=float, default=0.5,
                     help='Peak scheduled sampling probability')
+    parser.add_argument('--min_sampling_rate', type=float, default=0.0,
+                    help='min scheduled sampling probability')
     parser.add_argument('--sched_sampling_type', type=str, default='cosine',
                     choices=['linear', 'cosine'],
                     help='Rate progression schedule')

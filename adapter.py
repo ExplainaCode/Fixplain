@@ -170,20 +170,13 @@ class LLamaAdapter(nn.Module):
         else:
             raise ValueError(f"Unknown model phase: {phase}")
 
-    def fwd_pass(self, repairllama_input_ids, llama_input_ids):
+    def fwd_llama(self, llama_input_ids):
         # Ensure inputs are on the correct device (assuming model is already on device)
-        repairllama_input_ids = repairllama_input_ids.to(self.device)
+        # repairllama_input_ids = repairllama_input_ids.to(self.device)
         llama_input_ids = llama_input_ids.to(self.device)
 
-        bsz, repairllama_seqlen = repairllama_input_ids.shape
-        _, llama_seqlen = llama_input_ids.shape
-
-        # Precompute common elements for repairllama
-        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
-        repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=self.device).unsqueeze(0).expand(bsz, -1)
-        repairllama_mask = self._prepare_decoder_attention_mask(
-            repairllama_h.shape[:2], repairllama_h.dtype, repairllama_h.device
-        )
+        # bsz, repairllama_seqlen = repairllama_input_ids.shape
+        bsz, llama_seqlen = llama_input_ids.shape
 
         # Precompute common elements for llama
         llama_h = self.llama.tok_embeddings(llama_input_ids)
@@ -193,11 +186,6 @@ class LLamaAdapter(nn.Module):
         )
 
         for i in range(self.llama.config.num_hidden_layers):
-            # RepairLlama layer
-            repairllama_h = self.repairllama.model.model.layers[i](
-                repairllama_h, repairllama_mask, repairllama_position_ids
-            )[0]
-            
             # Dynamic adapter from hooks
             dynamic_adapter = self.attention_hooks_data[i].get('input').detach()
             dynamic_adapter = dynamic_adapter.to(llama_h.dtype)
@@ -216,25 +204,43 @@ class LLamaAdapter(nn.Module):
             self._log_inference(llama_input_ids, llama_output)
         
         return llama_output
+    
+    def fwd_repairllama(self, repairllama_input_ids):
+        repairllama_input_ids = repairllama_input_ids.to(self.device)
+        bsz, repairllama_seqlen = repairllama_input_ids.shape
+
+        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
+        repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=self.device).unsqueeze(0).expand(bsz, -1)
+        repairllama_mask = self._prepare_decoder_attention_mask(
+            repairllama_h.shape[:2], repairllama_h.dtype, repairllama_h.device
+        )
+
+        for i in range(self.llama.config.num_hidden_layers):
+            # RepairLlama layer
+            repairllama_h = self.repairllama.model.model.layers[i](
+                repairllama_h, repairllama_mask, repairllama_position_ids
+        )[0]
 
     def forward(self, repairllama_input_ids, llama_input_ids, llama_labels, 
                 scheduled_sampling=False, sampling_rate=0.5):
+        
+        with torch.no_grad():
+            self.fwd_repairllama(repairllama_input_ids=repairllama_input_ids)
         # Scheduled sampling decision
         use_predicted = scheduled_sampling and (torch.rand(1).item() < sampling_rate)
-        
         if use_predicted:
             with torch.no_grad():
                 # Initial teacher-forced prediction
-                initial_output = self.fwd_pass(repairllama_input_ids, llama_input_ids)
+                initial_output = self.fwd_llama(llama_input_ids)
                 predicted_ids = initial_output.argmax(dim=-1)
                 # Maintain sequence length with start token
                 new_input = torch.cat([llama_input_ids[:, :1], predicted_ids], dim=1)
             
             # Forward pass with predicted inputs
-            llama_output = self.fwd_pass(repairllama_input_ids, new_input)
+            llama_output = self.fwd_llama(new_input)
         else:
             # Regular teacher-forced forward pass
-            llama_output = self.fwd_pass(repairllama_input_ids, llama_input_ids)
+            llama_output = self.fwd_llama(llama_input_ids)
 
         # Loss calculation with padding handling
         shifted_labels = llama_labels[:, 1:].contiguous()
