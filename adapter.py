@@ -135,13 +135,16 @@ class LLamaAdapter(nn.Module):
 
         return repairllama, tokenizer
     
-    def load_codellma_tuned(self, llama_trained_weight_dir):
+    def load_llma_tuned(self, llama_trained_weight_dir):
         ckpts = sorted(Path(llama_trained_weight_dir).glob("*.pth"))
         ckpt_path = ckpts[-1]
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         ckpt = torch.load(ckpt_path, map_location="cpu") # This ckeckpoint contains other parameters as well
         ckpt = ckpt["model"] 
         missing_keys, unexpected_keys = self.llama.load_state_dict(ckpt, strict=False)
+        print("missing keys: ", missing_keys)
+        print("___________________")
+        print("unexpected keys", unexpected_keys)
 
     def _hook_fn(self, module, input, output):
         """

@@ -33,12 +33,12 @@ def main(args):
         llama_tokenizer=args.llama_tokenizer_path,
         repairllama_model_dir=args.repairllama_model_dir or 'codellama/CodeLlama-7b-hf',
         repairllama_lora_dir=args.repairllama_lora_dir or './repairllama-lora',
-        max_seq_len=args.max_seq_len,
         max_batch_size=args.max_batch_size,
         w_lora=args.w_lora,
-        lora_rank=args.lora_rank
+        lora_rank=args.lora_rank,
+        phase="inference",
     )
-    llama_adapter.load_codellma_tuned(args.llama_trained_weight_dir)
+    llama_adapter.load_llma_tuned(args.llama_trained_weight_dir)
     
     # repairllama_input_ids = torch.load(f"{args.repairllama_input_pth}",  map_location=torch.device('cpu'))
     df = pd.read_csv(args.repairllama_input_pth)
