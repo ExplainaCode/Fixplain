@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 import copy
 import pandas as pd
 from dataclasses import dataclass
-from ..adapter import LLamaAdapter
+from ExplainLLama.adapter import LLamaAdapter
 
 class FinetuneDataset(Dataset):
     def __init__(self, model:LLamaAdapter, dataframe_path:str):
