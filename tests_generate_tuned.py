@@ -27,7 +27,7 @@ if not dist.is_initialized():
 fs_init.initialize_model_parallel(model_parallel_size_=1)
 
 def main(args):
-
+    import csv
     llama_adapter = LLamaAdapter(
         llama_ckpt_dir=args.llama_ckpt_dir,
         llama_tokenizer=args.llama_tokenizer_path,
@@ -47,19 +47,20 @@ def main(args):
     llama_input_ids = torch.load(args.llama_input_pth) if args.llama_input_pth is not None else None # commente for testing
 
     # Prepare a file to write the outputs
-    output_file = "generated_outputs.txt"
+    output_file = "generated_outputs.csv"
     # print(repairllama_input[70:72])
     # Run forward inference and save outputs
     with torch.no_grad():
         print("Running generate...")
         
-        all_repairllama_outputs = []
         all_llama_outputs = []
         # Process each input ID in repairllama_input_ids
-        for i, repair_input in enumerate(repairllama_input[:100]):
-            print(f"Processing record {i + 1}/{len(repairllama_input[:100])}...")
+        limit=100
+        expected_llama_output= expected_llama_output[:limit]
+        for i, repair_input in enumerate(repairllama_input[:limit]):
+            print(f"Processing record {i + 1}/{len(repairllama_input[:limit])}...")
             # print("repairllama_input", repair_input)
-            # print("llama_input_ids", llama_input_ids)
+            # print("codellama_input_ids", codellama_input_ids)
             
             # Generate outputs for the current input
             repairllama_outputs, llama_outputs = llama_adapter.generate(
@@ -68,18 +69,15 @@ def main(args):
             )
 
             # Collect outputs
-            all_repairllama_outputs.append(repairllama_outputs)
             all_llama_outputs.append(llama_outputs)
 
         # Write all outputs to a file
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.write("Repairllama Outputs:\n")
-            for i, output in enumerate(all_repairllama_outputs):
-                f.write(f"Record {i + 1}:\n{output}\n\n")
+        with open(output_file, "w", encoding="utf-8", newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["Expected Output", "llama Output"])  # Header
 
-            f.write("\nllama Outputs:\n")
-            for i, output in enumerate(all_llama_outputs):
-                f.write(f"Record {i + 1}:\n{output}\n\n")
+            for expected, actual in zip(expected_llama_output, all_llama_outputs):
+                writer.writerow([expected, actual])
 
     print(f"All outputs saved to {output_file}")
 
