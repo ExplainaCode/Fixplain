@@ -321,7 +321,7 @@ def main(args):
             if args.output_dir and (epoch + 1 == args.epochs or epoch%1==0): #epoch % 10 == 0 or epoch + 1 == args.epochs
                 misc.save_model(
                     args=args, model=model.llama, model_without_ddp=model_without_ddp, optimizer=optimizer,
-                    los6s_scaler=loss_scaler, epoch=epoch)
+                    loss_scaler=loss_scaler, epoch=epoch)
 
             log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                         'epoch': epoch,
