@@ -137,7 +137,7 @@ class LLamaAdapter(nn.Module):
     
     def load_llma_tuned(self, llama_trained_weight_dir):
         ckpts = sorted(Path(llama_trained_weight_dir).glob("*.pth"))
-        ckpt_path = ckpts[-1]
+        ckpt_path = ckpts[1]
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         ckpt = torch.load(ckpt_path, map_location="cpu") # This ckeckpoint contains other parameters as well
         ckpt = ckpt["model"] 
