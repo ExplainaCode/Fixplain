@@ -55,7 +55,7 @@ def main(args):
         
         all_llama_outputs = []
         # Process each input ID in repairllama_input_ids
-        limit=100
+        limit=2
         expected_llama_output= expected_llama_output[:limit]
         for i, repair_input in enumerate(repairllama_input[:limit]):
             print(f"Processing record {i + 1}/{len(repairllama_input[:limit])}...")
