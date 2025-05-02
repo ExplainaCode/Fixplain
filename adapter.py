@@ -175,16 +175,21 @@ class LLamaAdapter(nn.Module):
         # repairllama_input_ids = repairllama_input_ids.to(self.device)
         llama_input_ids = llama_input_ids.to(self.device)
 
-        # bsz, repairllama_seqlen = repairllama_input_ids.shape
-        bsz, llama_seqlen = llama_input_ids.shape
-
-        # Precompute common elements for llama
+        # CodeLLama configuration before forward pass # This is redundent if works movw to a function or something...
+        _bsz, llama_seqlen = llama_input_ids.shape
+        # debug_info(codellama_input_ids.shape)
+        # print(codellama_input_ids)
         llama_h = self.llama.tok_embeddings(llama_input_ids)
-        llama_freq_cis = self.llama.freqs_cis[:llama_seqlen].to(llama_h.device)
-        llama_mask = self._prepare_decoder_attention_mask(
-            llama_h.shape[:2], llama_h.dtype, llama_h.device
-        )
+        # print("codellama_h dtype:", codellama_h.dtype)
 
+        # debug_info("codellama h")
+        # print(codellama_h)
+        llama_freq_cis = self.llama.freqs_cis.to(llama_h.device)
+
+        llama_freq_cis = llama_freq_cis[:llama_seqlen]
+        llama_mask = None
+        llama_mask = torch.full((1, 1, llama_seqlen, llama_seqlen), float("-inf"), device=llama_h.device)
+        llama_mask = torch.triu(llama_mask, diagonal=0 + 1).type_as(llama_input_ids)
         for i in range(self.llama.config['num_hidden_layers']):
             # Dynamic adapter from hooks
             dynamic_adapter = self.attention_hooks_data[i].get('input').detach()
