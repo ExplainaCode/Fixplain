@@ -254,12 +254,12 @@ class LLamaAdapter(nn.Module):
 
         self.attention_hooks_data=None
         # Loss calculation with padding handling
-        shifted_labels = llama_labels[:, 1:].contiguous()
+        shifted_labels = llama_labels[:, 1:].to(llama_output.device).contiguous()
         llama_c_loss = self.criterion(
             llama_output.reshape(-1, self.llama.vocab_size),
             shifted_labels.reshape(-1)
         )
-        
+  
         return llama_c_loss
 
     # Helper methods
