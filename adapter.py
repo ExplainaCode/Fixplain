@@ -206,20 +206,25 @@ class LLamaAdapter(nn.Module):
         return llama_output
     
     def fwd_repairllama(self, repairllama_input_ids):
-        repairllama_input_ids = repairllama_input_ids.to(self.device)
-        bsz, repairllama_seqlen = repairllama_input_ids.shape
+        repairllama_input_ids=repairllama_input_ids.to(device)
+        _bsz, repairllama_seqlen = repairllama_input_ids.shape
 
         repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
-        repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=self.device).unsqueeze(0).expand(bsz, -1)
-        repairllama_mask = self._prepare_decoder_attention_mask(
-            repairllama_h.shape[:2], repairllama_h.dtype, repairllama_h.device
-        )
+        repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
+        repairllama_mask = None
+        repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
+        repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
+        # print("repairllama_mask:", repairllama_mask.dtype)
 
-        for i in range(self.llama.config['num_hidden_layers']):
-            # RepairLlama layer
+        assert self.repairllama.config.num_hidden_layers==self.codellama.config['num_hidden_layers']
+        n_layers = self.repairllama.config.num_hidden_layers
+
+        for i in range(n_layers):
             repairllama_h, *_ = self.repairllama.model.model.layers[i](
-                                                repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous()
-            )  # Do not pass as keyword arguments since hooks don't capture inputs.   
+                repairllama_h.contiguous(), 
+                repairllama_mask.contiguous(), 
+                repairllama_position_ids.contiguous()
+            )
 
     def forward(self, repairllama_input_ids, llama_input_ids, llama_labels, 
                 scheduled_sampling=False, sampling_rate=0.5):
@@ -242,6 +247,7 @@ class LLamaAdapter(nn.Module):
             # Regular teacher-forced forward pass
             llama_output = self.fwd_llama(llama_input_ids)
 
+        self.attention_hooks_data=None
         # Loss calculation with padding handling
         shifted_labels = llama_labels[:, 1:].contiguous()
         llama_c_loss = self.criterion(
