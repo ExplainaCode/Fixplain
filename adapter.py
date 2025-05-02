@@ -252,7 +252,7 @@ class LLamaAdapter(nn.Module):
             # Regular teacher-forced forward pass
             llama_output = self.fwd_llama(llama_input_ids)
 
-        self.attention_hooks_data=None
+        # self.attention_hooks_data=None
         # Loss calculation with padding handling
         shifted_labels = llama_labels[:, 1:].to(llama_output.device).contiguous()
         llama_c_loss = self.criterion(
