@@ -256,8 +256,8 @@ class LLamaAdapter(nn.Module):
         # Loss calculation with padding handling
         shifted_labels = llama_labels[:, 1:].contiguous()
         llama_c_loss = self.criterion(
-            llama_output.view(-1, self.llama.vocab_size),
-            shifted_labels.view(-1)
+            llama_output.reshape(-1, self.llama.vocab_size),
+            shifted_labels.reshape(-1)
         )
         
         return llama_c_loss
