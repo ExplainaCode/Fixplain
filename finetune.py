@@ -21,7 +21,7 @@ import utils.lr_sched as lr_sched
 from utils.misc import NativeScalerWithGradNormCount as NativeScaler
 from utils.misc import CustomDistributedSampler
 from .adapter import LLamaAdapter
-from ExplainLLama.utils.dataset import FinetuneDataset, DatasetArgs
+from ExplainLLama.utils.dataset import FinetuneDataset
 
 def find_free_port():
     """Find a free port on the machine"""
