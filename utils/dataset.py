@@ -81,11 +81,15 @@ class FinetuneDataset(Dataset):
             repairllama_input_ids = repairllama_encoding['input_ids'].squeeze(0)  # [max_len]
 
 
-            prompt = torch.tensor(
-                self.llama_tokenizer.encode_plus(prompt,max_length=self.repairllama_max_input_len,
+            # prompt = torch.tensor(
+            #     self.llama_tokenizer.encode_plus(prompt,max_length=self.repairllama_max_input_len,
+            #     padding='max_length',
+            #     truncation=True,), dtype=torch.int64
+            # )
+
+            prompt = self.llama_tokenizer.encode_plus(prompt,max_length=self.repairllama_max_input_len,
                 padding='max_length',
-                truncation=True,), dtype=torch.int64
-            )
+                truncation=True, return_tensors="pt")
             example = self.llama_tokenizer.encode(example)
             example.append(self.llama_tokenizer.eos_token_id)
             example = torch.tensor(
