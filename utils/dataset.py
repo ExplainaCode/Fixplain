@@ -7,23 +7,34 @@ import pandas as pd
 from dataclasses import dataclass
 from ..adapter import LLamaAdapter
 
+PROMPT_DICT = {
+    "prompt_input": (
+        "Below is an instruction that describes a task, paired with an input that provides further context. "
+        "Write a response that appropriately completes the request.\n\n"
+        "### Instruction:\nThere is a buggy code provided and fixed code embeddings come through intermediate layers. write an explanation explaining bug and fix\n\n### Input:Buggy Code: \n{input}\n\n### Response:"
+    ),
+    "prompt_no_input": (
+        "Below is an instruction that describes a task. "
+        "Write a response that appropriately completes the request.\n\n"
+        "### Instruction:\n{instruction}\n\n### Response:"
+    ),
+}
+
 class FinetuneDataset(Dataset):
-    def __init__(self, model:LLamaAdapter, dataframe_path:str):
+    def __init__(self, model:LLamaAdapter, dataframe_path:str, phase='train'):
         print(f"read dataset  from {dataframe_path}")
-        self.data = pd.read_csv(dataframe_path)  # Load DataFrame from CSV file
+        self.data = pd.read_csv(dataframe_path)  # Load DataFrame from CSV file assumed have buggy_code, fixed_code and explanation columns
         self.llama_tokenizer = model.llama_tokenizer
         self.repairllama_tokenizer = model.repairllama_tokenizer
         self.repairllama_max_input_len = model.llama_max_seq_len
         self.llama_max_input_len = model.llama_max_seq_len
         self.llama_pad_id = model.llama_tokenizer.pad_id
+        self.phase=phase
         # self.repairllama_pad_id = repairllama_tokenizer.pad_token_id
 
         required_columns = ['buggy_code', 'fixed_code', 'gpt_explanation']
         if not all(col in self.data.columns for col in required_columns):
             raise ValueError(f"DataFrame must contain the following columns: {', '.join(required_columns)}")
-        
-        # this is for testing since fixed code does  not matter in finetuning.
-        self.data['fixed_code'] = self.data['fixed_code'].fillna(" ") # remoe this if want
 
         if (self.data[['buggy_code', 'fixed_code', 'gpt_explanation']].isnull().any().any()):
             raise ValueError(f"Dataframe contains 'null' values")
@@ -42,13 +53,20 @@ class FinetuneDataset(Dataset):
 
     def __getitem__(self, index):
         try:
+            IGNORE_INDEX = -100
             row = self.data.iloc[index]
+
+            
             buggy_code = row['buggy_code']
-            # fixed_code = row['fixed_code']
+            fixed_code = row['fixed_code']
             explanation = row['gpt_explanation']
 
+            prompt = PROMPT_DICT["prompt_input"].format_map(buggy_code)
+            example= prompt + explanation
+
+            repairllama_prompt = buggy_code+ "\n // Fixed Code: \n"+ fixed_code
             repairllama_encoding = self.repairllama_tokenizer.encode_plus(
-                buggy_code,
+                repairllama_prompt,
                 max_length=self.repairllama_max_input_len,
                 padding='max_length',
                 truncation=True,
@@ -56,13 +74,28 @@ class FinetuneDataset(Dataset):
             )
             repairllama_input_ids = repairllama_encoding['input_ids'].squeeze(0)  # [max_len]
 
-            codellama_input_ids = torch.tensor(self.codellama_tokenizer.encode(explanation, bos=True, eos=False))
-            codellama_input_ids = self.__get_padding__(codellama_input_ids, self.codellama_pad_id, self.codellama_max_input_len)
 
-            codellama_label_ids = copy.deepcopy(codellama_input_ids)
-            codellama_input_ids_mask  = codellama_input_ids.ge(0) # just for keep functions work for now - no need !
+            prompt = torch.tensor(
+                self.llama_tokenizer.encode(prompt), dtype=torch.int64
+            )
+            example = self.tokenizer.encode(example)
+            example.append(self.tokenizer.eos_token_id)
+            example = torch.tensor(
+                example, dtype=torch.int64
+            )
+            labels = copy.deepcopy(example)
+            labels[: len(prompt)] = -1
+            example_mask = example.ge(0)
+            label_mask = labels.ge(0)
+            example[~example_mask] = 0
+            labels[~label_mask] = IGNORE_INDEX
 
-            return repairllama_input_ids, codellama_input_ids, codellama_label_ids, codellama_input_ids_mask
+            return {
+                "llama_input_ids": example.tolist(),
+                "llama_label_ids": labels.tolist(),
+                "llama_attention_mask":example_mask.tolist(),
+                "repairllama_input_ids": repairllama_input_ids,
+            }
         
         except Exception as e:
             # Catch and log any exceptions
