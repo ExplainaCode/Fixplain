@@ -58,15 +58,12 @@ class FinetuneDataset(Dataset):
             row = self.data.iloc[index]
 
             print(f"Row type: {type(row)}, Value: {repr(row)}", file=sys.stderr)
-            print(f"Type of buggy_code: {type(buggy_code)}, Value: {repr(buggy_code)}", file=sys.stderr)
 
             buggy_code = row['buggy_code']
             fixed_code = row['fixed_code']
             explanation = row['gpt_explanation']
 
-            print(f"Row type: {type(row)}, Value: {repr(row)}")
-            print(f"Type of buggy_code: {type(buggy_code)}, Value: {repr(buggy_code)}")
-
+            print(f"Type of buggy_code: {type(buggy_code)}, Value: {repr(buggy_code)}", file=sys.stderr)
 
             prompt = PROMPT_DICT["prompt_input"].format_map({"buggy_code": buggy_code})
             example= prompt + explanation
