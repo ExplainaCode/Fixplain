@@ -54,14 +54,13 @@ class FinetuneDataset(Dataset):
 
     def __getitem__(self, index):
         try:
-            print(f"Row type: {type(row)}, Value: {repr(row)}", file=sys.stderr)
-            print(f"Type of buggy_code: {type(buggy_code)}, Value: {repr(buggy_code)}", file=sys.stderr)
-
 
             IGNORE_INDEX = -100
             row = self.data.iloc[index]
 
-            
+            print(f"Row type: {type(row)}, Value: {repr(row)}", file=sys.stderr)
+            print(f"Type of buggy_code: {type(buggy_code)}, Value: {repr(buggy_code)}", file=sys.stderr)
+
             buggy_code = row['buggy_code']
             fixed_code = row['fixed_code']
             explanation = row['gpt_explanation']
