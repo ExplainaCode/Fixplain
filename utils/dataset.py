@@ -61,7 +61,7 @@ class FinetuneDataset(Dataset):
             fixed_code = row['fixed_code']
             explanation = row['gpt_explanation']
 
-            prompt = PROMPT_DICT["prompt_input"].format_map(buggy_code)
+            prompt = PROMPT_DICT["prompt_input"].format_map({"buggy_code": buggy_code})
             example= prompt + explanation
 
             repairllama_prompt = buggy_code+ "\n // Fixed Code: \n"+ fixed_code
