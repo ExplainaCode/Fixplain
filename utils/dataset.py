@@ -38,6 +38,8 @@ class FinetuneDataset(Dataset):
 
         if (self.data[['buggy_code', 'fixed_code', 'gpt_explanation']].isnull().any().any()):
             raise ValueError(f"Dataframe contains 'null' values")
+        
+        print("Hi Hi hi")
 
     def __len__(self):
         return len(self.data)
