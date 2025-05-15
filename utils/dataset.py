@@ -53,6 +53,9 @@ class FinetuneDataset(Dataset):
 
     def __getitem__(self, index):
         try:
+            print(f"DataFrame head:\n{self.data.head()}")
+            print(f"Row at index {index}:\n{self.data.iloc[index]}")
+
             IGNORE_INDEX = -100
             row = self.data.iloc[index]
 
