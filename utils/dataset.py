@@ -5,6 +5,7 @@ from torch.utils.data import Dataset
 import copy
 import pandas as pd
 from dataclasses import dataclass
+import sys
 # from ..adapter import LLamaAdapter
 
 PROMPT_DICT = {
@@ -39,8 +40,6 @@ class FinetuneDataset(Dataset):
         if (self.data[['buggy_code', 'fixed_code', 'gpt_explanation']].isnull().any().any()):
             raise ValueError(f"Dataframe contains 'null' values")
         
-        print("Hi Hi hi")
-
     def __len__(self):
         return len(self.data)
     
@@ -55,8 +54,9 @@ class FinetuneDataset(Dataset):
 
     def __getitem__(self, index):
         try:
-            print(f"DataFrame head:\n{self.data.head()}")
-            print(f"Row at index {index}:\n{self.data.iloc[index]}")
+            print(f"Row type: {type(row)}, Value: {repr(row)}", file=sys.stderr)
+            print(f"Type of buggy_code: {type(buggy_code)}, Value: {repr(buggy_code)}", file=sys.stderr)
+
 
             IGNORE_INDEX = -100
             row = self.data.iloc[index]
