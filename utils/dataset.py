@@ -5,13 +5,13 @@ from torch.utils.data import Dataset
 import copy
 import pandas as pd
 from dataclasses import dataclass
-from ..adapter import LLamaAdapter
+# from ..adapter import LLamaAdapter
 
 PROMPT_DICT = {
     "prompt_input": (
         "Below is an instruction that describes a task, paired with an input that provides further context. "
         "Write a response that appropriately completes the request.\n\n"
-        "### Instruction:\nThere is a buggy code provided and fixed code embeddings come through intermediate layers. write an explanation explaining bug and fix\n\n### Input:Buggy Code: \n{input}\n\n### Response:"
+        "### Instruction:\nThere is a buggy code provided and fixed code embeddings come through intermediate layers. write an explanation explaining bug and fix\n\n### Input:\n{buggy_code}\n\n### Response:"
     ),
     "prompt_no_input": (
         "Below is an instruction that describes a task. "
@@ -21,14 +21,14 @@ PROMPT_DICT = {
 }
 
 class FinetuneDataset(Dataset):
-    def __init__(self, model:LLamaAdapter, dataframe_path:str, phase='train'):
+    def __init__(self, llama_tokenizer, repairllama_tokenizer, dataframe_path:str, phase='train'):# model:LLamaAdapter
         print(f"read dataset  from {dataframe_path}")
         self.data = pd.read_csv(dataframe_path)  # Load DataFrame from CSV file assumed have buggy_code, fixed_code and explanation columns
-        self.llama_tokenizer = model.llama_tokenizer
-        self.repairllama_tokenizer = model.repairllama_tokenizer
-        self.repairllama_max_input_len = model.llama_max_seq_len
-        self.llama_max_input_len = model.llama_max_seq_len
-        self.llama_pad_id = model.llama_tokenizer.pad_id
+        self.llama_tokenizer = llama_tokenizer
+        self.repairllama_tokenizer = repairllama_tokenizer
+        self.repairllama_max_input_len = 1024 # model.llama_max_seq_len
+        self.llama_max_input_len = 1024 # model.llama_max_seq_len
+        self.llama_pad_id = llama_tokenizer.pad_token_id#model.llama_tokenizer.pad_id
         self.phase=phase
         # self.repairllama_pad_id = repairllama_tokenizer.pad_token_id
 
