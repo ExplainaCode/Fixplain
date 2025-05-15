@@ -54,7 +54,6 @@ class FinetuneDataset(Dataset):
 
     def __getitem__(self, index):
         try:
-
             IGNORE_INDEX = -100
             row = self.data.iloc[index]
 
