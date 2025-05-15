@@ -69,6 +69,8 @@ class FinetuneDataset(Dataset):
             example= prompt + explanation
 
             repairllama_prompt = buggy_code+ "\n // Fixed Code: \n"+ fixed_code
+
+
             repairllama_encoding = self.repairllama_tokenizer.encode_plus(
                 repairllama_prompt,
                 max_length=self.repairllama_max_input_len,
@@ -82,8 +84,8 @@ class FinetuneDataset(Dataset):
             prompt = torch.tensor(
                 self.llama_tokenizer.encode(prompt), dtype=torch.int64
             )
-            example = self.tokenizer.encode(example)
-            example.append(self.tokenizer.eos_token_id)
+            example = self.llama_tokenizer.encode(example)
+            example.append(self.llama_tokenizer.eos_token_id)
             example = torch.tensor(
                 example, dtype=torch.int64
             )
