@@ -101,8 +101,10 @@ class LLamaAdapter(nn.Module):
             print(f"[load] missing keys: {missing}")
             print(f"[load] unexpected keys: {unexpected}")
 
-        # 7) Now *shrink* the embedding and output weights to tokenizer.vocab_size (128000)
-        desired_size = tokenizer.vocab_size
+        # 7) Now *shrink* the embedding/output to the full tokenizer vocab
+        #    (includes special tokens like EOS)
+        desired_size = len(tokenizer.get_vocab())  # full size, e.g. 128256 :contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}
+
         old_embed = model.tok_embeddings.weight.data
         old_output = model.output.weight.data
 
