@@ -13,9 +13,9 @@ from transformers import (
 import inspect
 import warnings
 
-from .llama.model import ModelArgs, Transformer
-from .llama.tokenizer import Tokenizer
-from .adapter_utils import sample_top_p
+from llama.model import ModelArgs, Transformer
+from llama.tokenizer import Tokenizer
+from adapter_utils import sample_top_p
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

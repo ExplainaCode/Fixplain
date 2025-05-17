@@ -20,7 +20,7 @@ import utils.misc as misc
 import utils.lr_sched as lr_sched
 from utils.misc import NativeScalerWithGradNormCount as NativeScaler
 from utils.misc import CustomDistributedSampler
-from .adapter import LLamaAdapter
+from adapter import LLamaAdapter
 from utils.dataset import FinetuneDataset, DatasetArgs
 
 def find_free_port():
