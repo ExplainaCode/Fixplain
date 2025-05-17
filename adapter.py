@@ -70,11 +70,11 @@ class LLamaAdapter(nn.Module):
         assert os.path.isdir(ckpt_dir), f"Checkpoint dir '{ckpt_dir}' not found."
         assert os.path.isdir(tokenizer_dir), f"Tokenizer dir '{tokenizer_dir}' not found."
 
-        # 2) Read the model’s original params.json
+        # 2) Read params.json (includes vocab_size=128256)
         with open(os.path.join(ckpt_dir, "params.json"), "r") as f:
             params = json.load(f)
 
-        # 3) Build ModelArgs using those params
+        # 3) Build ModelArgs from those params (includes the full vocab_size)
         model_args = ModelArgs(
             max_seq_len=max_seq_len,
             max_batch_size=max_batch_size,
@@ -87,32 +87,42 @@ class LLamaAdapter(nn.Module):
 
         # 4) Load the tokenizer
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_dir)
-
-        # 5) Override the model’s vocab_size to the tokenizer’s public vocab_size
-        #    (this drops any embeddings for IDs >= tokenizer.vocab_size)
-        model_args.vocab_size = tokenizer.vocab_size
-        print("Overriding vocab_size to match tokenizer:", model_args.vocab_size)
-
-        # 6) Make sure pad_token is set
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
-        # 7) Instantiate the model with the reduced embedding size
-        #    Any weights in the checkpoint for rows >= vocab_size will simply be ignored below.
+        # 5) Build the model with the original vocab_size (128256)
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         model = Transformer(model_args)
 
-        # 8) Load every .pth shard with strict=False
-        #    This will load matching-sized weights and skip the extra rows.
+        # 6) Load all checkpoint shards with strict=False so the full embedding loads
         ckpt_paths = sorted(Path(ckpt_dir).glob("*.pth"))
         for ckpt_path in ckpt_paths:
             ckpt = torch.load(ckpt_path, map_location="cpu")
-            missing_keys, unexpected_keys = model.load_state_dict(ckpt, strict=False)
-            if missing_keys:
-                print(f"[load] missing keys: {missing_keys}")
-            if unexpected_keys:
-                print(f"[load] unexpected keys: {unexpected_keys}")
+            missing, unexpected = model.load_state_dict(ckpt, strict=False)
+            if missing:
+                print(f"[load] missing keys: {missing}")
+            if unexpected:
+                print(f"[load] unexpected keys: {unexpected}")
 
-        print(f"Loaded CodeLlama in {time.time() - start_time:.2f}s")
+        # 7) Now *shrink* the embedding and output weights to tokenizer.vocab_size (128000)
+        desired_size = tokenizer.vocab_size
+        old_embed = model.tok_embeddings.weight.data
+        old_output = model.output.weight.data
+
+        # create new embedding/output matrices
+        embed_dim = old_embed.size(1)
+        new_embed = old_embed[:desired_size, :].clone()
+        new_output = old_output[:desired_size, :].clone()
+
+        # replace modules
+        model.tok_embeddings = torch.nn.Embedding(desired_size, embed_dim)
+        model.tok_embeddings.weight.data.copy_(new_embed)
+
+        model.output = torch.nn.Linear(embed_dim, desired_size, bias=False)
+        model.output.weight.data.copy_(new_output)
+
+        elapsed = time.time() - start_time
+        print(f"Loaded and resized CodeLlama in {elapsed:.2f}s  (from 128256→{desired_size})")
+
         return model, tokenizer
     # def _load_llama(
     #         self, llama_ckpt_dir, 
