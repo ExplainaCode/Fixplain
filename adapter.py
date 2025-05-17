@@ -86,7 +86,8 @@ class LLamaAdapter(nn.Module):
         print(true_vocab_size)
         print("__________________________")
         assert model_args.vocab_size == true_vocab_size
-        tokenizer.pad_token_id = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+        tokenizer.pad_token = tokenizer.eos_token
         # model_args.vocab_size = tokenizer.vocab_size
         
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
