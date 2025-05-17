@@ -47,7 +47,7 @@ def main(args):
     llama_input_ids = torch.load(args.llama_input_pth) if args.llama_input_pth is not None else None # commente for testing
 
     # Prepare a file to write the outputs
-    output_file = "generated_outputs.txt"
+    output_file = "generated_outputs.csv"
     # print(repairllama_input[70:72])
     # Run forward inference and save outputs
     with torch.no_grad():

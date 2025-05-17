@@ -313,62 +313,166 @@ class LLamaAdapter(nn.Module):
 
         return llama_c_loss
     
+    # @torch.inference_mode()
+    # def forward_inference(self, llama_input_ids, llama_mask, llama_start_pos:int):
+    #     llama_input_ids=llama_input_ids.to(device)
+
+    #     _bsz, llama_seqlen = llama_input_ids.shape
+    #     llama_h = self.llama.tok_embeddings(llama_input_ids)
+    #     llama_freq_cis = self.llama.freqs_cis.to(llama_h.device)
+    #     llama_freq_cis = self.llama.freqs_cis[llama_start_pos : llama_start_pos + llama_seqlen]
+
+    #     llama_attn_mask=None
+    #     if llama_seqlen>1:
+    #         llama_attn_mask = torch.full((llama_seqlen, llama_seqlen), float("-inf"), device=llama_h.device)
+    #         llama_attn_mask = torch.triu(llama_attn_mask, diagonal=1).type_as(llama_h)
+    #         llama_attn_mask = torch.hstack(
+    #             [torch.zeros((llama_seqlen, llama_start_pos), device=llama_h.device), llama_attn_mask]
+    #         ).type_as(llama_h)
+
+    #     n_layers = self.repairllama.config.num_hidden_layers
+
+    #     for i in range(n_layers):
+    #         dynamic_adapter  = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
+    #         llama_h = self.llama.layers[i](llama_h, llama_start_pos, llama_freq_cis, llama_attn_mask, dynamic_adapter)
+
+    #     llama_h = self.llama.norm(llama_h)
+    #     llama_output = self.llama.output(llama_h).float()
+    #     token_ids = llama_output[0].argmax(dim=-1).tolist()  # Get token IDs
+    #     decoded_text = self.llama_tokenizer.decode(token_ids)
+    #     next_llama_token = torch.argmax(llama_output[:, -1], dim=-1)
+    #     return llama_output
+
     @torch.inference_mode()
-    def forward_inference(self, llama_input_ids,llama_start_pos:int):
-        llama_input_ids=llama_input_ids.to(device)
+    def forward_inference(self,
+                          llama_input_ids,        # tensor (batch=1, seq_len)
+                          llama_mask=None,        # tensor (batch=1, seq_len)
+                          llama_start_pos: int = 0):
+        device = next(self.parameters()).device
+        llama_input_ids = llama_input_ids.to(device)
+        if llama_mask is not None:
+            llama_mask = llama_mask.to(device)
 
+        # Shapes
         _bsz, llama_seqlen = llama_input_ids.shape
+
+        # Embeddings + rotary freqs
         llama_h = self.llama.tok_embeddings(llama_input_ids)
-        llama_freq_cis = self.llama.freqs_cis.to(llama_h.device)
-        llama_freq_cis = self.llama.freqs_cis[llama_start_pos : llama_start_pos + llama_seqlen]
+        llama_freq_cis = self.llama.freqs_cis.to(device)[llama_start_pos: llama_start_pos + llama_seqlen]
 
-        llama_mask=None
-        if llama_seqlen>1:
-            llama_mask = torch.full((llama_seqlen, llama_seqlen), float("-inf"), device=llama_h.device)
-            llama_mask = torch.triu(llama_mask, diagonal=1).type_as(llama_h)
-            llama_mask = torch.hstack(
-                [torch.zeros((llama_seqlen, llama_start_pos), device=llama_h.device), llama_mask]
-            ).type_as(llama_h)
+        # 1) Build causal mask for inference
+        #    shape (1, 1, seq_len, seq_len), -inf where j > i
+        causal = torch.full(
+            (1, 1, llama_seqlen, llama_seqlen),
+            float("-inf"),
+            device=device
+        )
+        causal = torch.triu(causal, diagonal=1).type_as(llama_h)
 
+        # 2) Incorporate padding mask if given
+        #    llama_mask    shape: (1, seq_len) with 1 for real tokens, 0 for pad
+        #    pad_add       shape: (1,1,1,seq_len)
+        if llama_mask is not None:
+            pad_add = (1 - llama_mask[:, None, None, :]) * float("-inf")
+            attn_mask = causal + pad_add
+        else:
+            attn_mask = causal
+
+        # 3) Run through decoder layers
         n_layers = self.repairllama.config.num_hidden_layers
-
         for i in range(n_layers):
-            dynamic_adapter  = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
-            llama_h = self.llama.layers[i](llama_h, llama_start_pos, llama_freq_cis, llama_mask, dynamic_adapter)
+            dynamic_adapter = self.attention_hooks_data[i]['input']
+            # Each llama layer expects: (hidden, start_pos, freqs, attn_mask, adapter)
+            llama_h = self.llama.layers[i](
+                llama_h,
+                llama_start_pos,
+                llama_freq_cis,
+                attn_mask,
+                dynamic_adapter
+            )
 
+        # 4) Final projection & decode
         llama_h = self.llama.norm(llama_h)
-        llama_output = self.llama.output(llama_h).float()
-        token_ids = llama_output[0].argmax(dim=-1).tolist()  # Get token IDs
-        decoded_text = self.llama_tokenizer.decode(token_ids)
-        next_llama_token = torch.argmax(llama_output[:, -1], dim=-1)
+        llama_output = self.llama.output(llama_h).float()     # (1, seq_len, vocab)
         return llama_output
 
+
+    # @torch.inference_mode()
+    # def forward_repairllama(self, repairllama_input_ids):
+
+    #     import torch.nn.functional as F
+    #     seq_len = repairllama_input_ids.shape[-1]
+    #     pad_len = 1024 - seq_len  # Calculate how much padding is needed
+
+    #     if pad_len > 0:
+    #         repairllama_input_ids = F.pad(repairllama_input_ids, (pad_len, 0))
+
+    #     repairllama_input_ids=repairllama_input_ids.to(device)
+    #     _bsz, repairllama_seqlen = repairllama_input_ids[0].shape
+
+    #     repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids[0]) # apass through embedding layer
+    #     repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
+    #     repairllama_mask = None
+    #     repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
+    #     repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h) #this should change.
+    #     # print(repairllama_mask)
+    #     n_layers = self.repairllama.config.num_hidden_layers
+    #     for i in range(n_layers):
+    #         repairllama_h, *_ = self.repairllama.model.model.layers[i](
+    #                                             repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous()
+    #                                         )  # Do not pass as keyword arguments since hooks don't capture inputs.
+
+
     @torch.inference_mode()
-    def forward_repairllama(self, repairllama_input_ids):
-
+    def forward_repairllama(self,
+                            repairllama_input_ids,    # Tensor: (batch, seq_len)
+                            repairllama_mask=None):   # Optional padding mask: (batch, seq_len)
         import torch.nn.functional as F
-        seq_len = repairllama_input_ids.shape[-1]
-        pad_len = 1024 - seq_len  # Calculate how much padding is needed
+        device = next(self.parameters()).device
+        bsz, seq_len = repairllama_input_ids.shape
 
-        if pad_len > 0:
-            repairllama_input_ids = F.pad(repairllama_input_ids, (pad_len, 0))
+        # 1) Optionally pad up to 1024 if needed
+        #    (you can remove this if you always pad on the tokenization side)
+        if seq_len < 1024:
+            pad_amt = 1024 - seq_len
+            repairllama_input_ids = F.pad(repairllama_input_ids, (pad_amt, 0), value=self.repairllama.config.pad_token_id)
+            if repairllama_mask is not None:
+                # pad the mask on the LEFT just like the tokens
+                repairllama_mask = F.pad(repairllama_mask, (pad_amt, 0), value=0)
+            seq_len = 1024
 
-        repairllama_input_ids=repairllama_input_ids.to(device)
-        _bsz, repairllama_seqlen = repairllama_input_ids[0].shape
+        # Move to device
+        repairllama_input_ids = repairllama_input_ids.to(device)
+        if repairllama_mask is not None:
+            repairllama_mask = repairllama_mask.to(device)
 
-        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids[0]) # apass through embedding layer
-        repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
-        repairllama_mask = None
-        repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
-        repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h) #this should change.
-        # print(repairllama_mask)
+        # 2) Embeddings + positional IDs
+        h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
+        position_ids = (torch.arange(seq_len, device=device)
+                        .unsqueeze(0).expand(bsz, -1))
+
+        # 3) Build causal mask: shape (1,1,seq,seq)
+        causal = torch.full((1, 1, seq_len, seq_len),
+                            float("-inf"), device=device)
+        causal = torch.triu(causal, diagonal=1)
+
+        # 4) If a padding mask is provided, convert to additive form and add
+        if repairllama_mask is not None:
+            # repairllama_mask: 1 for real token, 0 for pad
+            pad_add = (1 - repairllama_mask[:, None, None, :]) * float("-inf")
+            attn_mask = causal + pad_add
+        else:
+            attn_mask = causal
+
+        # 5) Forward through layers
         n_layers = self.repairllama.config.num_hidden_layers
         for i in range(n_layers):
-            repairllama_h, *_ = self.repairllama.model.model.layers[i](
-                                                repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous()
-                                            )  # Do not pass as keyword arguments since hooks don't capture inputs.
+            h, *_ = self.repairllama.model.model.layers[i](
+                h, attn_mask, position_ids
+            )
+
     @torch.inference_mode()
-    def generate(self, repairllama_input_ids, llama_input_ids=None,
+    def generate(self, repairllama_input_ids, repairllama_mask, llama_input_ids=None, llama_mask=None,
                    max_gen_len: int=256, max_llama_gen_len: int=125, temperature: float=0.1,
                    top_p:  float=0.75):
         bsz = len(repairllama_input_ids)
