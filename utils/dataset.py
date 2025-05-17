@@ -201,7 +201,7 @@ class FinetuneDataset(Dataset):
         # right after constructing llama_input_ids:
         max_id = llama_input_ids.max().item()
         min_id = llama_input_ids.min().item()
-        print(f"[DEBUG] llama IDs in [{min_id}..{max_id}], vocab_size={len(self.llama_tok.get_vocab())}")
+        # print(f"[DEBUG] llama IDs in [{min_id}..{max_id}], vocab_size={len(self.llama_tok.get_vocab())}")
         assert max_id < len(self.llama_tok.get_vocab()), (
             f"Token ID {max_id} >= vocab_size {len(self.llama_tok.get_vocab())}"
         )
