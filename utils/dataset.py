@@ -81,14 +81,30 @@ class FinetuneDataset(Dataset):
             repairllama_input_ids = repairllama_encoding['input_ids'].squeeze(0)  # [max_len]
 
 
-            prompt = torch.tensor(
-                self.llama_tokenizer.encode(prompt, padding="max_length", max_length=1024, truncation=True), dtype=torch.int64
+            prompt_encoding = self.llama_tokenizer.encode_plus(
+                prompt, 
+                padding="max_length", 
+                max_length=1024, 
+                truncation=True,
+                return_tensors='pt'
             )
-            example = self.llama_tokenizer.encode(example, padding="max_length", max_length=1024, truncation=True)
-            example.append(self.llama_tokenizer.eos_token_id)
-            example = torch.tensor(
-                example, dtype=torch.int64
+            prompt = prompt_encoding['input_ids'].squeeze(0)
+
+            example_encoding = self.llama_tokenizer.encode_plus(
+                example,
+                padding='max_length',
+                max_length=self.llama_max_input_len,
+                truncation=True,
+                return_tensors='pt'
             )
+            example = example_encoding['input_ids'].squeeze(0)
+            # example = self.llama_tokenizer.encode(example, padding="max_length", max_length=1024, truncation=True)
+            # example.append(self.llama_tokenizer.eos_token_id)
+            example = torch.cat([example, torch.tensor([self.llama_tokenizer.eos_token_id])])
+
+            # example = torch.tensor(
+            #     example, dtype=torch.int64
+            # )
             labels = copy.deepcopy(example)
             labels[: len(prompt)] = -1
             example_mask = example.ge(0)
