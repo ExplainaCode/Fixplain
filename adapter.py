@@ -57,7 +57,7 @@ class LLamaAdapter(nn.Module):
         self.repairllama_max_seq_len = repairllama_max_seq_len
         self.llama_max_seq_len = llama_max_seq_len
 
-    def _load_codellama(
+    def _load_llama(
         self,
         ckpt_dir: str,
         max_seq_len: int,
