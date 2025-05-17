@@ -198,6 +198,14 @@ class FinetuneDataset(Dataset):
             return_tensors="pt",
         )
         llama_input_ids  = llama_enc.input_ids.squeeze(0)            # [1024]
+        # right after constructing llama_input_ids:
+        max_id = llama_input_ids.max().item()
+        min_id = llama_input_ids.min().item()
+        print(f"[DEBUG] llama IDs in [{min_id}..{max_id}], vocab_size={self.llama_tok.vocab_size}")
+        assert max_id < self.llama_tok.vocab_size, (
+            f"Token ID {max_id} >= vocab_size {self.llama_tok.vocab_size}"
+        )
+
         llama_mask = llama_enc.attention_mask.squeeze(0)       # [1024]
 
         # --- build labels: mask out the prompt portion ---
