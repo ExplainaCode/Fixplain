@@ -79,14 +79,15 @@ class LLamaAdapter(nn.Module):
         start_time = time.time()
         # tokenizer = Tokenizer(model_path=llama_tokenizer)
         tokenizer = AutoTokenizer.from_pretrained(llama_tokenizer)
-        model_args.vocab_size = len(tokenizer) 
+        true_vocab = tokenizer.get_vocab_size(with_special_tokens=True)
+        model_args.vocab_size = true_vocab
         print("__________________________")
         print(model_args.vocab_size)
-        print(tokenizer.vocab_size)
+        print(true_vocab)
         print("__________________________")
-        assert model_args.vocab_size == tokenizer.vocab_size
+        assert model_args.vocab_size == true_vocab
         tokenizer.pad_token_id = tokenizer.eos_token
-        model_args.vocab_size = tokenizer.vocab_size
+        # model_args.vocab_size = tokenizer.vocab_size
         
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         llama = Transformer(model_args)
