@@ -79,7 +79,7 @@ class LLamaAdapter(nn.Module):
         start_time = time.time()
         # tokenizer = Tokenizer(model_path=llama_tokenizer)
         tokenizer = AutoTokenizer.from_pretrained(llama_tokenizer)
-        tokenizer.vocab_size = len(tokenizer) 
+        model_args.vocab_size = len(tokenizer) 
         print("__________________________")
         print(model_args.vocab_size)
         print(tokenizer.vocab_size)
