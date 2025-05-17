@@ -98,10 +98,8 @@ class LLamaAdapter(nn.Module):
         for ckpt_path in ckpt_paths:
             ckpt = torch.load(ckpt_path, map_location="cpu")
             missing, unexpected = model.load_state_dict(ckpt, strict=False)
-            if missing:
-                print(f"[load] missing keys: {missing}")
-            if unexpected:
-                print(f"[load] unexpected keys: {unexpected}")
+            print(f"[load] missing keys: {missing}")
+            print(f"[load] unexpected keys: {unexpected}")
 
         # 7) Now *shrink* the embedding and output weights to tokenizer.vocab_size (128000)
         desired_size = tokenizer.vocab_size
