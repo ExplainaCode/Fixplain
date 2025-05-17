@@ -6,7 +6,7 @@
 # import pandas as pd
 # from dataclasses import dataclass
 # import sys
-# # from ..adapter import LLamaAdapter
+# from ..adapter import LLamaAdapter
 
 # PROMPT_DICT = {
 #     "prompt_input": (
@@ -130,6 +130,7 @@ from torch.utils.data import Dataset
 import pandas as pd
 import copy
 from tqdm import tqdm
+from ..adapter import LLamaAdapter
 
 PROMPT_DICT = {
     "prompt_input": (
@@ -142,7 +143,7 @@ PROMPT_DICT = {
 }
 
 class FinetuneDataset(Dataset):
-    def __init__(self, llama_tokenizer, repairllama_tokenizer, dataframe_path: str, phase='train'):
+    def __init__(self, model: LLamaAdapter, dataframe_path: str, phase='train'):
         # --- Load data ---
         self.data = pd.read_csv(dataframe_path)
         required = ['buggy_code', 'fixed_code', 'gpt_explanation']
@@ -152,10 +153,10 @@ class FinetuneDataset(Dataset):
             raise ValueError("Found nulls in CSV.")
 
         # --- Tokenizers & config ---
-        self.llama_tok = llama_tokenizer
-        self.repair_tok = repairllama_tokenizer
-        self.llama_max = 1024
-        self.repair_max = 1024
+        self.llama_tok = model.llama_tokenizer
+        self.repair_tok = model.repairllama_tokenizer
+        self.llama_max = model.llama_max_seq_len
+        self.repair_max = model.repairllama_max_seq_len
 
         # Ensure llama tokenizer has a pad token
         if self.llama_tok.pad_token_id is None:
@@ -182,8 +183,8 @@ class FinetuneDataset(Dataset):
             truncation=True,
             return_tensors="pt",
         )
-        repair_ids = repair_enc.input_ids.squeeze(0)            # [1024]
-        repair_mask = repair_enc.attention_mask.squeeze(0)      # [1024]
+        repair_input_ids = repair_enc.input_ids.squeeze(0)            # [1024]
+        repairllama_mask = repair_enc.attention_mask.squeeze(0)      # [1024]
 
         # --- LLaMA side (prompt + explanation) ---
         prompt_text = PROMPT_DICT["prompt_input"].format(buggy_code=buggy)
@@ -196,7 +197,7 @@ class FinetuneDataset(Dataset):
             truncation=True,
             return_tensors="pt",
         )
-        llama_ids  = llama_enc.input_ids.squeeze(0)            # [1024]
+        llama_input_ids  = llama_enc.input_ids.squeeze(0)            # [1024]
         llama_mask = llama_enc.attention_mask.squeeze(0)       # [1024]
 
         # --- build labels: mask out the prompt portion ---
@@ -206,14 +207,7 @@ class FinetuneDataset(Dataset):
             padding=False, truncation=True, return_tensors="pt"
         ).input_ids.size(1))
 
-        labels = llama_ids.clone()
-        labels[:prompt_len] = -100  # ignore prompt tokens
+        llama_labels = llama_input_ids.clone()
+        llama_labels[:prompt_len] = -100  # ignore prompt tokens
 
-        return {
-            "repairllama_input_ids": repair_ids,
-            "repairllama_attention_mask": repair_mask,
-
-            "llama_input_ids":   llama_ids,
-            "llama_attention_mask": llama_mask,
-            "llama_labels":      labels,
-        }
+        return repair_input_ids, repairllama_mask, llama_input_ids, llama_labels, llama_mask
