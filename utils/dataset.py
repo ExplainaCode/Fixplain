@@ -130,7 +130,7 @@ from torch.utils.data import Dataset
 import pandas as pd
 import copy
 from tqdm import tqdm
-from ..adapter import LLamaAdapter
+from adapter import LLamaAdapter
 
 PROMPT_DICT = {
     "prompt_input": (
