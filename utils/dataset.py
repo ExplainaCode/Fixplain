@@ -82,7 +82,7 @@ class FinetuneDataset(Dataset):
 
 
             prompt = torch.tensor(
-                self.llama_tokenizer.encode(prompt), dtype=torch.int64
+                self.llama_tokenizer.encode(prompt, padding="max_length", max_len=512, truncation=True), dtype=torch.int64
             )
             example = self.llama_tokenizer.encode(example)
             example.append(self.llama_tokenizer.eos_token_id)
