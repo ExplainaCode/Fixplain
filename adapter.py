@@ -64,7 +64,7 @@ class LLamaAdapter(nn.Module):
             w_lora, lora_rank
         ):
         assert os.path.isdir(llama_ckpt_dir), f"Checkpoint directory '{llama_ckpt_dir}' does not exist."
-        assert os.path.isfile(llama_tokenizer), f"Tokenizer file '{llama_tokenizer}' does not exist."
+        assert os.path.isdir(llama_tokenizer), f"Tokenizer file '{llama_tokenizer}' does not exist."
 
         with open(os.path.join(llama_ckpt_dir, "params.json"), 'r') as f:
             params = json.loads(f.read())
@@ -77,9 +77,10 @@ class LLamaAdapter(nn.Module):
             **params
         )
         start_time = time.time()
-        tokenizer = Tokenizer(model_path=llama_tokenizer)
+        # tokenizer = Tokenizer(model_path=llama_tokenizer)
+        tokenizer = AutoTokenizer.from_pretrained(llama_tokenizer)
         assert model_args.vocab_size == tokenizer.n_words
-        tokenizer.pad_id = tokenizer.eos_id
+        tokenizer.pad_token_id = tokenizer.eos_token
         model_args.vocab_size = tokenizer.n_words
         
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
@@ -90,6 +91,9 @@ class LLamaAdapter(nn.Module):
             ckpt = torch.load(ckpt_path, map_location="cpu")
             missing_keys, unexpected_keys = llama.load_state_dict(ckpt, strict=False)
 
+        print("missing keys: ", missing_keys)
+        print("__________________________________________-")
+        print("unexpected_keys: ", unexpected_keys)
         print(f"Loaded in {time.time() - start_time:.2f} seconds")
         return llama, tokenizer
 
