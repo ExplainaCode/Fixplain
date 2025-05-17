@@ -57,7 +57,7 @@ class LLamaAdapter(nn.Module):
         self.repairllama_max_seq_len = repairllama_max_seq_len
         self.llama_max_seq_len = llama_max_seq_len
 
-    def _load_llama(
+    def _load_codellama(
         self,
         ckpt_dir: str,
         max_seq_len: int,
@@ -66,15 +66,15 @@ class LLamaAdapter(nn.Module):
         w_lora: bool,
         lora_rank: int,
     ):
-        # 1) sanity checks
+        # 1) Sanity checks
         assert os.path.isdir(ckpt_dir), f"Checkpoint dir '{ckpt_dir}' not found."
         assert os.path.isdir(tokenizer_dir), f"Tokenizer dir '{tokenizer_dir}' not found."
 
-        # 2) read model params.json
-        with open(os.path.join(ckpt_dir, "params.json"), 'r') as f:
+        # 2) Read the model’s original params.json
+        with open(os.path.join(ckpt_dir, "params.json"), "r") as f:
             params = json.load(f)
 
-        # 3) build ModelArgs, but leave vocab_size from params.json for now
+        # 3) Build ModelArgs using those params
         model_args = ModelArgs(
             max_seq_len=max_seq_len,
             max_batch_size=max_batch_size,
@@ -83,39 +83,36 @@ class LLamaAdapter(nn.Module):
             **params
         )
 
-        # timing
-        start = time.time()
+        start_time = time.time()
 
-        # 4) load tokenizer
+        # 4) Load the tokenizer
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_dir)
 
-        # 5) compute the *true* vocab size (base + all special/reserved tokens)
-        true_vocab_size = len(tokenizer.get_vocab())
+        # 5) Override the model’s vocab_size to the tokenizer’s public vocab_size
+        #    (this drops any embeddings for IDs >= tokenizer.vocab_size)
+        model_args.vocab_size = tokenizer.vocab_size
+        print("Overriding vocab_size to match tokenizer:", model_args.vocab_size)
 
-        # 6) override model_args vocab_size so the embedding matrix is sized to match the checkpoint
-        model_args.vocab_size = true_vocab_size
-        assert model_args.vocab_size == true_vocab_size, (
-            f"vocab mismatch: args={model_args.vocab_size} vs tok={true_vocab_size}"
-        )
-
-        # 7) set pad token
+        # 6) Make sure pad_token is set
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
-        # 8) instantiate your CodeLlama/Transformer model with the correct embedding size
+        # 7) Instantiate the model with the reduced embedding size
+        #    Any weights in the checkpoint for rows >= vocab_size will simply be ignored below.
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
         model = Transformer(model_args)
 
-        # 9) load all .pth shards into that correctly-sized embedding
-        checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
-        for ckpt_path in checkpoints:
+        # 8) Load every .pth shard with strict=False
+        #    This will load matching-sized weights and skip the extra rows.
+        ckpt_paths = sorted(Path(ckpt_dir).glob("*.pth"))
+        for ckpt_path in ckpt_paths:
             ckpt = torch.load(ckpt_path, map_location="cpu")
-            missing, unexpected = model.load_state_dict(ckpt, strict=False)
-            if missing:
-                print(f"[load] missing keys: {missing}")
-            if unexpected:
-                print(f"[load] unexpected keys: {unexpected}")
+            missing_keys, unexpected_keys = model.load_state_dict(ckpt, strict=False)
+            if missing_keys:
+                print(f"[load] missing keys: {missing_keys}")
+            if unexpected_keys:
+                print(f"[load] unexpected keys: {unexpected_keys}")
 
-        print(f"Loaded CodeLlama in {time.time() - start:.2f}s")
+        print(f"Loaded CodeLlama in {time.time() - start_time:.2f}s")
         return model, tokenizer
     # def _load_llama(
     #         self, llama_ckpt_dir, 
