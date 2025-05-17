@@ -79,13 +79,13 @@ class LLamaAdapter(nn.Module):
         start_time = time.time()
         # tokenizer = Tokenizer(model_path=llama_tokenizer)
         tokenizer = AutoTokenizer.from_pretrained(llama_tokenizer)
-        true_vocab = tokenizer.get_vocab_size(with_special_tokens=True)
-        model_args.vocab_size = true_vocab
+        true_vocab_size = len(tokenizer.get_vocab())  
+        model_args.vocab_size = true_vocab_size
         print("__________________________")
         print(model_args.vocab_size)
-        print(true_vocab)
+        print(true_vocab_size)
         print("__________________________")
-        assert model_args.vocab_size == true_vocab
+        assert model_args.vocab_size == true_vocab_size
         tokenizer.pad_token_id = tokenizer.eos_token
         # model_args.vocab_size = tokenizer.vocab_size
         
