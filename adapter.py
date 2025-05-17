@@ -110,13 +110,13 @@ class LLamaAdapter(nn.Module):
         old_output = model.output.weight.data
 
         # create new embedding/output matrices
-        print("old embed_dim: ", old_embed.size)
-        print("old_output dim: ", old_output.size)
+        print("old embed_dim: ", old_embed.size())
+        print("old_output dim: ", old_output.size())
         embed_dim = old_embed.size(1)
         new_embed = old_embed[:desired_size, :].clone()
         new_output = old_output[:desired_size, :].clone()
-        print("new_embed dim: ", new_embed.size)
-        print("new_output dim :", new_output.size)
+        print("new_embed dim: ", new_embed.size())
+        print("new_output dim :", new_output.size())
         # replace modules
         model.tok_embeddings = torch.nn.Embedding(desired_size, embed_dim)
         model.tok_embeddings.weight.data.copy_(new_embed)
