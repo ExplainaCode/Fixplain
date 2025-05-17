@@ -49,7 +49,7 @@ class LLamaAdapter(nn.Module):
             max_batch_size, llama_tokenizer,
             w_lora, lora_rank)
         
-        self.criterion = torch.nn.CrossEntropyLoss(ignore_index=self.llama_tokenizer.pad_id)
+        self.criterion = torch.nn.CrossEntropyLoss(ignore_index=self.llama_tokenizer.pad_token_id)
         self.phase = phase
         self.set_trainale_params(self.phase)
 
