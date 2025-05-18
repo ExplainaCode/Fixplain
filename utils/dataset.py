@@ -138,7 +138,7 @@ PROMPT_DICT = {
         "Write a response that appropriately completes the request.\n\n"
         "### Instruction:\nThere is a buggy code provided and fixed code embeddings come through intermediate layers. "
         "Write an explanation explaining the bug and the fix.\n\n"
-        "### Input:\n{buggy_code}\n\n### Response:"
+        "### Input:\n{buggy_code}\n\n### Response: "
     ),
 }
 
@@ -198,14 +198,14 @@ class FinetuneDataset(Dataset):
             return_tensors="pt",
         )
         #  Testing
-        llama_enc_test_explanation = self.llama_tok(
-            explanation,
-            padding=False,
-            truncation=True,
-            return_tensors="pt",
-        )
-        explanation_input_ids = llama_enc_test_explanation.input_ids.squeeze(0) 
-        print("Explanation_input_ids: ", explanation_input_ids.size(), explanation_input_ids)
+        # llama_enc_test_explanation = self.llama_tok(
+        #     explanation,
+        #     padding=False,
+        #     truncation=True,
+        #     return_tensors="pt",
+        # )
+        # explanation_input_ids = llama_enc_test_explanation.input_ids.squeeze(0) 
+        # print("Explanation_input_ids: ", explanation_input_ids.size(), explanation_input_ids)
         # Testing ends
         llama_input_ids  = llama_enc.input_ids.squeeze(0)            # [1024]
         # right after constructing llama_input_ids:
@@ -228,7 +228,7 @@ class FinetuneDataset(Dataset):
         )
         expl_len = expl_enc.input_ids.size(1)   
 
-        print("expl len: _____", expl_len)
+        # print("expl len: _____", expl_len)
         llama_labels = llama_input_ids.clone()
         llama_labels[:-expl_len] = -100  # ignore prompt tokens
 
