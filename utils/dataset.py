@@ -200,7 +200,8 @@ class FinetuneDataset(Dataset):
         #  Testing
         llama_enc_test_explanation = self.llama_tok(
             explanation,
-            padding=None,
+            padding="max_length",
+            max_length=200,
             truncation=True,
             return_tensors="pt",
         )
