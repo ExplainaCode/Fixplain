@@ -403,7 +403,14 @@ class LLamaAdapter(nn.Module):
         # --- LLaMA side embeddings & masks ---
         llama_h      = self.llama.tok_embeddings(llama_input_ids)
         llama_freq_cis = self.llama.freqs_cis.to(device)[:llama_seqlen]
-        llama_attn_mask = torch.triu(attn_inf.expand(1,1,llama_seqlen,llama_seqlen), diagonal=1)
+        # llama_attn_mask = torch.triu(attn_inf.expand(1,1,llama_seqlen,llama_seqlen), diagonal=1)
+
+        attn_inf_llama = torch.full(
+            (1, 1, llama_seqlen, llama_seqlen),
+            float("-inf"),
+            device=device
+        )
+        llama_attn_mask = torch.triu(attn_inf_llama, diagonal=1)
         llama_attn_mask = llama_attn_mask + (llama_mask[:, None, None, :]).to(llama_h.dtype)
 
         # --- pass through layers with dynamic adapter data ---
