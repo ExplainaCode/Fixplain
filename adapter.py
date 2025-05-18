@@ -442,13 +442,15 @@ class LLamaAdapter(nn.Module):
             f"Labels out of range: [{min_label}..{max_label}] vs vocab_size={logits.size(-1)}"
         )
 
-        ids    = llama_input_ids[0].tolist()          # raw input IDs including prompt+response+EOS
-        labs   = labels[0].tolist()                   # mask: -100 for prompt, real IDs for response
-        print("--- Example token-by-token dump (idx: id → label) ---")
-        for idx, (tok_id, lbl) in enumerate(zip(ids, labs)):
-            tag = "train" if lbl != -100 else "prompt"
-            print(f"{idx:03d}: {tok_id:5d} → {lbl:5d}   [{tag}]")
-        print("────────────────────────────────────────────────────")
+        # ids    = llama_input_ids[0].tolist()          # raw input IDs including prompt+response+EOS
+        # labs   = labels[0].tolist()                   # mask: -100 for prompt, real IDs for response
+
+        # print("--- Example token-by-token dump (idx: id → label) ---")
+        # for idx, (tok_id, lbl) in enumerate(zip(ids, labs)):
+        #     tag = "train" if lbl != -100 else "prompt"
+        #     print(f"{idx:03d}: {tok_id:5d} → {lbl:5d}   [{tag}]")
+        # print("────────────────────────────────────────────────────")
+
         # --- compute loss with ignore_index=-100 ---
         loss_fct = torch.nn.CrossEntropyLoss(ignore_index=-100)
         loss     = loss_fct(

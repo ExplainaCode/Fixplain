@@ -197,6 +197,17 @@ class FinetuneDataset(Dataset):
             truncation=True,
             return_tensors="pt",
         )
+        #  Testing
+        llama_enc_test_explanation = self.llama_tok(
+            explanation,
+            padding="max_length",
+            max_length=200,
+            truncation=True,
+            return_tensors="pt",
+        )
+        explanation_input_ids = llama_enc_test_explanation.input_ids.squeeze(0) 
+        print("Explanation_input_ids: ", explanation_input_ids)
+        # Testing ends
         llama_input_ids  = llama_enc.input_ids.squeeze(0)            # [1024]
         # right after constructing llama_input_ids:
         max_id = llama_input_ids.max().item()
