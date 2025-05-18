@@ -311,90 +311,166 @@ class LLamaAdapter(nn.Module):
     #         assert self.llama.vocab_size == self.llama_tokenizer.n_words #Do we need this line?, in load llama this is set
     #         llama_c_loss = self.criterion(llama_output.reshape(-1, self.llama.vocab_size), llama_labels.flatten())
 
-    def forward(self, repairllama_input_ids, repairllama_mask, llama_input_ids, llama_labels, llama_mask):
-        # Handle device placement
+    # def forward(self, repairllama_input_ids, repairllama_mask, llama_input_ids, llama_labels, llama_mask):
+    #     # Handle device placement
+    #     repairllama_input_ids = repairllama_input_ids.to(device)
+    #     llama_input_ids = llama_input_ids.to(device)
+    #     llama_labels = llama_labels.to(device)
+    #     llama_mask = llama_mask.to(device)
+    #     repairllama_mask = repairllama_mask.to(device)
+
+    #     _bsz, repairllama_seqlen = repairllama_input_ids.shape
+
+    #     # RepairLLama Embeddings
+    #     repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
+    #     repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
+
+    #     # RepairLLama Attention Mask
+    #     repairllama_attn_mask=None
+    #     repairllama_attn_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float('-inf'), device=repairllama_h.device)
+    #     repairllama_attn_mask = torch.triu(repairllama_attn_mask, diagonal=1)
+    #     if repairllama_mask is not None:
+    #         repairllama_attn_mask = repairllama_attn_mask + (repairllama_mask[:, None, None, :]).to(dtype=repairllama_h.dtype)
+
+    #     _bsz, llama_seqlen = llama_input_ids.shape
+
+    #     # LLaMA Embeddings
+    #     llama_h = self.llama.tok_embeddings(llama_input_ids)
+    #     llama_freq_cis = self.llama.freqs_cis.to(llama_h.device)[:llama_seqlen]
+
+    #     # LLaMA Attention Mask
+    #     llama_attn_mask=None
+    #     llama_attn_mask = torch.full((1, 1, llama_seqlen, llama_seqlen), float('-inf'), device=llama_h.device)
+    #     llama_attn_mask = torch.triu(llama_attn_mask, diagonal=1)
+    #     if llama_mask is not None:
+    #         llama_attn_mask = llama_attn_mask + (llama_mask[:, None, None, :]).to(dtype=llama_h.dtype)
+
+    #     n_layers = self.repairllama.config.num_hidden_layers
+    #     for i in range(n_layers):
+    #         repairllama_h, *_ = self.repairllama.model.model.layers[i](
+    #             repairllama_h.contiguous(), repairllama_attn_mask.contiguous(), repairllama_position_ids.contiguous()
+    #         )
+    #         dynamic_adapter = self.attention_hooks_data[i]['input'].detach().to(dtype=llama_h.dtype)
+    #         if torch.isnan(dynamic_adapter).any() or torch.isinf(dynamic_adapter).any():
+    #             warnings.warn(f'dynamic adapter contains NaN or inf values at layer {i}')
+
+    #         llama_h = self.llama.layers[i](llama_h, 0, llama_freq_cis, llama_attn_mask, dynamic_adapter)
+    #         if torch.isnan(llama_h).any() or torch.isinf(llama_h).any():
+    #             warnings.warn(f'llama_h contains NaN or inf values at layer {i}')
+
+    #     llama_h = self.llama.norm(llama_h)
+    #     llama_output = self.llama.output(llama_h)[:, :-1, :]
+    #     llama_labels = llama_labels[:, 1:]
+
+    #     if llama_labels.sum() == 0:
+    #         llama_c_loss = llama_output.mean() * 0
+    #     else:
+    #         llama_c_loss = self.criterion(llama_output.reshape(-1, self.llama.vocab_size), llama_labels.flatten())
+    def forward(
+        self,
+        repairllama_input_ids,
+        repairllama_mask,
+        llama_input_ids,
+        llama_labels,
+        llama_mask
+    ):
+        # --- device placement ---
+        device = repairllama_input_ids.device
         repairllama_input_ids = repairllama_input_ids.to(device)
-        llama_input_ids = llama_input_ids.to(device)
-        llama_labels = llama_labels.to(device)
-        llama_mask = llama_mask.to(device)
-        repairllama_mask = repairllama_mask.to(device)
+        llama_input_ids         = llama_input_ids.to(device)
+        llama_labels            = llama_labels.to(device)
+        llama_mask              = llama_mask.to(device)
+        repairllama_mask        = repairllama_mask.to(device)
 
-        _bsz, repairllama_seqlen = repairllama_input_ids.shape
+        bsz, repair_seqlen = repairllama_input_ids.shape
+        _, llama_seqlen   = llama_input_ids.shape
 
-        # RepairLLama Embeddings
-        repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
-        repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
+        # --- RepairLLama side embeddings & masks ---
+        repair_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
+        repair_pos_ids = (
+            torch.arange(repair_seqlen, device=device)
+                .unsqueeze(0)
+                .expand(bsz, -1)
+        )
+        # causal mask + attention mask
+        attn_inf = torch.full((1, 1, repair_seqlen, repair_seqlen),
+                            float("-inf"), device=device)
+        repair_attn_mask = torch.triu(attn_inf, diagonal=1)
+        repair_attn_mask = repair_attn_mask + (repairllama_mask[:, None, None, :]).to(repair_h.dtype)
 
-        # RepairLLama Attention Mask
-        repairllama_attn_mask=None
-        repairllama_attn_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float('-inf'), device=repairllama_h.device)
-        repairllama_attn_mask = torch.triu(repairllama_attn_mask, diagonal=1)
-        if repairllama_mask is not None:
-            repairllama_attn_mask = repairllama_attn_mask + (repairllama_mask[:, None, None, :]).to(dtype=repairllama_h.dtype)
+        # --- LLaMA side embeddings & masks ---
+        llama_h      = self.llama.tok_embeddings(llama_input_ids)
+        llama_freq_cis = self.llama.freqs_cis.to(device)[:llama_seqlen]
+        llama_attn_mask = torch.triu(attn_inf.expand(1,1,llama_seqlen,llama_seqlen), diagonal=1)
+        llama_attn_mask = llama_attn_mask + (llama_mask[:, None, None, :]).to(llama_h.dtype)
 
-        _bsz, llama_seqlen = llama_input_ids.shape
-
-        # LLaMA Embeddings
-        llama_h = self.llama.tok_embeddings(llama_input_ids)
-        llama_freq_cis = self.llama.freqs_cis.to(llama_h.device)[:llama_seqlen]
-
-        # LLaMA Attention Mask
-        llama_attn_mask=None
-        llama_attn_mask = torch.full((1, 1, llama_seqlen, llama_seqlen), float('-inf'), device=llama_h.device)
-        llama_attn_mask = torch.triu(llama_attn_mask, diagonal=1)
-        if llama_mask is not None:
-            llama_attn_mask = llama_attn_mask + (llama_mask[:, None, None, :]).to(dtype=llama_h.dtype)
-
-        n_layers = self.repairllama.config.num_hidden_layers
-        for i in range(n_layers):
-            repairllama_h, *_ = self.repairllama.model.model.layers[i](
-                repairllama_h.contiguous(), repairllama_attn_mask.contiguous(), repairllama_position_ids.contiguous()
+        # --- pass through layers with dynamic adapter data ---
+        for i in range(self.repairllama.config.num_hidden_layers):
+            repair_h, *_ = self.repairllama.model.model.layers[i](
+                repair_h.contiguous(),
+                repair_attn_mask.contiguous(),
+                repair_pos_ids.contiguous()
             )
-            dynamic_adapter = self.attention_hooks_data[i]['input'].detach().to(dtype=llama_h.dtype)
-            if torch.isnan(dynamic_adapter).any() or torch.isinf(dynamic_adapter).any():
-                warnings.warn(f'dynamic adapter contains NaN or inf values at layer {i}')
 
-            llama_h = self.llama.layers[i](llama_h, 0, llama_freq_cis, llama_attn_mask, dynamic_adapter)
-            if torch.isnan(llama_h).any() or torch.isinf(llama_h).any():
-                warnings.warn(f'llama_h contains NaN or inf values at layer {i}')
+            # pull the adapter signals you stored earlier
+            dynamic_adapter = self.attention_hooks_data[i]['input'].to(dtype=llama_h.dtype)
+            llama_h = self.llama.layers[i](
+                llama_h, 
+                0, 
+                llama_freq_cis, 
+                llama_attn_mask, 
+                dynamic_adapter
+            )
 
-        llama_h = self.llama.norm(llama_h)
-        llama_output = self.llama.output(llama_h)[:, :-1, :]
-        llama_labels = llama_labels[:, 1:]
+        # --- final norm + projection ---
+        llama_h     = self.llama.norm(llama_h)
+        logits      = self.llama.output(llama_h)  # [bsz, seqlen, vocab_size]
 
-        if llama_labels.sum() == 0:
-            llama_c_loss = llama_output.mean() * 0
-        else:
-            llama_c_loss = self.criterion(llama_output.reshape(-1, self.llama.vocab_size), llama_labels.flatten())
+        # shift so tokens predict the *next* token
+        logits      = logits[:, :-1, :].contiguous()        # [bsz, seqlen-1, V]
+        labels      = llama_labels[:, 1:].contiguous()      # [bsz, seqlen-1]
 
+        # --- sanity check on labels ---
+        min_label, max_label = labels.min().item(), labels.max().item()
+        assert min_label >= -100 and max_label < logits.size(-1), (
+            f"Labels out of range: [{min_label}..{max_label}] vs vocab_size={logits.size(-1)}"
+        )
+
+        # --- compute loss with ignore_index=-100 ---
+        loss_fct = torch.nn.CrossEntropyLoss(ignore_index=-100)
+        loss     = loss_fct(
+            logits.view(-1, logits.size(-1)),   # [bsz*(seqlen-1), V]
+            labels.view(-1)                      # [bsz*(seqlen-1)]
+        )
+        return loss
         # ______________________________Testing____________________________
-        if self.test_var%100 == 0:
-            llama_input = self.llama_tokenizer.decode(llama_input_ids[0].tolist())
-            token_ids = llama_output[0].argmax(dim=-1).tolist()  # Get token IDs
-            decoded_text = self.llama_tokenizer.decode(token_ids) 
-            print("codellama labels: ", llama_input)
-            # # print("loss_weight_mask: ", loss_weight_mask)
-            print ("codellama decoded: ", decoded_text)
-            print(f"""Gate max: {self.llama.layers[0].attention.gate.max().item():.6f}, 
-                  min: {self.llama.layers[0].attention.gate.min().item():.6f}""")
+        # if self.test_var%100 == 0:
+        #     llama_input = self.llama_tokenizer.decode(llama_input_ids[0].tolist())
+        #     token_ids = llama_output[0].argmax(dim=-1).tolist()  # Get token IDs
+        #     decoded_text = self.llama_tokenizer.decode(token_ids) 
+        #     print("codellama labels: ", llama_input)
+        #     # # print("loss_weight_mask: ", loss_weight_mask)
+        #     print ("codellama decoded: ", decoded_text)
+        #     print(f"""Gate max: {self.llama.layers[0].attention.gate.max().item():.6f}, 
+        #           min: {self.llama.layers[0].attention.gate.min().item():.6f}""")
             
-            csv_file = "llama_results.csv"
-            with open(csv_file, mode="a", newline="", encoding="utf-8") as file:
-                import csv
-                writer = csv.writer(file)
+        #     csv_file = "llama_results.csv"
+        #     with open(csv_file, mode="a", newline="", encoding="utf-8") as file:
+        #         import csv
+        #         writer = csv.writer(file)
                 
-                # Write the header only on the first iteration
-                if write_header:
-                    writer.writerow(["Input Text", "Generated Text"])
-                    write_header = False  # Ensure header is not written again
+        #         # Write the header only on the first iteration
+        #         if write_header:
+        #             writer.writerow(["Input Text", "Generated Text"])
+        #             write_header = False  # Ensure header is not written again
 
-                # Write the data for this iteration
-                writer.writerow([llama_input, decoded_text])
-                print(f"Wrote record: {self.test_var}")
-            self.test_var+=1
-        # _____________________________Testing____________________________
+        #         # Write the data for this iteration
+        #         writer.writerow([llama_input, decoded_text])
+        #         print(f"Wrote record: {self.test_var}")
+        #     self.test_var+=1
+        # # _____________________________Testing____________________________
 
-        return llama_c_loss
+        # return llama_c_loss
     
     # @torch.inference_mode()
     # def forward_inference(self, llama_input_ids, llama_mask, llama_start_pos:int):
