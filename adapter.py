@@ -124,6 +124,7 @@ class LLamaAdapter(nn.Module):
         model.output = torch.nn.Linear(embed_dim, desired_size, bias=False)
         model.output.weight.data.copy_(new_output)
 
+        model.vocab_size = desired_size
         elapsed = time.time() - start_time
         print(f"Loaded and resized CodeLlama in {elapsed:.2f}s  (from 128256→{desired_size})")
 
