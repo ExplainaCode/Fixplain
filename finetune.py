@@ -35,7 +35,7 @@ def train_one_epoch(model: LLamaAdapter,
                     log_writer=None,
                     args=None):
     model.train(True)
-    model.to("cuda")
+    # model.to("cuda")
     ## model.module.set_default_trainability()
 
     metric_logger = misc.MetricLogger(delimiter="  ")

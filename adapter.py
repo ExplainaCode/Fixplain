@@ -381,6 +381,8 @@ class LLamaAdapter(nn.Module):
         llama_labels            = llama_labels.to(device)
         llama_mask              = llama_mask.to(device)
         repairllama_mask        = repairllama_mask.to(device)
+        print("devices_______________-")
+        print(repairllama_input_ids.device, llama_input_ids.device, llama_labels.device, llama_mask.device, repairllama_mask.device)
 
         bsz, repair_seqlen = repairllama_input_ids.shape
         _, llama_seqlen   = llama_input_ids.shape
