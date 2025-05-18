@@ -465,7 +465,7 @@ class LLamaAdapter(nn.Module):
             self.write_header = True
 
         # only every 100 steps
-        if self.test_var % 30 == 0:
+        if self.test_var % 100 == 0:
             # move logits back to CPU and pick the top tokens
             top_ids = logits[0].argmax(dim=-1).cpu().tolist()  # [seqlen-1]
             # decode input_ids and top_ids on CPU
@@ -477,12 +477,12 @@ class LLamaAdapter(nn.Module):
                 top_ids,
                 skip_special_tokens=True
             )
-            print("codellama labels (input):", input_text)
-            print("codellama decoded (output):", generated_t)
-            print(
-                f"Gate max: {self.llama.layers[0].attention.gate.max().item():.6f}, "
-                f"min: {self.llama.layers[0].attention.gate.min().item():.6f}"
-            )
+            # print("codellama labels (input):", input_text)
+            # print("codellama decoded (output):", generated_t)
+            # print(
+            #     f"Gate max: {self.llama.layers[0].attention.gate.max().item():.6f}, "
+            #     f"min: {self.llama.layers[0].attention.gate.min().item():.6f}"
+            # )
 
             # append to CSV
             csv_file = "llama_results.csv"
