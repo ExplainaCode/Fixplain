@@ -230,6 +230,6 @@ class FinetuneDataset(Dataset):
 
         print("expl len: _____", expl_len)
         llama_labels = llama_input_ids.clone()
-        llama_labels[:-expl_enc] = -100  # ignore prompt tokens
+        llama_labels[:-expl_len] = -100  # ignore prompt tokens
 
         return repair_input_ids, repairllama_mask, llama_input_ids, llama_labels, llama_mask
