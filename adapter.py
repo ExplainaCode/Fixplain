@@ -385,6 +385,7 @@ class LLamaAdapter(nn.Module):
 
         bsz, repair_seqlen = repairllama_input_ids.shape
         _, llama_seqlen   = llama_input_ids.shape
+        print("llama_seqlen :", llama_seqlen)
 
         # --- RepairLLama side embeddings & masks ---
         repair_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
