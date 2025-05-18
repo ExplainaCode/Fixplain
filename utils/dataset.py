@@ -200,8 +200,7 @@ class FinetuneDataset(Dataset):
         #  Testing
         llama_enc_test_explanation = self.llama_tok(
             explanation,
-            padding="max_length",
-            max_length=200,
+            padding=False,
             truncation=True,
             return_tensors="pt",
         )
@@ -220,13 +219,17 @@ class FinetuneDataset(Dataset):
         llama_mask = llama_enc.attention_mask.squeeze(0)       # [1024]
 
         # --- build labels: mask out the prompt portion ---
-        # find where the prompt ends in token counts
-        prompt_len = (self.llama_tok(
-            prompt_text + self.llama_tok.eos_token,
-            padding=False, truncation=True, return_tensors="pt"
-        ).input_ids.size(1))
-        print("prompt len: _____", prompt_len)
+        # 2) Separately encode just the explanation+EOS (no prompt, no padding)
+        expl_enc = self.llama_tok(
+            explanation + self.llama_tok.eos_token,
+            padding=False,
+            truncation=True,
+            return_tensors="pt",
+        )
+        expl_len = expl_enc.input_ids.size(1)   
+
+        print("expl len: _____", expl_len)
         llama_labels = llama_input_ids.clone()
-        llama_labels[:prompt_len] = -100  # ignore prompt tokens
+        llama_labels[:-expl_enc] = -100  # ignore prompt tokens
 
         return repair_input_ids, repairllama_mask, llama_input_ids, llama_labels, llama_mask
