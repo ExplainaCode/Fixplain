@@ -380,12 +380,9 @@ class LLamaAdapter(nn.Module):
         llama_labels            = llama_labels.to(device)
         llama_mask              = llama_mask.to(device)
         repairllama_mask        = repairllama_mask.to(device)
-        print("devices_______________-")
-        print(repairllama_input_ids.device, llama_input_ids.device, llama_labels.device, llama_mask.device, repairllama_mask.device)
 
         bsz, repair_seqlen = repairllama_input_ids.shape
         _, llama_seqlen   = llama_input_ids.shape
-        print("llama_seqlen :", llama_seqlen)
 
         # --- RepairLLama side embeddings & masks ---
         repair_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
@@ -451,35 +448,48 @@ class LLamaAdapter(nn.Module):
             logits.view(-1, logits.size(-1)),   # [bsz*(seqlen-1), V]
             labels.view(-1)                      # [bsz*(seqlen-1)]
         )
-        return loss
         # ______________________________Testing____________________________
-        # if self.test_var%100 == 0:
-        #     llama_input = self.llama_tokenizer.decode(llama_input_ids[0].tolist())
-        #     token_ids = llama_output[0].argmax(dim=-1).tolist()  # Get token IDs
-        #     decoded_text = self.llama_tokenizer.decode(token_ids) 
-        #     print("codellama labels: ", llama_input)
-        #     # # print("loss_weight_mask: ", loss_weight_mask)
-        #     print ("codellama decoded: ", decoded_text)
-        #     print(f"""Gate max: {self.llama.layers[0].attention.gate.max().item():.6f}, 
-        #           min: {self.llama.layers[0].attention.gate.min().item():.6f}""")
-            
-        #     csv_file = "llama_results.csv"
-        #     with open(csv_file, mode="a", newline="", encoding="utf-8") as file:
-        #         import csv
-        #         writer = csv.writer(file)
-                
-        #         # Write the header only on the first iteration
-        #         if write_header:
-        #             writer.writerow(["Input Text", "Generated Text"])
-        #             write_header = False  # Ensure header is not written again
+        # initialize on first call
+        if not hasattr(self, "test_var"):
+            self.test_var = 0
+        if not hasattr(self, "write_header"):
+            self.write_header = True
 
-        #         # Write the data for this iteration
-        #         writer.writerow([llama_input, decoded_text])
-        #         print(f"Wrote record: {self.test_var}")
-        #     self.test_var+=1
-        # # _____________________________Testing____________________________
+        # only every 100 steps
+        if self.test_var % 100 == 0:
+            # move logits back to CPU and pick the top tokens
+            top_ids = logits[0].argmax(dim=-1).cpu().tolist()  # [seqlen-1]
+            # decode input_ids and top_ids on CPU
+            input_text   = self.llama_tokenizer.decode(
+                llama_input_ids[0].cpu().tolist(),
+                skip_special_tokens=True
+            )
+            generated_t  = self.llama_tokenizer.decode(
+                top_ids,
+                skip_special_tokens=True
+            )
+            print("codellama labels (input):", input_text)
+            print("codellama decoded (output):", generated_t)
+            print(
+                f"Gate max: {self.llama.layers[0].attention.gate.max().item():.6f}, "
+                f"min: {self.llama.layers[0].attention.gate.min().item():.6f}"
+            )
 
-        # return llama_c_loss
+            # append to CSV
+            csv_file = "llama_results.csv"
+            with open(csv_file, mode="a", newline="", encoding="utf-8") as file:
+                import csv
+                writer = csv.writer(file)
+                if self.write_header:
+                    writer.writerow(["Step", "Input Text", "Generated Text"])
+                    self.write_header = False
+                writer.writerow([self.test_var, input_text, generated_t])
+                print(f"Wrote record for step {self.test_var}")
+
+        self.test_var += 1
+        # _____________________________Testing____________________________
+
+        return loss
     
     # @torch.inference_mode()
     # def forward_inference(self, llama_input_ids, llama_mask, llama_start_pos:int):
