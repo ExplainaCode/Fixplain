@@ -456,7 +456,7 @@ class LLamaAdapter(nn.Module):
             self.write_header = True
 
         # only every 100 steps
-        if self.test_var % 10 == 0:
+        if self.test_var % 100 == 0:
             # move logits back to CPU and pick the top tokens
             top_ids = logits[0].argmax(dim=-1).cpu().tolist()  # [seqlen-1]
             # decode input_ids and top_ids on CPU
