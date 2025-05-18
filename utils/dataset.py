@@ -200,13 +200,12 @@ class FinetuneDataset(Dataset):
         #  Testing
         llama_enc_test_explanation = self.llama_tok(
             explanation,
-            padding="max_length",
-            max_length=200,
+            padding=None,
             truncation=True,
             return_tensors="pt",
         )
         explanation_input_ids = llama_enc_test_explanation.input_ids.squeeze(0) 
-        print("Explanation_input_ids: ", explanation_input_ids)
+        print("Explanation_input_ids: ", explanation_input_ids.size(), explanation_input_ids)
         # Testing ends
         llama_input_ids  = llama_enc.input_ids.squeeze(0)            # [1024]
         # right after constructing llama_input_ids:
@@ -225,7 +224,7 @@ class FinetuneDataset(Dataset):
             prompt_text + self.llama_tok.eos_token,
             padding=False, truncation=True, return_tensors="pt"
         ).input_ids.size(1))
-
+        print("prompt len: _____", prompt_len)
         llama_labels = llama_input_ids.clone()
         llama_labels[:prompt_len] = -100  # ignore prompt tokens
 
