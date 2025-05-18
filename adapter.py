@@ -375,7 +375,6 @@ class LLamaAdapter(nn.Module):
         llama_mask
     ):
         # --- device placement ---
-        device = repairllama_input_ids.device
         repairllama_input_ids = repairllama_input_ids.to(device)
         llama_input_ids         = llama_input_ids.to(device)
         llama_labels            = llama_labels.to(device)
