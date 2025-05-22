@@ -145,7 +145,7 @@ PROMPT_DICT = {
 class FinetuneDataset(Dataset):
     def __init__(self, model: LLamaAdapter, dataframe_path: str, phase='train'):
         # --- Load data ---
-        self.data = pd.read_csv(dataframe_path, nrows=5)
+        self.data = pd.read_csv(dataframe_path, nrows=100)
         required = ['buggy_code', 'fixed_code', 'gpt_explanation']
         if not all(c in self.data.columns for c in required):
             raise ValueError(f"CSV must contain columns: {required}")
