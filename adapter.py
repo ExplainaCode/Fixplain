@@ -593,6 +593,11 @@ class LLamaAdapter(nn.Module):
         - samples until EOS or max length 
         - stops sampling on a per-sequence basis
         """
+        repairllama_input_ids = repairllama_input_ids.to(device)
+        repairllama_mask  = repairllama_mask.to(device)
+        llama_input_ids = llama_input_ids.to(device)
+        llama_mask = llama_mask.to(device)
+        
         bsz, seq_len = llama_input_ids.shape
         eos_id = self.llama_tokenizer.eos_token_id
 
@@ -640,7 +645,7 @@ class LLamaAdapter(nn.Module):
             # (if llama_mask[...,cur_pos]==True we keep the pad-id in input_ids)
             pad_vals = llama_input_ids[:, cur_pos]
             next_tok = torch.where(
-                llama_mask[:, cur_pos].bool(), 
+                llama_mask[:, cur_pos].to(torch.bool), 
                 pad_vals, 
                 next_tok
             )
