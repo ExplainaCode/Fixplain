@@ -611,7 +611,7 @@ class LLamaAdapter(nn.Module):
             default=0
         )
 
-        prev_pos = min_prompt_start
+        prev_pos = 0
 
         # 3) loop token by token
         for cur_pos in range(min_prompt_start, self.llama_max_seq_len):
@@ -651,7 +651,7 @@ class LLamaAdapter(nn.Module):
             if finished.all():
                 break
 
-            prev_pos = cur_pos
+            # prev_pos = cur_pos
 
         # 4) free hook data
         self.attention_hooks_data = {}
