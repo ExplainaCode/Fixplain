@@ -727,7 +727,7 @@ class LLamaAdapter(nn.Module):
         print("Final token IDs: ", seq_ids)
 
         # Raw decode (includes special tokens)
-        raw_text = self.llama_tokenizer.decode(seq_ids, skip_special_tokens=True)
+        raw_text = self.llama_tokenizer.decode(seq_ids, skip_special_tokens=False)
         print("Raw decode   : ", raw_text)
 
         # 4) decode each sequence up to its first EOS
