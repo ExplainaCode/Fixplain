@@ -612,18 +612,20 @@ class LLamaAdapter(nn.Module):
         # determine earliest position we need to start decoding from
         # i.e. the first non-padded token in each row
         # we take the minimum across the batch so we can run them in lock-step
-        min_prompt_start = min(
-            (llama_mask[i].tolist().index(False) for i in range(bsz)),
-            default=0
-        )
 
-        prev_pos = min_prompt_start
+        # min_prompt_start = min(
+        #     (llama_mask[i].tolist().index(False) for i in range(bsz)),
+        #     default=0
+        # )
+
+
+        prev_pos = 0
 
         # 3) loop token by 
-        for cur_pos in range(min_prompt_start, self.llama_max_seq_len):
+        for cur_pos in range(self.llama_max_seq_len, self.llama_max_seq_len+max_gen_len):
             segment = llama_input_ids[:, prev_pos:cur_pos]
             if segment.size(1) == 0:
-                continue 
+                continue
             # run only the *new* token positions
             with torch.amp.autocast("cuda"):
                 logits = self.forward_inference(
@@ -642,20 +644,14 @@ class LLamaAdapter(nn.Module):
             # ensure shape
             next_tok = next_tok.to(device)
             next_tok = next_tok.view(bsz)
-            # 4) enforce pad‐positions and finished‐EOS
-            pad_vals = llama_input_ids[:, cur_pos]
-            next_tok = torch.where(llama_mask[:, cur_pos].to(torch.bool), pad_vals, next_tok)
-            next_tok = torch.where(finished, eos_id, next_tok)
 
-            # 5) write back and update finished
-            llama_input_ids[:, cur_pos] = next_tok
-            finished |= next_tok.eq(eos_id)
+            next_tok_col = next_tok.unsqueeze(1)
+            llama_input_ids = torch.cat([llama_input_ids, next_tok_col], dim=1)
 
-            # 6) break early if done
-            if finished.all():
-                break
+            new_mask_col = torch.zeros((bsz, 1), dtype=torch.bool, device=device)
+            llama_mask    = torch.cat([llama_mask, new_mask_col], dim=1)
 
-            prev_pos = cur_pos
+            # prev_pos = cur_pos
 
         # 4) free hook data
         self.attention_hooks_data = {}
