@@ -144,7 +144,7 @@ def get_args_parser():
     # Dataset parameters
     parser.add_argument('--data_config', default='configs/data/finetune/EN.yaml', type=str,
                         help='dataset config path')
-    parser.add_argument('--num_workers', default=10, type=int)
+    parser.add_argument('--num_workers', default=4, type=int)
     parser.add_argument('--pin_mem', action='store_true',
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')

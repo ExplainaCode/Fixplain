@@ -134,6 +134,8 @@ if __name__ == "__main__":
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
     parser.add_argument('--num_workers', default=4, type=int)
+    parser.add_argument('--pin_mem', action='store_true',
+                        help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     
     args = parser.parse_args()
     main(args)
