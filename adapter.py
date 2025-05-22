@@ -584,6 +584,7 @@ class LLamaAdapter(nn.Module):
         repairllama_mask,       # [B, L]
         llama_input_ids,        # [B, L]
         llama_mask,             # [B, L]   ← True where INPUT was padded
+        max_gen_len: int =128,
         temperature: float = 0.1,
         top_p: float = 0.75,
     ):
@@ -619,8 +620,6 @@ class LLamaAdapter(nn.Module):
         prev_pos = min_prompt_start
 
         # 3) loop token by 
-        print("_____________3______________-")
-        print(min_prompt_start, self.llama_max_seq_len)
         for cur_pos in range(min_prompt_start, self.llama_max_seq_len):
             segment = llama_input_ids[:, prev_pos:cur_pos]
             if segment.size(1) == 0:
