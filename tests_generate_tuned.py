@@ -133,6 +133,7 @@ if __name__ == "__main__":
     parser.add_argument('--lora_rank', default=16, type=int, help='This only apply if the w_lora parameter is "True"')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
+    parser.add_argument('--num_workers', default=4, type=int)
     
     args = parser.parse_args()
     main(args)
