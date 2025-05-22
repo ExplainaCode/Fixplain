@@ -611,10 +611,13 @@ class LLamaAdapter(nn.Module):
             default=0
         )
 
-        prev_pos = 0
+        prev_pos = min_prompt_start
 
         # 3) loop token by token
         for cur_pos in range(min_prompt_start, self.llama_max_seq_len):
+            segment = llama_input_ids[:, prev_pos:cur_pos]
+            if segment.size(1) == 0:
+                continue 
             # run only the *new* token positions
             with torch.amp.autocast("cuda"):
                 logits = self.forward_inference(
@@ -651,7 +654,7 @@ class LLamaAdapter(nn.Module):
             if finished.all():
                 break
 
-            # prev_pos = cur_pos
+            prev_pos = cur_pos
 
         # 4) free hook data
         self.attention_hooks_data = {}
