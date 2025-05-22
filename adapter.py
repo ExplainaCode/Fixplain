@@ -224,6 +224,9 @@ class LLamaAdapter(nn.Module):
         ckpt = torch.load(ckpt_path, map_location="cpu") # This ckeckpoint contains other parameters as well
         ckpt = ckpt["model"] 
         missing_keys, unexpected_keys = self.llama.load_state_dict(ckpt, strict=False)
+        print("______________in loading saved model params_________________")
+        print(missing_keys)
+        print(unexpected_keys)
 
     def _hook_fn(self, module, input, output):
         """
@@ -500,45 +503,15 @@ class LLamaAdapter(nn.Module):
 
         return loss
     
-    # @torch.inference_mode()
-    # def forward_inference(self, llama_input_ids, llama_mask, llama_start_pos:int):
-    #     llama_input_ids=llama_input_ids.to(device)
-
-    #     _bsz, llama_seqlen = llama_input_ids.shape
-    #     llama_h = self.llama.tok_embeddings(llama_input_ids)
-    #     llama_freq_cis = self.llama.freqs_cis.to(llama_h.device)
-    #     llama_freq_cis = self.llama.freqs_cis[llama_start_pos : llama_start_pos + llama_seqlen]
-
-    #     llama_attn_mask=None
-    #     if llama_seqlen>1:
-    #         llama_attn_mask = torch.full((llama_seqlen, llama_seqlen), float("-inf"), device=llama_h.device)
-    #         llama_attn_mask = torch.triu(llama_attn_mask, diagonal=1).type_as(llama_h)
-    #         llama_attn_mask = torch.hstack(
-    #             [torch.zeros((llama_seqlen, llama_start_pos), device=llama_h.device), llama_attn_mask]
-    #         ).type_as(llama_h)
-
-    #     n_layers = self.repairllama.config.num_hidden_layers
-
-    #     for i in range(n_layers):
-    #         dynamic_adapter  = self.attention_hooks_data[i].get('input') # Hooked input to the respective repairllama layer
-    #         llama_h = self.llama.layers[i](llama_h, llama_start_pos, llama_freq_cis, llama_attn_mask, dynamic_adapter)
-
-    #     llama_h = self.llama.norm(llama_h)
-    #     llama_output = self.llama.output(llama_h).float()
-    #     token_ids = llama_output[0].argmax(dim=-1).tolist()  # Get token IDs
-    #     decoded_text = self.llama_tokenizer.decode(token_ids)
-    #     next_llama_token = torch.argmax(llama_output[:, -1], dim=-1)
-    #     return llama_output
 
     @torch.inference_mode()
     def forward_inference(self,
-                          llama_input_ids,        # tensor (batch=1, seq_len)
-                          llama_mask=None,        # tensor (batch=1, seq_len)
-                          llama_start_pos: int = 0):
-        device = next(self.parameters()).device
+        llama_input_ids,        # tensor (batch=1, seq_len)
+        llama_mask,        # tensor (batch=1, seq_len)
+        llama_start_pos: int = 0
+    ):
         llama_input_ids = llama_input_ids.to(device)
-        if llama_mask is not None:
-            llama_mask = llama_mask.to(device)
+        llama_mask = llama_mask.to(device)
 
         # Shapes
         _bsz, llama_seqlen = llama_input_ids.shape
@@ -554,16 +527,8 @@ class LLamaAdapter(nn.Module):
             float("-inf"),
             device=device
         )
-        causal = torch.triu(causal, diagonal=1).type_as(llama_h)
-
-        # 2) Incorporate padding mask if given
-        #    llama_mask    shape: (1, seq_len) with 1 for real tokens, 0 for pad
-        #    pad_add       shape: (1,1,1,seq_len)
-        if llama_mask is not None:
-            pad_add = (1 - llama_mask[:, None, None, :]) * float("-inf")
-            attn_mask = causal + pad_add
-        else:
-            attn_mask = causal
+        attn_mask = torch.triu(causal, diagonal=1).type_as(llama_h)
+        attn_mask = attn_mask + (llama_mask[:, None, None, :]).to(llama_h.dtype)
 
         # 3) Run through decoder layers
         n_layers = self.repairllama.config.num_hidden_layers
@@ -583,156 +548,166 @@ class LLamaAdapter(nn.Module):
         llama_output = self.llama.output(llama_h).float()     # (1, seq_len, vocab)
         return llama_output
 
-
-    # @torch.inference_mode()
-    # def forward_repairllama(self, repairllama_input_ids):
-
-    #     import torch.nn.functional as F
-    #     seq_len = repairllama_input_ids.shape[-1]
-    #     pad_len = 1024 - seq_len  # Calculate how much padding is needed
-
-    #     if pad_len > 0:
-    #         repairllama_input_ids = F.pad(repairllama_input_ids, (pad_len, 0))
-
-    #     repairllama_input_ids=repairllama_input_ids.to(device)
-    #     _bsz, repairllama_seqlen = repairllama_input_ids[0].shape
-
-    #     repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids[0]) # apass through embedding layer
-    #     repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
-    #     repairllama_mask = None
-    #     repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
-    #     repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h) #this should change.
-    #     # print(repairllama_mask)
-    #     n_layers = self.repairllama.config.num_hidden_layers
-    #     for i in range(n_layers):
-    #         repairllama_h, *_ = self.repairllama.model.model.layers[i](
-    #                                             repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous()
-    #                                         )  # Do not pass as keyword arguments since hooks don't capture inputs.
-
-
     @torch.inference_mode()
     def forward_repairllama(self,
-                            repairllama_input_ids,    # Tensor: (batch, seq_len)
-                            repairllama_mask=None):   # Optional padding mask: (batch, seq_len)
-        import torch.nn.functional as F
-        device = next(self.parameters()).device
+        repairllama_input_ids,    # Tensor: (batch, seq_len)
+        repairllama_mask
+    ):
         bsz, seq_len = repairllama_input_ids.shape
-
-        # 1) Optionally pad up to 1024 if needed
-        #    (you can remove this if you always pad on the tokenization side)
-        if seq_len < 1024:
-            pad_amt = 1024 - seq_len
-            repairllama_input_ids = F.pad(repairllama_input_ids, (pad_amt, 0), value=self.repairllama.config.pad_token_id)
-            if repairllama_mask is not None:
-                # pad the mask on the LEFT just like the tokens
-                repairllama_mask = F.pad(repairllama_mask, (pad_amt, 0), value=0)
-            seq_len = 1024
 
         # Move to device
         repairllama_input_ids = repairllama_input_ids.to(device)
-        if repairllama_mask is not None:
-            repairllama_mask = repairllama_mask.to(device)
+        repairllama_mask = repairllama_mask.to(device)
 
         # 2) Embeddings + positional IDs
         h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
         position_ids = (torch.arange(seq_len, device=device)
-                        .unsqueeze(0).expand(bsz, -1))
+                        .unsqueeze(0)
+                        .expand(bsz, -1)
+        )
 
         # 3) Build causal mask: shape (1,1,seq,seq)
         causal = torch.full((1, 1, seq_len, seq_len),
                             float("-inf"), device=device)
-        causal = torch.triu(causal, diagonal=1)
+        attn_mask = torch.triu(causal, diagonal=1)
+        attn_mask = attn_mask + (repairllama_mask[:, None, None, :]).to(h.dtype)
 
-        # 4) If a padding mask is provided, convert to additive form and add
-        if repairllama_mask is not None:
-            # repairllama_mask: 1 for real token, 0 for pad
-            pad_add = (1 - repairllama_mask[:, None, None, :]) * float("-inf")
-            attn_mask = causal + pad_add
-        else:
-            attn_mask = causal
-
-        # 5) Forward through layers
-        n_layers = self.repairllama.config.num_hidden_layers
-        for i in range(n_layers):
+        for i in range(self.repairllama.config.num_hidden_layers):
             h, *_ = self.repairllama.model.model.layers[i](
                 h, attn_mask, position_ids
             )
 
     @torch.inference_mode()
-    def generate(self, repairllama_input_ids, repairllama_mask, llama_input_ids=None, llama_mask=None,
-                   max_gen_len: int=256, max_llama_gen_len: int=125, temperature: float=0.1,
-                   top_p:  float=0.75):
-        bsz = len(repairllama_input_ids)
-        if llama_input_ids==None:
-            llama_input_ids = [
-                torch.full((1, 1), fill_value=self.llama_tokenizer.bos_id, dtype=torch.long)
-                for _ in range(bsz)
-            ]
-        assert len(repairllama_input_ids)==len(llama_input_ids) #batch sizes should be equal.
-       
-        params = self.llama.params
-        assert bsz <= params.max_batch_size, (bsz, params.max_batch_size)
+    def generate(
+        self,
+        repairllama_input_ids,  # [B, L]
+        repairllama_mask,       # [B, L]
+        llama_input_ids,        # [B, L]
+        llama_mask,             # [B, L]   ← True where INPUT was padded
+        temperature: float = 0.1,
+        top_p: float = 0.75,
+    ):
+        """
+        Autoregressive generation that:
+        - left-pads inputs (llama_mask marks pads)
+        - samples until EOS or max length 
+        - stops sampling on a per-sequence basis
+        """
+        bsz, seq_len = llama_input_ids.shape
+        eos_id = self.llama_tokenizer.eos_id
 
-        if isinstance(repairllama_input_ids[0], str): # if the inputs are given as strings instead of input_ids
-             #This assumes list of pytorch tensors returns given enumerable (list) of input texts.
-            repairllama_input_ids = [self.repairllama_tokenizer.encode(x, return_tensors='pt') for x in repairllama_input_ids]
-        
-        if isinstance(llama_input_ids[0], str):
-            # This has custom tokenizer encode in llama directory
-            llama_input_ids = [self.llama_tokenizer.encode(x, bos=True, eos=False) for x in llama_input_ids]
+        # 1) run repair model once
+        with torch.amp.autocast("cuda"):
+            self.forward_repairllama(repairllama_input_ids, repairllama_mask)
 
-        #Clipplig to max_seq_len
-        # Convert list of tensors into a single tensor
-        repairllama_input_ids = torch.stack(repairllama_input_ids)
-        llama_input_ids = torch.stack(llama_input_ids)
-        repairllama_input_ids = repairllama_input_ids[:, :, :params.max_seq_len]
-        llama_input_ids = llama_input_ids[:, :, :params.max_seq_len]
+        # 2) prepare finished flags
+        finished = torch.zeros(bsz, dtype=torch.bool, device=device)
 
-        min_llama_prompt_size = min([len(t[0]) for t in llama_input_ids])
-        max_llama_prompt_size = max([len(t[0]) for t in llama_input_ids])
+        # determine earliest position we need to start decoding from
+        # i.e. the first non-padded token in each row
+        # we take the minimum across the batch so we can run them in lock-step
+        min_prompt_start = min(
+            (llama_mask[i].tolist().index(False) for i in range(bsz)),
+            default=0
+        )
 
-        total_llama_len = min(params.max_seq_len, max_llama_gen_len + max_llama_prompt_size) # instead of generic params.max_seq_len consider using specific to llama & max_gen_len for llama text.
-        llama_tokens = torch.full((bsz, total_llama_len), self.llama_tokenizer.pad_id).cuda().long()
+        prev_pos = min_prompt_start
 
-        # Copy prompts into llama_tokens - Check this
-        for i in range(bsz):
-            prompt = llama_input_ids[i]
-            llama_tokens[i, :len(prompt[0])] = prompt[0]
-            
-        input_llama_text_mask = llama_tokens != self.llama_tokenizer.pad_id
-        llama_start_pos = min_llama_prompt_size
+        # 3) loop token by token
+        for cur_pos in range(min_prompt_start, self.llama_max_seq_len):
+            # run only the *new* token positions
+            with torch.amp.autocast("cuda"):
+                logits = self.forward_inference(
+                    llama_input_ids[:, prev_pos:cur_pos], 
+                    llama_mask[:, prev_pos:cur_pos],
+                    prev_pos
+                )  # [B, seq_segment, V]
 
-        prev_pos = 0
-        with torch.cuda.amp.autocast():
-            # print("repairllama input ids: ", repairllama_input_ids)
-            self.forward_repairllama(repairllama_input_ids)
-        # i = 0
-        for cur_pos in range(llama_start_pos, total_llama_len):  
-            with torch.cuda.amp.autocast():
-                llama_logits = self.forward_inference(llama_tokens[:, prev_pos:cur_pos], prev_pos)
+            # sample next token
             if temperature > 0:
-                probs = torch.softmax(llama_logits[:, -1] / temperature, dim=-1)
-                next_llama_token = sample_top_p(probs, top_p)
+                probs = torch.softmax(logits[:, -1] / temperature, dim=-1)
+                next_tok = sample_top_p(probs, top_p)  # [B]
             else:
-                next_llama_token = torch.argmax(llama_logits[:, -1], dim=-1)
-            next_llama_token = next_llama_token.reshape(-1)
-            next_llama_token = torch.where(
-                input_llama_text_mask[:, cur_pos], llama_tokens[:, cur_pos], next_llama_token
-            )
+                next_tok = torch.argmax(logits[:, -1], dim=-1)  # [B]
 
-            llama_tokens[:, cur_pos] = next_llama_token
-                
-        self.attention_hooks_data ={} # free the memory
+            # ensure shape
+            next_tok = next_tok.to(device)
+
+            # skip positions that were originally padded
+            # (if llama_mask[...,cur_pos]==True we keep the pad-id in input_ids)
+            pad_vals = llama_input_ids[:, cur_pos]
+            next_tok = torch.where(llama_mask[:, cur_pos], pad_vals, next_tok)
+
+            # force sequences that are already finished to stay at EOS
+            next_tok = torch.where(finished, eos_id, next_tok)
+
+            # write back
+            llama_input_ids[:, cur_pos] = next_tok
+
+            # update finished flags
+            finished |= next_tok.eq(eos_id)
+
+            # if every sequence has seen its EOS, we can stop early
+            if finished.all():
+                break
+
+            prev_pos = cur_pos
+
+        # 4) free hook data
+        self.attention_hooks_data = {}
+
+        # 5) decode each sequence up to its first EOS
         llama_decoded = []
-        for i, t in enumerate(llama_tokens.tolist()):
-
-            # cut to max gen len
-            t = t[len(llama_input_ids[i]): len(llama_input_ids[i]) + max_gen_len]
-            # cut to eos tok if any
-            try:
-                t = t[: t.index(self.llama_tokenizer.eos_id)]
-            except ValueError:
+        for seq in llama_input_ids.tolist():
+            if eos_id in seq:
+                seq = seq[: seq.index(eos_id)]
+            else:
+                # no EOS found, use full sequence
                 pass
-            llama_decoded.append(self.llama_tokenizer.decode(t))
+            llama_decoded.append(self.llama_tokenizer.decode(seq))
 
         return repairllama_input_ids, llama_decoded
+
+
+        # @torch.inference_mode()
+        # def generate(self, 
+        #     repairllama_input_ids, repairllama_mask, 
+        #     llama_input_ids, llama_mask, 
+        #     temperature: float=0.1, top_p:  float=0.75
+        # ):
+        #     bsz = len(repairllama_input_ids)
+        #     assert len(repairllama_input_ids)==len(llama_input_ids) #batch sizes should be equal.
+        
+        #     params = self.llama.params
+        #     assert bsz <= params.max_batch_size, (bsz, params.max_batch_size)
+
+        #     min_llama_prompt_size = min([len(t[0]) for t in llama_input_ids])
+        #     prev_pos = 0
+        #     with torch.amp.autocast("cuda"):
+        #         self.forward_repairllama(repairllama_input_ids, repairllama_mask)
+
+        #     for cur_pos in range(min_llama_prompt_size, self.llama_max_seq_len):  
+        #         with torch.amp.autocast("cuda"):
+        #             llama_logits = self.forward_inference(llama_input_ids[:, prev_pos:cur_pos], prev_pos)
+        #         if temperature > 0:
+        #             probs = torch.softmax(llama_logits[:, -1] / temperature, dim=-1)
+        #             next_llama_token = sample_top_p(probs, top_p)
+        #         else:
+        #             next_llama_token = torch.argmax(llama_logits[:, -1], dim=-1)
+        #         next_llama_token = next_llama_token.reshape(-1)
+        #         next_llama_token = torch.where(
+        #             llama_mask[:, cur_pos], llama_input_ids[:, cur_pos], next_llama_token
+        #         )
+
+        #         llama_input_ids[:, cur_pos] = next_llama_token
+                    
+        #     self.attention_hooks_data ={} # free the memory
+        #     llama_decoded = []
+        #     for i, t in enumerate(llama_input_ids.tolist()):
+        #         try:
+        #             t = t[: t.index(self.llama_tokenizer.eos_id)]
+        #         except ValueError:
+        #             print("No EOS token detected!")
+        #         llama_decoded.append(self.llama_tokenizer.decode(t))
+
+        #     return repairllama_input_ids, llama_decoded

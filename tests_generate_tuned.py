@@ -5,6 +5,11 @@ import pandas as pd
 import os
 import torch.distributed as dist
 from fairscale.nn.model_parallel import initialize as fs_init
+import utils.misc as misc
+import utils.lr_sched as lr_sched
+from utils.misc import NativeScalerWithGradNormCount as NativeScaler
+from utils.misc import CustomDistributedSampler
+from utils.dataset import FinetuneDataset
 
 import socket
 
@@ -27,44 +32,71 @@ if not dist.is_initialized():
 fs_init.initialize_model_parallel(model_parallel_size_=1)
 
 def main(args):
-
-    llama_adapter = LLamaAdapter(
+    device = torch.device(args.device)
+    model = LLamaAdapter(
         llama_ckpt_dir=args.llama_ckpt_dir,
         llama_tokenizer=args.llama_tokenizer_path,
         repairllama_model_dir=args.repairllama_model_dir or 'codellama/CodeLlama-7b-hf',
         repairllama_lora_dir=args.repairllama_lora_dir or './repairllama-lora',
-        max_seq_len=args.max_seq_len,
+        repairllama_max_seq_len=args.repairllama_max_input_len,
+        llama_max_seq_len=args.llama_max_input_len,
         max_batch_size=args.max_batch_size,
         w_lora=args.w_lora,
-        lora_rank=args.lora_rank
+        lora_rank=args.lora_rank,
+        phase="inference"
     )
-    llama_adapter.load_codellma_tuned(args.llama_trained_weight_dir)
-    
-    # repairllama_input_ids = torch.load(f"{args.repairllama_input_pth}",  map_location=torch.device('cpu'))
-    df = pd.read_csv(args.repairllama_input_pth)
-    repairllama_input = df["buggy_code"].tolist()
 
-    llama_input_ids = torch.load(args.llama_input_pth) if args.llama_input_pth is not None else None # commente for testing
+    model.load_codellma_tuned(args.llama_trained_weight_dir)
+    model.to(device)
+
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
+        model_without_ddp = model.module
+
+    dataset_inference = FinetuneDataset(
+        model=model, 
+        dataframe_path=args.data_path,
+        phase="inference"
+    )
+    print(dataset_inference)
+    num_tasks = misc.get_world_size()
+    global_rank = misc.get_rank()
+    sampler_inference = CustomDistributedSampler(
+        dataset_inference, num_replicas=num_tasks, rank=global_rank, shuffle=False
+    )
+    print("Sampler_inference = %s" % str(sampler_inference))
+
+    data_loader_inference = torch.utils.data.DataLoader(
+        dataset_inference, sampler=sampler_inference,
+        batch_size=args.max_batch_size,
+        num_workers=args.num_workers,
+        pin_memory=args.pin_mem,
+        drop_last=False,
+        multiprocessing_context='spawn' 
+    )
 
     # Prepare a file to write the outputs
     output_file = "generated_outputs.csv"
-    # print(repairllama_input[70:72])
-    # Run forward inference and save outputs
+
     with torch.no_grad():
         print("Running generate...")
         
+        metric_logger = misc.MetricLogger(delimiter="  ")
+        print_freq = 1
         all_repairllama_outputs = []
         all_llama_outputs = []
-        # Process each input ID in repairllama_input_ids
-        for i, repair_input in enumerate(repairllama_input[:100]):
-            print(f"Processing record {i + 1}/{len(repairllama_input[:100])}...")
-            # print("repairllama_input", repair_input)
-            # print("llama_input_ids", llama_input_ids)
-            
+        
+        for data_iter_step, (
+            repair_input_ids, repairllama_mask, llama_input_ids, llama_mask) in enumerate(
+                metric_logger.log_every(data_loader_inference, print_freq)
+        ):
+                
             # Generate outputs for the current input
-            repairllama_outputs, llama_outputs = llama_adapter.generate(
-                repairllama_input_ids=[repair_input],  # Process single input at a time
-                llama_input_ids=llama_input_ids
+            repairllama_outputs, llama_outputs = model.generate(
+                repairllama_input_ids=repair_input_ids,
+                repairllama_mask=repairllama_mask,
+                llama_input_ids=llama_input_ids,
+                llama_mask=llama_mask
             )
 
             # Collect outputs
@@ -89,14 +121,18 @@ if __name__ == "__main__":
     parser.add_argument("--llama_ckpt_dir", type=str, required=True, help="Path to Llama checkpoint directory")
     parser.add_argument("--llama_tokenizer_path", type=str, required=True, help="Path to Llama tokenizer")
     parser.add_argument("--llama_trained_weight_dir", type=str, required=True, help="Path to trained weights")
-    parser.add_argument("--repairllama_input_pth", type=str, required=True, help="RepairLLama input for forward inference")
-    parser.add_argument("--llama_input_pth", type=str, required=False, help="LLAma input for forward inference")
+    parser.add_argument("--data_path", type=str, required=True, help="Data path")
     parser.add_argument("--repairllama_model_dir", type=str, required=False, help="Path to RepairLlama model directory")
     parser.add_argument("--repairllama_lora_dir", type=str, required=False, help="Path to RepairLlama LoRA directory")
     parser.add_argument("--max_batch_size", type=int, required=True, help="Max batch size")
-    parser.add_argument('--max_seq_len', default=512, type=int, help='max number of input words')
+    parser.add_argument('--repairllama_max_input_len', default=1024, type=int,
+                        help='max number of input words(embeddings) in repairllama')
+    parser.add_argument('--llama_max_input_len', default=512, type=int,
+                        help='max number of input words(embeddings) in llama')
     parser.add_argument('--w_lora', default=False, type=bool)
     parser.add_argument('--lora_rank', default=16, type=int, help='This only apply if the w_lora parameter is "True"')
+    parser.add_argument('--device', default='cuda',
+                        help='device to use for training / testing')
     
     args = parser.parse_args()
     main(args)

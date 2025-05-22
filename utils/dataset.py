@@ -166,15 +166,14 @@ class FinetuneDataset(Dataset):
         self.phase = phase
 
     def __len__(self):
-        return len(self.data)
+        return len(self.data)   
 
     def __getitem__(self, idx):
         row = self.data.iloc[idx]
         buggy = str(row['buggy_code'])
         fixed = str(row['fixed_code'])
-        explanation = str(row['gpt_explanation'])
 
-        # --- RepairLlama side (just code + fixed) ---
+        # --- RepairLlama side (always the same) ---
         repair_text = buggy + "\n// Fixed Code:\n" + fixed + self.repair_tok.eos_token
         repair_enc = self.repair_tok(
             repair_text,
@@ -183,53 +182,114 @@ class FinetuneDataset(Dataset):
             truncation=True,
             return_tensors="pt",
         )
-        repair_input_ids = repair_enc.input_ids.squeeze(0)            # [1024]
-        repairllama_mask = repair_enc.attention_mask.squeeze(0)      # [1024]
+        repair_input_ids = repair_enc.input_ids.squeeze(0)
+        repairllama_mask = repair_enc.attention_mask.squeeze(0)
 
-        # --- LLaMA side (prompt + explanation) ---
+        # --- LLaMA side differs by phase ---
+        # build the prompt (without explanation for inference)
         prompt_text = PROMPT_DICT["prompt_input"].format(buggy_code=buggy)
-        full_text   = prompt_text + explanation + self.llama_tok.eos_token
+        if self.phase == 'inference':
+            # only encode prompt → we’ll generate from this
+            llama_enc = self.llama_tok(
+                prompt_text + self.llama_tok.eos_token,
+                padding="max_length",
+                max_length=self.llama_max,
+                truncation=True,
+                return_tensors="pt",
+            )
+            llama_input_ids = llama_enc.input_ids.squeeze(0)
+            llama_mask      = llama_enc.attention_mask.squeeze(0)
+            # no labels during inference
+            return repair_input_ids, repairllama_mask, llama_input_ids, llama_mask
 
-        llama_enc = self.llama_tok(
-            full_text,
-            padding="max_length",
-            max_length=self.llama_max,
-            truncation=True,
-            return_tensors="pt",
-        )
-        #  Testing
-        # llama_enc_test_explanation = self.llama_tok(
-        #     explanation,
-        #     padding=False,
-        #     truncation=True,
-        #     return_tensors="pt",
-        # )
-        # explanation_input_ids = llama_enc_test_explanation.input_ids.squeeze(0) 
-        # print("Explanation_input_ids: ", explanation_input_ids.size(), explanation_input_ids)
-        # Testing ends
-        llama_input_ids  = llama_enc.input_ids.squeeze(0)            # [1024]
-        # right after constructing llama_input_ids:
-        max_id = llama_input_ids.max().item()
-        min_id = llama_input_ids.min().item()
-        # print(f"[DEBUG] llama IDs in [{min_id}..{max_id}], vocab_size={len(self.llama_tok.get_vocab())}")
-        assert max_id < len(self.llama_tok.get_vocab()), (
-            f"Token ID {max_id} >= vocab_size {len(self.llama_tok.get_vocab())}"
-        )
+        else:
+            # train/validation: include the explanation and build labels
+            explanation = str(row['gpt_explanation'])
+            full_text   = prompt_text + explanation + self.llama_tok.eos_token
+            llama_enc = self.llama_tok(
+                full_text,
+                padding="max_length",
+                max_length=self.llama_max,
+                truncation=True,
+                return_tensors="pt",
+            )
+            llama_input_ids = llama_enc.input_ids.squeeze(0)
+            llama_mask      = llama_enc.attention_mask.squeeze(0)
 
-        llama_mask = llama_enc.attention_mask.squeeze(0)       # [1024]
+            # mask out the prompt in the labels, so only the explanation gets learned
+            expl_enc = self.llama_tok(
+                explanation + self.llama_tok.eos_token,
+                padding=False,
+                truncation=True,
+                return_tensors="pt",
+            )
+            expl_len = expl_enc.input_ids.size(1)
 
-        # --- build labels: mask out the prompt portion ---
-        # 2) Separately encode just the explanation+EOS (no prompt, no padding)
-        expl_enc = self.llama_tok(
-            explanation + self.llama_tok.eos_token,
-            padding=False,
-            truncation=True,
-            return_tensors="pt",
-        )
-        expl_len = expl_enc.input_ids.size(1)   
+            llama_labels = llama_input_ids.clone()
+            llama_labels[:-expl_len] = -100
 
-        # print("expl len: _____", expl_len)
-        llama_labels = llama_input_ids.clone()
-        llama_labels[:-expl_len] = -100  # ignore prompt tokens
+            return (
+                repair_input_ids,
+                repairllama_mask,
+                llama_input_ids,
+                llama_labels,
+                llama_mask
+            )
 
-        return repair_input_ids, repairllama_mask, llama_input_ids, llama_labels, llama_mask
+
+    # def __getitem__(self, idx):
+    #     row = self.data.iloc[idx]
+    #     buggy = str(row['buggy_code'])
+    #     fixed = str(row['fixed_code'])
+    #     explanation = str(row['gpt_explanation'])
+
+    #     # --- RepairLlama side (just code + fixed) ---
+    #     repair_text = buggy + "\n// Fixed Code:\n" + fixed + self.repair_tok.eos_token
+    #     repair_enc = self.repair_tok(
+    #         repair_text,
+    #         padding="max_length",
+    #         max_length=self.repair_max,
+    #         truncation=True,
+    #         return_tensors="pt",
+    #     )
+    #     repair_input_ids = repair_enc.input_ids.squeeze(0)            # [1024]
+    #     repairllama_mask = repair_enc.attention_mask.squeeze(0)      # [1024]
+
+    #     # --- LLaMA side (prompt + explanation) ---
+    #     prompt_text = PROMPT_DICT["prompt_input"].format(buggy_code=buggy)
+    #     full_text   = prompt_text + explanation + self.llama_tok.eos_token
+
+    #     llama_enc = self.llama_tok(
+    #         full_text,
+    #         padding="max_length",
+    #         max_length=self.llama_max,
+    #         truncation=True,
+    #         return_tensors="pt",
+    #     )
+
+    #     llama_input_ids  = llama_enc.input_ids.squeeze(0)            # [1024]
+    #     # right after constructing llama_input_ids:
+    #     max_id = llama_input_ids.max().item()
+    #     min_id = llama_input_ids.min().item()
+    #     # print(f"[DEBUG] llama IDs in [{min_id}..{max_id}], vocab_size={len(self.llama_tok.get_vocab())}")
+    #     assert max_id < len(self.llama_tok.get_vocab()), (
+    #         f"Token ID {max_id} >= vocab_size {len(self.llama_tok.get_vocab())}"
+    #     )
+
+    #     llama_mask = llama_enc.attention_mask.squeeze(0)       # [1024]
+
+    #     # --- build labels: mask out the prompt portion ---
+    #     # 2) Separately encode just the explanation+EOS (no prompt, no padding)
+    #     expl_enc = self.llama_tok(
+    #         explanation + self.llama_tok.eos_token,
+    #         padding=False,
+    #         truncation=True,
+    #         return_tensors="pt",
+    #     )
+    #     expl_len = expl_enc.input_ids.size(1)   
+
+    #     # print("expl len: _____", expl_len)
+    #     llama_labels = llama_input_ids.clone()
+    #     llama_labels[:-expl_len] = -100  # ignore prompt tokens
+
+    #     return repair_input_ids, repairllama_mask, llama_input_ids, llama_labels, llama_mask
