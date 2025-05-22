@@ -618,7 +618,9 @@ class LLamaAdapter(nn.Module):
 
         prev_pos = min_prompt_start
 
-        # 3) loop token by token
+        # 3) loop token by 
+        print("_____________3______________-")
+        print(min_prompt_start, self.llama_max_seq_len)
         for cur_pos in range(min_prompt_start, self.llama_max_seq_len):
             segment = llama_input_ids[:, prev_pos:cur_pos]
             if segment.size(1) == 0:
@@ -658,7 +660,7 @@ class LLamaAdapter(nn.Module):
 
         # 4) free hook data
         self.attention_hooks_data = {}
-        
+
         seq_ids = llama_input_ids[0].tolist()
         print("Final token IDs: ", seq_ids)
 
