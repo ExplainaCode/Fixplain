@@ -677,6 +677,11 @@ class LLamaAdapter(nn.Module):
         - sample from the last logit and append
         - stop on EOS or max length
         """
+        repairllama_input_ids = repairllama_input_ids.to(device)
+        repairllama_mask  = repairllama_mask.to(device)
+        llama_input_ids = llama_input_ids.to(device)
+        llama_mask = llama_mask.to(device)
+        
         eos_id = self.llama_tokenizer.eos_token_id
 
         # 1) Run the repair model on the prompt
