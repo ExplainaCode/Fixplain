@@ -639,7 +639,11 @@ class LLamaAdapter(nn.Module):
             # skip positions that were originally padded
             # (if llama_mask[...,cur_pos]==True we keep the pad-id in input_ids)
             pad_vals = llama_input_ids[:, cur_pos]
-            next_tok = torch.where(llama_mask[:, cur_pos], pad_vals, next_tok)
+            next_tok = torch.where(
+                llama_mask[:, cur_pos].bool(), 
+                pad_vals, 
+                next_tok
+            )
 
             # force sequences that are already finished to stay at EOS
             next_tok = torch.where(finished, eos_id, next_tok)
