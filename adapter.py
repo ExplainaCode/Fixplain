@@ -594,7 +594,7 @@ class LLamaAdapter(nn.Module):
         - stops sampling on a per-sequence basis
         """
         bsz, seq_len = llama_input_ids.shape
-        eos_id = self.llama_tokenizer.eos_id
+        eos_id = self.llama_tokenizer.eos_token_id
 
         # 1) run repair model once
         with torch.amp.autocast("cuda"):
