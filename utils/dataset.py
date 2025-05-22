@@ -190,6 +190,7 @@ class FinetuneDataset(Dataset):
         prompt_text = PROMPT_DICT["prompt_input"].format(buggy_code=buggy)
         if self.phase == 'inference':
             # only encode prompt → we’ll generate from this
+            explanation = str(row['gpt_explanation']) if 'gpt_explanation' in row and row['gpt_explanation'] is not None else ""
             llama_enc = self.llama_tok(
                 prompt_text + self.llama_tok.eos_token,
                 padding="max_length",
@@ -200,7 +201,7 @@ class FinetuneDataset(Dataset):
             llama_input_ids = llama_enc.input_ids.squeeze(0)
             llama_mask      = llama_enc.attention_mask.squeeze(0)
             # no labels during inference
-            return repair_input_ids, repairllama_mask, llama_input_ids, llama_mask
+            return repair_input_ids, repairllama_mask, llama_input_ids, llama_mask, explanation
 
         else:
             # train/validation: include the explanation and build labels

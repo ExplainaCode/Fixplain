@@ -3,6 +3,7 @@ import argparse
 import torch
 import pandas as pd
 import os
+import csv
 import torch.distributed as dist
 from fairscale.nn.model_parallel import initialize as fs_init
 import utils.misc as misc
@@ -83,12 +84,12 @@ def main(args):
         
         metric_logger = misc.MetricLogger(delimiter="  ")
         print_freq = 1
-        all_repairllama_outputs = []
-        all_llama_outputs = []
-        
+
+        all_records = []
+
         model.eval()
         for data_iter_step, (
-            repair_input_ids, repairllama_mask, llama_input_ids, llama_mask) in enumerate(
+            repair_input_ids, repairllama_mask, llama_input_ids, llama_mask, explanation) in enumerate(
                 metric_logger.log_every(data_loader_inference, print_freq)
         ):
                 
@@ -101,20 +102,19 @@ def main(args):
             )
 
             # Collect outputs
-            all_repairllama_outputs.append(repairllama_outputs)
-            all_llama_outputs.append(llama_outputs)
+            all_records.append({
+                "gpt_explanation": str(explanation) if explanation is not None else "",
+                "llama_output": llama_outputs
+            })
 
-        # Write all outputs to a file
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.write("Repairllama Outputs:\n")
-            for i, output in enumerate(all_repairllama_outputs):
-                f.write(f"Record {i + 1}:\n{output}\n\n")
+        # Write all outputs to a CSV file
+        with open(output_file, mode="w", newline='', encoding="utf-8") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=["gpt_explanation", "llama_output"])
+            writer.writeheader()
+            writer.writerows(all_records)
 
-            f.write("\nllama Outputs:\n")
-            for i, output in enumerate(all_llama_outputs):
-                f.write(f"Record {i + 1}:\n{output}\n\n")
+        print(f"All outputs saved to {output_file}")
 
-    print(f"All outputs saved to {output_file}")
 
 
 if __name__ == "__main__":

@@ -723,19 +723,19 @@ class LLamaAdapter(nn.Module):
         # 3) clear any saved cache/hooks
         self.attention_hooks_data = {}
 
-        seq_ids = llama_input_ids[0].tolist()
-        print("Final token IDs: ", seq_ids)
+        # seq_ids = llama_input_ids[0].tolist()
+        # print("Final token IDs: ", seq_ids)
 
-        # Raw decode (includes special tokens)
-        raw_text = self.llama_tokenizer.decode(seq_ids, skip_special_tokens=False)
-        print("Raw decode   : ", raw_text)
+        # # Raw decode (includes special tokens)
+        # raw_text = self.llama_tokenizer.decode(seq_ids, skip_special_tokens=False)
+        # print("Raw decode   : ", raw_text)
 
         # 4) decode each sequence up to its first EOS
         outputs = []
         for seq in llama_input_ids.tolist():
-            if eos_id in seq:
-                cut = seq.index(eos_id)
-                seq = seq[:cut]
-            outputs.append(self.llama_tokenizer.decode(seq))
+            # take only tokens *after* position seq_len
+            gen_portion = seq[self.llama_max_seq_len:]
+            # if there’s an EOS in there, cut at EOS
+            outputs.append(self.llama_tokenizer.decode(gen_portion))
 
         return repairllama_input_ids, outputs
