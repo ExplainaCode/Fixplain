@@ -616,7 +616,7 @@ class LLamaAdapter(nn.Module):
                     llama_mask[:, prev_pos:cur_pos],
                     prev_pos
                 )  # [B, seq_segment, V]
-                print("_______logits passed once_____________")
+                # print("_______logits passed once_____________")
 
             # sample next token
             if temperature > 0:
