@@ -49,9 +49,9 @@ def main(args):
     model.load_codellma_tuned(args.llama_trained_weight_dir)
     model.to(device)
 
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
-        model_without_ddp = model.module
+    # if args.distributed:
+    #     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
+    #     model_without_ddp = model.module
 
     dataset_inference = FinetuneDataset(
         model=model, 
