@@ -597,7 +597,7 @@ class LLamaAdapter(nn.Module):
         repairllama_mask  = repairllama_mask.to(device)
         llama_input_ids = llama_input_ids.to(device)
         llama_mask = llama_mask.to(device)
-        
+
         bsz, seq_len = llama_input_ids.shape
         eos_id = self.llama_tokenizer.eos_token_id
 
@@ -640,26 +640,17 @@ class LLamaAdapter(nn.Module):
 
             # ensure shape
             next_tok = next_tok.to(device)
-
-            # skip positions that were originally padded
-            # (if llama_mask[...,cur_pos]==True we keep the pad-id in input_ids)
+            next_tok = next_tok.view(bsz)
+            # 4) enforce pad‐positions and finished‐EOS
             pad_vals = llama_input_ids[:, cur_pos]
-            next_tok = torch.where(
-                llama_mask[:, cur_pos].to(torch.bool), 
-                pad_vals, 
-                next_tok
-            )
-
-            # force sequences that are already finished to stay at EOS
+            next_tok = torch.where(llama_mask[:, cur_pos].to(torch.bool), pad_vals, next_tok)
             next_tok = torch.where(finished, eos_id, next_tok)
 
-            # write back
+            # 5) write back and update finished
             llama_input_ids[:, cur_pos] = next_tok
-
-            # update finished flags
             finished |= next_tok.eq(eos_id)
 
-            # if every sequence has seen its EOS, we can stop early
+            # 6) break early if done
             if finished.all():
                 break
 
