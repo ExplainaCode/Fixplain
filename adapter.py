@@ -658,8 +658,13 @@ class LLamaAdapter(nn.Module):
 
         # 4) free hook data
         self.attention_hooks_data = {}
-        print("Final IDs:", llama_input_ids.tolist())
-        print("Finished mask:", finished.tolist())
+        
+        seq_ids = llama_input_ids[0].tolist()
+        print("Final token IDs: ", seq_ids)
+
+        # Raw decode (includes special tokens)
+        raw_text = self.llama_tokenizer.decode(seq_ids, skip_special_tokens=False)
+        print("Raw decode   : ", raw_text)
 
         # 5) decode each sequence up to its first EOS
         llama_decoded = []
