@@ -577,128 +577,151 @@ class LLamaAdapter(nn.Module):
                 h, attn_mask, position_ids
             )
 
-    @torch.inference_mode()
-    def generate(
-        self,
-        repairllama_input_ids,  # [B, L]
-        repairllama_mask,       # [B, L]
-        llama_input_ids,        # [B, L]
-        llama_mask,             # [B, L]   ← True where INPUT was padded
-        max_gen_len: int =128,
-        temperature: float = 0.1,
-        top_p: float = 0.75,
-    ):
-        """
-        Autoregressive generation that:
-        - left-pads inputs (llama_mask marks pads)
-        - samples until EOS or max length 
-        - stops sampling on a per-sequence basis
-        """
-        repairllama_input_ids = repairllama_input_ids.to(device)
-        repairllama_mask  = repairllama_mask.to(device)
-        llama_input_ids = llama_input_ids.to(device)
-        llama_mask = llama_mask.to(device)
+    # @torch.inference_mode()
+    # def generate(
+    #     self,
+    #     repairllama_input_ids,  # [B, L]
+    #     repairllama_mask,       # [B, L]
+    #     llama_input_ids,        # [B, L]
+    #     llama_mask,             # [B, L]   ← True where INPUT was padded
+    #     max_gen_len: int =128,
+    #     temperature: float = 0.1,
+    #     top_p: float = 0.75,
+    # ):
+    #     """
+    #     Autoregressive generation that:
+    #     - left-pads inputs (llama_mask marks pads)
+    #     - samples until EOS or max length 
+    #     - stops sampling on a per-sequence basis
+    #     """
+    #     repairllama_input_ids = repairllama_input_ids.to(device)
+    #     repairllama_mask  = repairllama_mask.to(device)
+    #     llama_input_ids = llama_input_ids.to(device)
+    #     llama_mask = llama_mask.to(device)
 
-        bsz, seq_len = llama_input_ids.shape
-        eos_id = self.llama_tokenizer.eos_token_id
+    #     bsz, seq_len = llama_input_ids.shape
+    #     eos_id = self.llama_tokenizer.eos_token_id
 
-        # 1) run repair model once
+    #     # 1) run repair model once
+    #     with torch.amp.autocast("cuda"):
+    #         self.forward_repairllama(repairllama_input_ids, repairllama_mask)
+
+    #     prev_pos = 0
+
+    #     # 3) loop token by 
+    #     for cur_pos in range(self.llama_max_seq_len, self.llama_max_seq_len+max_gen_len):
+    #         with torch.amp.autocast("cuda"):
+    #             logits = self.forward_inference(
+    #                 llama_input_ids[:, prev_pos:cur_pos], 
+    #                 llama_mask[:, prev_pos:cur_pos],
+    #                 prev_pos
+    #             )  # [B, seq_segment, V]
+
+    #         # sample next token
+    #         if temperature > 0:
+    #             probs = torch.softmax(logits[:, -1] / temperature, dim=-1)
+    #             next_tok = sample_top_p(probs, top_p)  # [B]
+    #         else:
+    #             next_tok = torch.argmax(logits[:, -1], dim=-1)  # [B]
+
+    #         # ensure shape
+    #         next_tok = next_tok.to(device)
+    #         next_tok = next_tok.view(bsz)
+
+    #         next_tok_col = next_tok.unsqueeze(1)
+    #         llama_input_ids = torch.cat([llama_input_ids, next_tok_col], dim=1)
+
+    #         new_mask_col = torch.zeros((bsz, 1), dtype=torch.bool, device=device)
+    #         llama_mask    = torch.cat([llama_mask, new_mask_col], dim=1)
+
+    #         prev_pos = cur_pos
+
+    #     # 4) free hook data
+    #     self.attention_hooks_data = {}
+
+    #     seq_ids = llama_input_ids[0].tolist()
+    #     print("Final token IDs: ", seq_ids)
+
+    #     # Raw decode (includes special tokens)
+    #     raw_text = self.llama_tokenizer.decode(seq_ids, skip_special_tokens=False)
+    #     print("Raw decode   : ", raw_text)
+
+    #     # 5) decode each sequence up to its first EOS
+    #     llama_decoded = []
+    #     for seq in llama_input_ids.tolist():
+    #         if eos_id in seq:
+    #             seq = seq[: seq.index(eos_id)]
+    #         else:
+    #             # no EOS found, use full sequence
+    #             pass
+    #         llama_decoded.append(self.llama_tokenizer.decode(seq))
+
+    #     return repairllama_input_ids, llama_decoded
+
+
+@torch.inference_mode()
+def generate(
+    self,
+    repairllama_input_ids,  # [B, L]
+    repairllama_mask,       # [B, L]
+    llama_input_ids,        # [B, L]
+    llama_mask,             # [B, L]   ← True where INPUT was padded
+    max_gen_len: int = 128,
+    temperature: float = 0.1,
+    top_p: float = 0.75,
+):
+    """
+    Inefficient but correct autoregressive generation:
+      - run the repair model once
+      - then for each new token, re-run forward_inference on the entire prefix
+      - sample from the last logit and append
+      - stop on EOS or max length
+    """
+    eos_id = self.llama_tokenizer.eos_token_id
+
+    # 1) Run the repair model on the prompt
+    with torch.amp.autocast("cuda"):
+        _ = self.forward_repairllama(repairllama_input_ids, repairllama_mask)
+
+    # 2) Autoregressive loop
+    for _step in range(max_gen_len):
+        # (Re)run the entire sequence through forward_inference
         with torch.amp.autocast("cuda"):
-            self.forward_repairllama(repairllama_input_ids, repairllama_mask)
+            logits = self.forward_inference(
+                llama_input_ids,
+                llama_mask,
+                start_pos=0,         # always start at 0
+            )                          # → [B, seq_len, V]
 
-        prev_pos = 0
+        # pick the distribution over the *last* position
+        last_logits = logits[:, -1]    # [B, V]
 
-        # 3) loop token by 
-        for cur_pos in range(self.llama_max_seq_len, self.llama_max_seq_len+max_gen_len):
-            with torch.amp.autocast("cuda"):
-                logits = self.forward_inference(
-                    llama_input_ids[:, prev_pos:cur_pos], 
-                    llama_mask[:, prev_pos:cur_pos],
-                    prev_pos
-                )  # [B, seq_segment, V]
-                # print("_______logits passed once_____________")
+        if temperature > 0:
+            probs = torch.softmax(last_logits / temperature, dim=-1)
+            next_tok = sample_top_p(probs, top_p)      # [B]
+        else:
+            next_tok = torch.argmax(last_logits, dim=-1)  # [B]
 
-            # sample next token
-            if temperature > 0:
-                probs = torch.softmax(logits[:, -1] / temperature, dim=-1)
-                next_tok = sample_top_p(probs, top_p)  # [B]
-            else:
-                next_tok = torch.argmax(logits[:, -1], dim=-1)  # [B]
+        # append new token to input_ids and mask
+        next_tok = next_tok.to(device).unsqueeze(1)   # [B,1]
+        llama_input_ids = torch.cat([llama_input_ids, next_tok], dim=1)
+        llama_mask      = torch.cat([llama_mask,
+                                     torch.zeros_like(next_tok, dtype=torch.bool)],
+                                     dim=1)
 
-            # ensure shape
-            next_tok = next_tok.to(device)
-            next_tok = next_tok.view(bsz)
+        # stop early if every sequence produced EOS
+        if (next_tok == eos_id).all():
+            break
 
-            next_tok_col = next_tok.unsqueeze(1)
-            llama_input_ids = torch.cat([llama_input_ids, next_tok_col], dim=1)
+    # 3) clear any saved cache/hooks
+    self.attention_hooks_data = {}
 
-            new_mask_col = torch.zeros((bsz, 1), dtype=torch.bool, device=device)
-            llama_mask    = torch.cat([llama_mask, new_mask_col], dim=1)
+    # 4) decode each sequence up to its first EOS
+    outputs = []
+    for seq in llama_input_ids.tolist():
+        if eos_id in seq:
+            cut = seq.index(eos_id)
+            seq = seq[:cut]
+        outputs.append(self.llama_tokenizer.decode(seq))
 
-            prev_pos = cur_pos
-
-        # 4) free hook data
-        self.attention_hooks_data = {}
-
-        seq_ids = llama_input_ids[0].tolist()
-        print("Final token IDs: ", seq_ids)
-
-        # Raw decode (includes special tokens)
-        raw_text = self.llama_tokenizer.decode(seq_ids, skip_special_tokens=False)
-        print("Raw decode   : ", raw_text)
-
-        # 5) decode each sequence up to its first EOS
-        llama_decoded = []
-        for seq in llama_input_ids.tolist():
-            if eos_id in seq:
-                seq = seq[: seq.index(eos_id)]
-            else:
-                # no EOS found, use full sequence
-                pass
-            llama_decoded.append(self.llama_tokenizer.decode(seq))
-
-        return repairllama_input_ids, llama_decoded
-
-
-        # @torch.inference_mode()
-        # def generate(self, 
-        #     repairllama_input_ids, repairllama_mask, 
-        #     llama_input_ids, llama_mask, 
-        #     temperature: float=0.1, top_p:  float=0.75
-        # ):
-        #     bsz = len(repairllama_input_ids)
-        #     assert len(repairllama_input_ids)==len(llama_input_ids) #batch sizes should be equal.
-        
-        #     params = self.llama.params
-        #     assert bsz <= params.max_batch_size, (bsz, params.max_batch_size)
-
-        #     min_llama_prompt_size = min([len(t[0]) for t in llama_input_ids])
-        #     prev_pos = 0
-        #     with torch.amp.autocast("cuda"):
-        #         self.forward_repairllama(repairllama_input_ids, repairllama_mask)
-
-        #     for cur_pos in range(min_llama_prompt_size, self.llama_max_seq_len):  
-        #         with torch.amp.autocast("cuda"):
-        #             llama_logits = self.forward_inference(llama_input_ids[:, prev_pos:cur_pos], prev_pos)
-        #         if temperature > 0:
-        #             probs = torch.softmax(llama_logits[:, -1] / temperature, dim=-1)
-        #             next_llama_token = sample_top_p(probs, top_p)
-        #         else:
-        #             next_llama_token = torch.argmax(llama_logits[:, -1], dim=-1)
-        #         next_llama_token = next_llama_token.reshape(-1)
-        #         next_llama_token = torch.where(
-        #             llama_mask[:, cur_pos], llama_input_ids[:, cur_pos], next_llama_token
-        #         )
-
-        #         llama_input_ids[:, cur_pos] = next_llama_token
-                    
-        #     self.attention_hooks_data ={} # free the memory
-        #     llama_decoded = []
-        #     for i, t in enumerate(llama_input_ids.tolist()):
-        #         try:
-        #             t = t[: t.index(self.llama_tokenizer.eos_id)]
-        #         except ValueError:
-        #             print("No EOS token detected!")
-        #         llama_decoded.append(self.llama_tokenizer.decode(t))
-
-        #     return repairllama_input_ids, llama_decoded
+    return repairllama_input_ids, outputs
