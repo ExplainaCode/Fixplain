@@ -612,8 +612,8 @@ class LLamaAdapter(nn.Module):
         for cur_pos in range(self.llama_max_seq_len, self.llama_max_seq_len+max_gen_len):
             with torch.amp.autocast("cuda"):
                 logits = self.forward_inference(
-                    llama_input_ids, #[:, prev_pos:cur_pos], 
-                    llama_mask , #[:, prev_pos:cur_pos],
+                    llama_input_ids[:, prev_pos:cur_pos], 
+                    llama_mask[:, prev_pos:cur_pos],
                     prev_pos
                 )  # [B, seq_segment, V]
                 print("_______logits passed once_____________")
@@ -635,7 +635,7 @@ class LLamaAdapter(nn.Module):
             new_mask_col = torch.zeros((bsz, 1), dtype=torch.bool, device=device)
             llama_mask    = torch.cat([llama_mask, new_mask_col], dim=1)
 
-            # prev_pos = cur_pos
+            prev_pos = cur_pos
 
         # 4) free hook data
         self.attention_hooks_data = {}
