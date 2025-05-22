@@ -125,7 +125,7 @@ if __name__ == "__main__":
     parser.add_argument("--repairllama_model_dir", type=str, required=False, help="Path to RepairLlama model directory")
     parser.add_argument("--repairllama_lora_dir", type=str, required=False, help="Path to RepairLlama LoRA directory")
     parser.add_argument("--max_batch_size", type=int, required=True, help="Max batch size")
-    parser.add_argument('--repairllama_max_input_len', default=1024, type=int,
+    parser.add_argument('--repairllama_max_input_len', default=512, type=int,
                         help='max number of input words(embeddings) in repairllama')
     parser.add_argument('--llama_max_input_len', default=512, type=int,
                         help='max number of input words(embeddings) in llama')
