@@ -86,6 +86,7 @@ def main(args):
         all_repairllama_outputs = []
         all_llama_outputs = []
         
+        model.eval()
         for data_iter_step, (
             repair_input_ids, repairllama_mask, llama_input_ids, llama_mask) in enumerate(
                 metric_logger.log_every(data_loader_inference, print_freq)
