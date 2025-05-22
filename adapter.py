@@ -681,7 +681,7 @@ class LLamaAdapter(nn.Module):
         repairllama_mask  = repairllama_mask.to(device)
         llama_input_ids = llama_input_ids.to(device)
         llama_mask = llama_mask.to(device)
-        
+
         eos_id = self.llama_tokenizer.eos_token_id
 
         # 1) Run the repair model on the prompt
@@ -709,6 +709,8 @@ class LLamaAdapter(nn.Module):
 
             # append new token to input_ids and mask
             next_tok = next_tok.to(device).unsqueeze(1)   # [B,1]
+            print("ids:", llama_input_ids.shape, " new tok:", next_tok.shape)
+
             llama_input_ids = torch.cat([llama_input_ids, next_tok], dim=1)
             llama_mask      = torch.cat([llama_mask,
                                         torch.zeros_like(next_tok, dtype=torch.bool)],
