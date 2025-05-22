@@ -690,7 +690,7 @@ class LLamaAdapter(nn.Module):
                 logits = self.forward_inference(
                     llama_input_ids,
                     llama_mask,
-                    start_pos=0,         # always start at 0
+                    llama_start_pos=0,         # always start at 0
                 )                          # → [B, seq_len, V]
 
             # pick the distribution over the *last* position
