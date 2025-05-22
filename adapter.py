@@ -708,8 +708,8 @@ class LLamaAdapter(nn.Module):
                 next_tok = torch.argmax(last_logits, dim=-1)  # [B]
 
             # append new token to input_ids and mask
-            next_tok = next_tok.to(device).unsqueeze(1)   # [B,1]
-            print("ids:", llama_input_ids.shape, " new tok:", next_tok.shape)
+            next_tok = next_tok.to(device).view(1, 1)   # [B,1]
+            # print("ids:", llama_input_ids.shape, " new tok:", next_tok.shape)
 
             llama_input_ids = torch.cat([llama_input_ids, next_tok], dim=1)
             llama_mask      = torch.cat([llama_mask,
