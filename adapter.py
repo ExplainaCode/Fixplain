@@ -606,31 +606,14 @@ class LLamaAdapter(nn.Module):
         with torch.amp.autocast("cuda"):
             self.forward_repairllama(repairllama_input_ids, repairllama_mask)
 
-        # 2) prepare finished flags
-        finished = torch.zeros(bsz, dtype=torch.bool, device=device)
-
-        # determine earliest position we need to start decoding from
-        # i.e. the first non-padded token in each row
-        # we take the minimum across the batch so we can run them in lock-step
-
-        # min_prompt_start = min(
-        #     (llama_mask[i].tolist().index(False) for i in range(bsz)),
-        #     default=0
-        # )
-
-
         prev_pos = 0
 
         # 3) loop token by 
         for cur_pos in range(self.llama_max_seq_len, self.llama_max_seq_len+max_gen_len):
-            segment = llama_input_ids[:, prev_pos:cur_pos]
-            if segment.size(1) == 0:
-                continue
-            # run only the *new* token positions
             with torch.amp.autocast("cuda"):
                 logits = self.forward_inference(
-                    llama_input_ids[:, prev_pos:cur_pos], 
-                    llama_mask[:, prev_pos:cur_pos],
+                    llama_input_ids, #[:, prev_pos:cur_pos], 
+                    llama_mask , #[:, prev_pos:cur_pos],
                     prev_pos
                 )  # [B, seq_segment, V]
 
