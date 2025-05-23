@@ -134,18 +134,16 @@ from adapter import LLamaAdapter
 
 PROMPT_DICT = {
     "prompt_input": (
-        "Below is an instruction that describes a task, paired with an input that provides further context. "
-        "Write a response that appropriately completes the request.\n\n"
-        "### Instruction:\nThere is a buggy code provided and fixed code embeddings come through intermediate layers. "
-        "Write an explanation explaining the bug and the fix.\n\n"
-        "### Input:\n{buggy_code}\n\n### Response: "
-    ),
+        "Given a buggy code and its patch, along with intermediate layer embeddings from a repair model, "
+        "explain the bug and how the patch fixes it.\n\n"
+        "### Buggy Code:\n{buggy_code}\n### Patch:\n{patch}\n\n### Explanation:"
+    )
 }
 
 class FinetuneDataset(Dataset):
     def __init__(self, model: LLamaAdapter, dataframe_path: str, phase='train'):
         # --- Load data ---
-        self.data = pd.read_csv(dataframe_path, nrows=100)
+        self.data = pd.read_csv(dataframe_path, nrows=10000)
         required = ['buggy_code', 'fixed_code', 'gpt_explanation']
         if not all(c in self.data.columns for c in required):
             raise ValueError(f"CSV must contain columns: {required}")
@@ -187,7 +185,7 @@ class FinetuneDataset(Dataset):
 
         # --- LLaMA side differs by phase ---
         # build the prompt (without explanation for inference)
-        prompt_text = PROMPT_DICT["prompt_input"].format(buggy_code=buggy)
+        prompt_text = PROMPT_DICT["prompt_input"].format(buggy_code=buggy, patch=fixed)
         if self.phase == 'inference':
             # only encode prompt → we’ll generate from this
             explanation = str(row['gpt_explanation']) if 'gpt_explanation' in row and row['gpt_explanation'] is not None else ""
