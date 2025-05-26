@@ -666,6 +666,7 @@ class LLamaAdapter(nn.Module):
         repairllama_mask,       # [B, L]
         llama_input_ids,        # [B, L]
         llama_mask,             # [B, L]   ← True where INPUT was padded
+        batch_size: int = 1,
         max_gen_len: int = 128,
         temperature: float = 0.1,
         top_p: float = 0.75,
@@ -708,7 +709,7 @@ class LLamaAdapter(nn.Module):
                 next_tok = torch.argmax(last_logits, dim=-1)  # [B]
 
             # append new token to input_ids and mask
-            next_tok = next_tok.to(device).view(1, 1)   # [B,1]
+            next_tok = next_tok.to(device).view(batch_size, 1)   # [B,1]
             # print("ids:", llama_input_ids.shape, " new tok:", next_tok.shape)
 
             llama_input_ids = torch.cat([llama_input_ids, next_tok], dim=1)

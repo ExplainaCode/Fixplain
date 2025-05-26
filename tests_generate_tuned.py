@@ -98,7 +98,8 @@ def main(args):
                 repairllama_input_ids=repair_input_ids,
                 repairllama_mask=repairllama_mask,
                 llama_input_ids=llama_input_ids,
-                llama_mask=llama_mask
+                llama_mask=llama_mask, 
+                batch_size=args.max_batch_size
             )
 
             # Collect outputs
