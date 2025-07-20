@@ -39,10 +39,9 @@ class LLamaAdapter(nn.Module):
         super().__init__()
         self.attention_hooks_data = {}
 
-        self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
-            repairllama_model_dir, repairllama_lora_dir,
-            register_Attention_hooks=True)
-        # print("repairllama is loaded... llama is about to load....")
+        # self.repairllama, self.repairllama_tokenizer = self._load_repairllama(
+        #     repairllama_model_dir, repairllama_lora_dir,
+        #     register_Attention_hooks=True)
 
         self.llama, self.llama_tokenizer = self._load_llama(
             llama_ckpt_dir, llama_max_seq_len,
@@ -54,7 +53,6 @@ class LLamaAdapter(nn.Module):
         self.set_trainale_params(self.phase)
 
         self.test_var = 0
-        self.repairllama_max_seq_len = repairllama_max_seq_len
         self.llama_max_seq_len = llama_max_seq_len
 
     def _load_llama(
@@ -129,53 +127,6 @@ class LLamaAdapter(nn.Module):
         print(f"Loaded and resized CodeLlama in {elapsed:.2f}s  (from 128256→{desired_size})")
 
         return model, tokenizer
-    # def _load_llama(
-    #         self, llama_ckpt_dir, 
-    #         max_seq_len, max_batch_size, 
-    #         llama_tokenizer, 
-    #         w_lora, lora_rank
-    #     ):
-    #     assert os.path.isdir(llama_ckpt_dir), f"Checkpoint directory '{llama_ckpt_dir}' does not exist."
-    #     assert os.path.isdir(llama_tokenizer), f"Tokenizer file '{llama_tokenizer}' does not exist."
-
-    #     with open(os.path.join(llama_ckpt_dir, "params.json"), 'r') as f:
-    #         params = json.loads(f.read())
-        
-    #     model_args: ModelArgs = ModelArgs(
-    #         max_seq_len=max_seq_len, 
-    #         max_batch_size=max_batch_size, 
-    #         w_lora=w_lora, 
-    #         lora_rank=lora_rank,
-    #         **params
-    #     )
-    #     start_time = time.time()
-    #     # tokenizer = Tokenizer(model_path=llama_tokenizer)
-    #     tokenizer = AutoTokenizer.from_pretrained(llama_tokenizer)
-    #     true_vocab_size = len(tokenizer.get_vocab())  
-    #     model_args.vocab_size = true_vocab_size
-    #     print("__________________________")
-    #     print(model_args.vocab_size)
-    #     print(true_vocab_size)
-    #     print("__________________________")
-    #     assert model_args.vocab_size == true_vocab_size
-    #     tokenizer.pad_token_id = tokenizer.eos_token_id
-    #     tokenizer.pad_token = tokenizer.eos_token
-    #     # model_args.vocab_size = tokenizer.vocab_size
-        
-    #     torch.set_default_tensor_type(torch.cuda.HalfTensor)
-    #     llama = Transformer(model_args)
-
-    #     ckpts = sorted(Path(llama_ckpt_dir).glob("*.pth"))
-    #     for ckpt_path in ckpts:
-    #         ckpt = torch.load(ckpt_path, map_location="cpu")
-    #         missing_keys, unexpected_keys = llama.load_state_dict(ckpt, strict=False)
-
-    #     print("missing keys: ", missing_keys)
-    #     print("__________________________________________-")
-    #     print("unexpected_keys: ", unexpected_keys)
-    #     print(f"Loaded in {time.time() - start_time:.2f} seconds")
-    #     return llama, tokenizer
-
 
     def _load_repairllama(self, repairllama_model_dir, repairllama_lora_dir, register_Attention_hooks=True):
         tokenizer = AutoTokenizer.from_pretrained(repairllama_model_dir, 

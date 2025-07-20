@@ -160,13 +160,7 @@ class FinetuneDataset(Dataset):
 
         # --- Tokenizers & config ---
         self.llama_tok = model.llama_tokenizer
-        self.repair_tok = model.repairllama_tokenizer
         self.llama_max = model.llama_max_seq_len
-        self.repair_max = model.repairllama_max_seq_len
-
-        self.model = None
-        if phase == "inference":
-            self.model = model.repairllama
 
         # Ensure llama tokenizer has a pad token
         if self.llama_tok.pad_token_id is None:
@@ -174,6 +168,7 @@ class FinetuneDataset(Dataset):
         self.llama_pad = self.llama_tok.pad_token_id
 
         self.phase = phase
+        print(f"Dataset initialized for phase: {self.phase} with {len(self.data)} samples.")
 
     def __len__(self):
         return len(self.data)   
@@ -183,21 +178,8 @@ class FinetuneDataset(Dataset):
         buggy = str(row['buggy_code'])
         fixed = str(row['fixed_code'])
 
-        # --- RepairLlama side (always the same) ---
-        repair_text = buggy + "\n// Fixed Code:\n" + fixed + self.repair_tok.eos_token
-        repair_enc = self.repair_tok(
-            repair_text,
-            padding="max_length",
-            max_length=self.repair_max,
-            truncation=True,
-            return_tensors="pt",
-        )
-        repair_input_ids = repair_enc.input_ids.squeeze(0)
-        repairllama_mask = repair_enc.attention_mask.squeeze(0)
 
-        # --- LLaMA side differs by phase ---
-        # build the prompt (without explanation for inference)
-        
+        # --- LLaMA side differs by phase ---        
         if self.phase == 'inference':
             prompt_text = PROMPT_DICT["prompt_input"].format(buggy_code=buggy, patch=fixed)
             # only encode prompt → we’ll generate from this
@@ -212,30 +194,10 @@ class FinetuneDataset(Dataset):
             llama_input_ids = llama_enc.input_ids.squeeze(0)
             llama_mask      = llama_enc.attention_mask.squeeze(0)
             # no labels during inference
-            return repair_input_ids, repairllama_mask, llama_input_ids, llama_mask, explanation
+            return llama_input_ids, llama_mask, explanation
 
-        else:
-            inputs = self.repair_tok(buggy, return_tensors="pt")
-            inputs_len = inputs["input_ids"].shape[1]
-            inputs_ids = inputs["input_ids"].to(device)
-            generation_config = GenerationConfig(
-                num_beams=10,
-                early_stopping=True,
-            )
-
-            outputs = self.model.generate(
-                input_ids=inputs_ids,
-                max_new_tokens=256,
-                num_return_sequences=10,
-                pad_token_id=self.repair_tok.pad_token_id,
-                eos_token_id=self.repair_tok.eos_token_id,
-                generation_config=generation_config,
-            )
-
-            output_ids = outputs[:, inputs_len:]
-            output_patch = self.repair_tok.batch_decode(output_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)
-            generated_fix = output_patch[0]
-            prompt_text = PROMPT_DICT["prompt_input"].format(buggy_code=buggy, patch=generated_fix)
+        elif self.phase == 'train':
+            prompt_text = PROMPT_DICT["prompt_input"].format(buggy_code=buggy, patch=fixed)
             # train/validation: include the explanation and build labels
             explanation = str(row['gpt_explanation'])
             full_text   = prompt_text + explanation + self.llama_tok.eos_token
@@ -262,67 +224,10 @@ class FinetuneDataset(Dataset):
             llama_labels[:-expl_len] = -100
 
             return (
-                repair_input_ids,
-                repairllama_mask,
                 llama_input_ids,
                 llama_labels,
                 llama_mask
             )
-
-
-    # def __getitem__(self, idx):
-    #     row = self.data.iloc[idx]
-    #     buggy = str(row['buggy_code'])
-    #     fixed = str(row['fixed_code'])
-    #     explanation = str(row['gpt_explanation'])
-
-    #     # --- RepairLlama side (just code + fixed) ---
-    #     repair_text = buggy + "\n// Fixed Code:\n" + fixed + self.repair_tok.eos_token
-    #     repair_enc = self.repair_tok(
-    #         repair_text,
-    #         padding="max_length",
-    #         max_length=self.repair_max,
-    #         truncation=True,
-    #         return_tensors="pt",
-    #     )
-    #     repair_input_ids = repair_enc.input_ids.squeeze(0)            # [1024]
-    #     repairllama_mask = repair_enc.attention_mask.squeeze(0)      # [1024]
-
-    #     # --- LLaMA side (prompt + explanation) ---
-    #     prompt_text = PROMPT_DICT["prompt_input"].format(buggy_code=buggy)
-    #     full_text   = prompt_text + explanation + self.llama_tok.eos_token
-
-    #     llama_enc = self.llama_tok(
-    #         full_text,
-    #         padding="max_length",
-    #         max_length=self.llama_max,
-    #         truncation=True,
-    #         return_tensors="pt",
-    #     )
-
-    #     llama_input_ids  = llama_enc.input_ids.squeeze(0)            # [1024]
-    #     # right after constructing llama_input_ids:
-    #     max_id = llama_input_ids.max().item()
-    #     min_id = llama_input_ids.min().item()
-    #     # print(f"[DEBUG] llama IDs in [{min_id}..{max_id}], vocab_size={len(self.llama_tok.get_vocab())}")
-    #     assert max_id < len(self.llama_tok.get_vocab()), (
-    #         f"Token ID {max_id} >= vocab_size {len(self.llama_tok.get_vocab())}"
-    #     )
-
-    #     llama_mask = llama_enc.attention_mask.squeeze(0)       # [1024]
-
-    #     # --- build labels: mask out the prompt portion ---
-    #     # 2) Separately encode just the explanation+EOS (no prompt, no padding)
-    #     expl_enc = self.llama_tok(
-    #         explanation + self.llama_tok.eos_token,
-    #         padding=False,
-    #         truncation=True,
-    #         return_tensors="pt",
-    #     )
-    #     expl_len = expl_enc.input_ids.size(1)   
-
-    #     # print("expl len: _____", expl_len)
-    #     llama_labels = llama_input_ids.clone()
-    #     llama_labels[:-expl_len] = -100  # ignore prompt tokens
-
-    #     return repair_input_ids, repairllama_mask, llama_input_ids, llama_labels, llama_mask
+        
+        else:
+            raise ValueError(f"Unknown phase: {self.phase}. Use 'train' or 'inference'.")

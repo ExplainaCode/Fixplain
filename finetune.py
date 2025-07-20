@@ -49,7 +49,7 @@ def train_one_epoch(model: LLamaAdapter,
         print('log_dir: {}'.format(log_writer.log_dir))
     # optimizer.zero_grad()
     for data_iter_step, (
-            repairllama_input_ids, repairllama_mask, llama_input_ids, llama_labels, llama_mask) in enumerate(
+            llama_input_ids, llama_labels, llama_mask) in enumerate(
                 metric_logger.log_every(data_loader, print_freq, header)
             ):
 
@@ -59,8 +59,6 @@ def train_one_epoch(model: LLamaAdapter,
 
         with torch.amp.autocast("cuda"):
             loss = model(
-                repairllama_input_ids=repairllama_input_ids, 
-                repairllama_mask = repairllama_mask,
                 llama_input_ids=llama_input_ids,
                 llama_labels=llama_labels,
                 llama_mask=llama_mask,
