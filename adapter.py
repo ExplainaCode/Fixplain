@@ -233,7 +233,7 @@ class LLamaAdapter(nn.Module):
         llama_attn_mask = llama_attn_mask + (llama_mask[:, None, None, :]).to(llama_h.dtype)
 
         # --- pass through layers with dynamic adapter data ---
-        for i in range(self.llama.config.num_hidden_layers): #32
+        for i in range(32): # self.llama.config.num_hidden_layers -- for now used 32 layers
             # pull the adapter signals you stored earlier
             dynamic_adapter = None
             llama_h = self.llama.layers[i](
