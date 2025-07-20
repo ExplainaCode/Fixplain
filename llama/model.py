@@ -237,18 +237,15 @@ class Attention(nn.Module):
 
         if adapter is not None:
             adapter_len = adapter.shape[1]
-            adapter_v = self.wv(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)            
-            adapter_v = repeat_kv(
-                    adapter_v, self.n_rep
-            )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
+            
+            # Need adapter_v to inject it
+            adapter_v = self.wv(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)
+            adapter_v = repeat_kv(adapter_v, self.n_rep)
             adapter_v = adapter_v.transpose(1, 2)
 
             if adapter_len > 1:
-                adapter_k = self.wk(adapter).view(bsz, adapter_len, self.n_kv_heads, self.head_dim)
-                adapter_k = repeat_kv(
-                    adapter_k, self.n_rep
-                )  # (bs, cache_len + seqlen, n_local_heads, head_dim)
-                adapter_k = adapter_k.transpose(1, 2)
+                # Pool multiple adapter tokens (optional)
+                adapter_v = adapter_v.mean(dim=2, keepdim=True)
 
 
         # repeat k/v heads if n_kv_heads < n_heads
@@ -271,18 +268,24 @@ class Attention(nn.Module):
         output = torch.matmul(scores, values)  # (bs, n_local_heads, seqlen, head_dim)
 
         if adapter is not None:
-            if adapter_len > 1:
-                logits = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
-                adapter_scores = self.gate.tanh()*F.softmax(logits.float(), dim=-1).type_as(xq)
-                output = output + torch.matmul(adapter_scores, adapter_v)
+                # Skip attention; inject adapter_v directly
+                # If adapter_len > 1, average adapter_v across sequence tokens (already transposed to [bs, n_heads, len, dim])
+            if adapter_v.shape[2] > 1:
+                pooled_adapter = adapter_v.mean(dim=2, keepdim=True)  # [bs, n_heads, 1, head_dim]
             else:
-                output = output + self.gate.tanh() * adapter_v
+                pooled_adapter = adapter_v  # [bs, n_heads, 1, head_dim]
+
+            # Broadcast to match output shape and add without gate
+            output = output + pooled_adapter
 
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
         if self.w_lora:
             return self.wo(output) + self.lora_wo_l2(self.lora_wo_l1(output))
         else:
             return self.wo(output)
+        
+
+
 
 class FeedForward(nn.Module):
     def __init__(
