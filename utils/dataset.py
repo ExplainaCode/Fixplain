@@ -196,7 +196,7 @@ class FinetuneDataset(Dataset):
             # no labels during inference
             return llama_input_ids, llama_mask, explanation
 
-        elif self.phase == 'train':
+        elif self.phase == 'finetune':
             prompt_text = PROMPT_DICT["prompt_input"].format(buggy_code=buggy, patch=fixed)
             # train/validation: include the explanation and build labels
             explanation = str(row['gpt_explanation'])
@@ -230,4 +230,4 @@ class FinetuneDataset(Dataset):
             )
         
         else:
-            raise ValueError(f"Unknown phase: {self.phase}. Use 'train' or 'inference'.")
+            raise ValueError(f"Unknown phase: {self.phase}. Use 'finetune' or 'inference'.")

@@ -206,150 +206,18 @@ class LLamaAdapter(nn.Module):
         else:
             raise ValueError(f"Unknown model phase: {phase}")
 
-
-    # def forward(self, repairllama_input_ids, llama_input_ids, llama_labels):
-    #     # torch.autograd.set_detect_anomaly(True)
-
-    #     repairllama_input_ids=repairllama_input_ids.to(device)
-    #     llama_input_ids=llama_input_ids.to(device)
-    #     llama_labels = llama_labels.to(device)
-
-    #     _bsz, repairllama_seqlen = repairllama_input_ids.shape
-
-    #     repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
-    #     repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
-    #     repairllama_mask = None
-    #     repairllama_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float("-inf"), device=repairllama_h.device)
-    #     repairllama_mask = torch.triu(repairllama_mask, diagonal=0 + 1).type_as(repairllama_h)
-    #     # print("repairllama_mask:", repairllama_mask.dtype)
-
-    #     # llama configuration before forward pass # This is redundent if works movw to a function or something...
-    #     _bsz, llama_seqlen = llama_input_ids.shape
-    #     llama_h = self.llama.tok_embeddings(llama_input_ids)
-    #     llama_freq_cis = self.llama.freqs_cis.to(llama_h.device)
-
-    #     llama_freq_cis = llama_freq_cis[:llama_seqlen]
-    #     llama_casual_mask = None
-    #     llama_casual_mask = torch.full((1, 1, llama_seqlen, llama_seqlen), float("-inf"), device=llama_h.device)
-    #     llama_casual_mask = torch.triu(llama_casual_mask, diagonal=0 + 1).type_as(repairllama_h)
-
-    #     assert self.repairllama.config.num_hidden_layers==self.llama.config['num_hidden_layers']
-    #     n_layers = self.repairllama.config.num_hidden_layers
-
-    #     for i in range(n_layers):
-    #         repairllama_h, *_ = self.repairllama.model.model.layers[i](
-    #                                             repairllama_h.contiguous(), repairllama_mask.contiguous(), repairllama_position_ids.contiguous()
-    #                                         )  # Do not pass as keyword arguments since hooks don't capture inputs.   
-    #         assert(self.attention_hooks_data.get(i)!=None)
-    #         # with torch.no_grad():
-    #         dynamic_adapter = self.attention_hooks_data[i].get('input').detach()
-    #         dynamic_adapter = dynamic_adapter.to(dtype=llama_h.dtype)
-    #         if torch.isnan(dynamic_adapter).any() or torch.isinf(dynamic_adapter).any():
-    #             warnings.warn("dynamic adapter contains NaN or inf values.___________0", i)
-
-    #         self.attention_hooks_data[i] = None
-    #         llama_h = self.llama.layers[i](llama_h, 0, llama_freq_cis, llama_casual_mask, dynamic_adapter)
-    #         if torch.isnan(llama_h).any() or torch.isinf(llama_h).any():
-    #             warnings.warn("llama_h contains NaN or inf values.___________0", i)
-
-    #     # Processing LLama output
-    #     llama_h = self.llama.norm(llama_h)
-    #     llama_output = self.llama.output(llama_h)
-    #     llama_output = llama_output[:, :-1, :]
-    #     llama_labels = llama_labels[:, 1:]
-
-    #     if llama_labels.sum()==0 :
-    #         print("llama labels sum is 0")
-    #         llama_c_loss = llama_output.mean() * 0
-    #     else:
-    #         assert self.llama.vocab_size == self.llama_tokenizer.n_words #Do we need this line?, in load llama this is set
-    #         llama_c_loss = self.criterion(llama_output.reshape(-1, self.llama.vocab_size), llama_labels.flatten())
-
-    # def forward(self, repairllama_input_ids, repairllama_mask, llama_input_ids, llama_labels, llama_mask):
-    #     # Handle device placement
-    #     repairllama_input_ids = repairllama_input_ids.to(device)
-    #     llama_input_ids = llama_input_ids.to(device)
-    #     llama_labels = llama_labels.to(device)
-    #     llama_mask = llama_mask.to(device)
-    #     repairllama_mask = repairllama_mask.to(device)
-
-    #     _bsz, repairllama_seqlen = repairllama_input_ids.shape
-
-    #     # RepairLLama Embeddings
-    #     repairllama_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
-    #     repairllama_position_ids = torch.arange(repairllama_seqlen, dtype=torch.long, device=repairllama_input_ids.device).unsqueeze(0).expand(_bsz, -1)
-
-    #     # RepairLLama Attention Mask
-    #     repairllama_attn_mask=None
-    #     repairllama_attn_mask = torch.full((1, 1, repairllama_seqlen, repairllama_seqlen), float('-inf'), device=repairllama_h.device)
-    #     repairllama_attn_mask = torch.triu(repairllama_attn_mask, diagonal=1)
-    #     if repairllama_mask is not None:
-    #         repairllama_attn_mask = repairllama_attn_mask + (repairllama_mask[:, None, None, :]).to(dtype=repairllama_h.dtype)
-
-    #     _bsz, llama_seqlen = llama_input_ids.shape
-
-    #     # LLaMA Embeddings
-    #     llama_h = self.llama.tok_embeddings(llama_input_ids)
-    #     llama_freq_cis = self.llama.freqs_cis.to(llama_h.device)[:llama_seqlen]
-
-    #     # LLaMA Attention Mask
-    #     llama_attn_mask=None
-    #     llama_attn_mask = torch.full((1, 1, llama_seqlen, llama_seqlen), float('-inf'), device=llama_h.device)
-    #     llama_attn_mask = torch.triu(llama_attn_mask, diagonal=1)
-    #     if llama_mask is not None:
-    #         llama_attn_mask = llama_attn_mask + (llama_mask[:, None, None, :]).to(dtype=llama_h.dtype)
-
-    #     n_layers = self.repairllama.config.num_hidden_layers
-    #     for i in range(n_layers):
-    #         repairllama_h, *_ = self.repairllama.model.model.layers[i](
-    #             repairllama_h.contiguous(), repairllama_attn_mask.contiguous(), repairllama_position_ids.contiguous()
-    #         )
-    #         dynamic_adapter = self.attention_hooks_data[i]['input'].detach().to(dtype=llama_h.dtype)
-    #         if torch.isnan(dynamic_adapter).any() or torch.isinf(dynamic_adapter).any():
-    #             warnings.warn(f'dynamic adapter contains NaN or inf values at layer {i}')
-
-    #         llama_h = self.llama.layers[i](llama_h, 0, llama_freq_cis, llama_attn_mask, dynamic_adapter)
-    #         if torch.isnan(llama_h).any() or torch.isinf(llama_h).any():
-    #             warnings.warn(f'llama_h contains NaN or inf values at layer {i}')
-
-    #     llama_h = self.llama.norm(llama_h)
-    #     llama_output = self.llama.output(llama_h)[:, :-1, :]
-    #     llama_labels = llama_labels[:, 1:]
-
-    #     if llama_labels.sum() == 0:
-    #         llama_c_loss = llama_output.mean() * 0
-    #     else:
-    #         llama_c_loss = self.criterion(llama_output.reshape(-1, self.llama.vocab_size), llama_labels.flatten())
     def forward(
         self,
-        repairllama_input_ids,
-        repairllama_mask,
         llama_input_ids,
         llama_labels,
         llama_mask
     ):
         # --- device placement ---
-        repairllama_input_ids = repairllama_input_ids.to(device)
         llama_input_ids         = llama_input_ids.to(device)
         llama_labels            = llama_labels.to(device)
         llama_mask              = llama_mask.to(device)
-        repairllama_mask        = repairllama_mask.to(device)
 
-        bsz, repair_seqlen = repairllama_input_ids.shape
         _, llama_seqlen   = llama_input_ids.shape
-
-        # --- RepairLLama side embeddings & masks ---
-        repair_h = self.repairllama.model.model.embed_tokens(repairllama_input_ids)
-        repair_pos_ids = (
-            torch.arange(repair_seqlen, device=device)
-                .unsqueeze(0)
-                .expand(bsz, -1)
-        )
-        # causal mask + attention mask
-        attn_inf = torch.full((1, 1, repair_seqlen, repair_seqlen),
-                            float("-inf"), device=device)
-        repair_attn_mask = torch.triu(attn_inf, diagonal=1)
-        repair_attn_mask = repair_attn_mask + (repairllama_mask[:, None, None, :]).to(repair_h.dtype)
 
         # --- LLaMA side embeddings & masks ---
         llama_h      = self.llama.tok_embeddings(llama_input_ids)
@@ -365,15 +233,9 @@ class LLamaAdapter(nn.Module):
         llama_attn_mask = llama_attn_mask + (llama_mask[:, None, None, :]).to(llama_h.dtype)
 
         # --- pass through layers with dynamic adapter data ---
-        for i in range(self.repairllama.config.num_hidden_layers):
-            repair_h, *_ = self.repairllama.model.model.layers[i](
-                repair_h.contiguous(),
-                repair_attn_mask.contiguous(),
-                repair_pos_ids.contiguous()
-            )
-
+        for i in range(self.llama.config.num_hidden_layers): #32
             # pull the adapter signals you stored earlier
-            dynamic_adapter = self.attention_hooks_data[i]['input'].to(dtype=llama_h.dtype)
+            dynamic_adapter = None
             llama_h = self.llama.layers[i](
                 llama_h, 
                 0, 
