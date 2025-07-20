@@ -251,7 +251,7 @@ def main(args):
 
         # misc.load_model(model_without_ddp, args.pretrained_path)
 
-        dataset_train = FinetuneDataset(model=model, dataframe_path=args.data_path)
+        dataset_train = FinetuneDataset(model=model, dataframe_path=args.data_path, phase='finetune',)
         print(dataset_train)
         num_tasks = misc.get_world_size()
         global_rank = misc.get_rank()

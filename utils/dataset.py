@@ -149,7 +149,7 @@ PROMPT_DICT = {
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 class FinetuneDataset(Dataset):
-    def __init__(self, model: LLamaAdapter, dataframe_path: str, phase='train'):
+    def __init__(self, model: LLamaAdapter, dataframe_path: str, phase:str):
         # --- Load data ---
         self.data = pd.read_csv(dataframe_path, nrows=500)
         required = ['buggy_code', 'fixed_code', 'gpt_explanation']
