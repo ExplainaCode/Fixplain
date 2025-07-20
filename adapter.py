@@ -344,9 +344,9 @@ class LLamaAdapter(nn.Module):
         attn_mask = attn_mask + (llama_mask[:, None, None, :]).to(llama_h.dtype)
 
         # 3) Run through decoder layers
-        n_layers = self.repairllama.config.num_hidden_layers
+        n_layers = 32  # self.repairllama.config.num_hidden_layers
         for i in range(n_layers):
-            dynamic_adapter = self.attention_hooks_data[i]['input']
+            dynamic_adapter = None  # self.attention_hooks_data[i]['input']
             # Each llama layer expects: (hidden, start_pos, freqs, attn_mask, adapter)
             llama_h = self.llama.layers[i](
                 llama_h,
@@ -393,8 +393,6 @@ class LLamaAdapter(nn.Module):
     @torch.inference_mode()
     def generate(
         self,
-        repairllama_input_ids,  # [B, L]
-        repairllama_mask,       # [B, L]
         llama_input_ids,        # [B, L]
         llama_mask,             # [B, L]   ← True where INPUT was padded
         batch_size: int = 1,
@@ -404,21 +402,14 @@ class LLamaAdapter(nn.Module):
     ):
         """
         Inefficient but correct autoregressive generation:
-        - run the repair model once
         - then for each new token, re-run forward_inference on the entire prefix
         - sample from the last logit and append
         - stop on EOS or max length
         """
-        repairllama_input_ids = repairllama_input_ids.to(device)
-        repairllama_mask  = repairllama_mask.to(device)
         llama_input_ids = llama_input_ids.to(device)
         llama_mask = llama_mask.to(device)
 
         eos_id = self.llama_tokenizer.eos_token_id
-
-        # 1) Run the repair model on the prompt
-        with torch.amp.autocast("cuda"):
-            _ = self.forward_repairllama(repairllama_input_ids, repairllama_mask)
 
         # 2) Autoregressive loop
         for _step in range(max_gen_len):
@@ -470,4 +461,4 @@ class LLamaAdapter(nn.Module):
             # if there’s an EOS in there, cut at EOS
             outputs.append(self.llama_tokenizer.decode(gen_portion))
 
-        return repairllama_input_ids, outputs
+        return outputs
